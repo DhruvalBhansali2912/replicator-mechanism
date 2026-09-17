@@ -60,16 +60,25 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!store.apiKey) {
     showView('license');
   } else {
-    // Refresh token balance in background
-    chrome.runtime.sendMessage({ action: 'REFRESH_BALANCE' }, (res) => {
-      if (res && res.success) {
-        updateBalanceDisplay(res.balance);
-      }
-    });
-
     if (store.balance !== undefined) {
       updateBalanceDisplay(store.balance);
     }
+
+    // Direct live balance fetch to ensure badge is always 100% up-to-date
+    fetch(`${apiUrl.replace(/\/$/, '')}/api/keys/balance`, {
+      headers: {
+        'X-API-Key': store.apiKey,
+        'X-Device-Id': store.deviceId || 'DEV_UNKNOWN',
+      },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.success && data.balance !== undefined) {
+          chrome.storage.local.set({ balance: data.balance });
+          updateBalanceDisplay(data.balance);
+        }
+      })
+      .catch(() => {});
 
     // Check if there is an active or recently completed job
     if (store.activeJob) {
@@ -284,6 +293,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (job.status === 'failed') {
       showView('ready');
       showAlert(`Extraction failed: ${job.error || 'Unknown error'}`, 'error');
+      chrome.storage.local.remove(['activeJob']);
+      setTimeout(() => hideAlert(), 5000);
       return;
     }
 

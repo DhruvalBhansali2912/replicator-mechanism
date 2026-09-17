@@ -68,6 +68,12 @@ export function createServer(): express.Application {
     });
   });
 
+  // Inspect Key
+  app.get('/api/keys/inspect/:key', (req: Request, res: Response): void => {
+    const record = authDb.getApiKey(req.params.key);
+    res.json({ record });
+  });
+
   // Credit or issue API key (called by WooCommerce upon order completion)
   app.post('/api/keys/credit', requireMasterSecret, (req: Request, res: Response): void => {
     try {
