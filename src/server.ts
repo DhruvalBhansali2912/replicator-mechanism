@@ -15,6 +15,11 @@ import {
   requireMasterSecret,
   AuthenticatedRequest,
 } from './auth/middleware.js';
+import {
+  startPeriodicCleanup,
+  cleanExpiredJobs,
+  getStorageStats,
+} from './cleanup/cleaner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +36,9 @@ export function createServer(): express.Application {
   // Ensure storage directories exist
   fs.mkdirSync(CONFIG.storageDir, { recursive: true });
   fs.mkdirSync(CONFIG.jobsDir, { recursive: true });
+
+  // Start automated periodic cleanup of expired jobs & ZIP archives
+  startPeriodicCleanup(jobs, CONFIG.cleanupIntervalMinutes, CONFIG.jobRetentionHours);
 
   // Web Dashboard Static Assets
   const publicDir = path.resolve(__dirname, '../public');
@@ -250,6 +258,19 @@ export function createServer(): express.Application {
       return;
     }
     res.download(zipFile, `extracted-site-${req.params.id}.zip`);
+  });
+
+  // Storage Stats (Admin)
+  app.get('/api/jobs/storage-stats', requireMasterSecret, (_req: Request, res: Response): void => {
+    const stats = getStorageStats(jobs);
+    res.json({ success: true, stats });
+  });
+
+  // Manual Trigger Cleanup (Admin)
+  app.post('/api/jobs/cleanup', requireMasterSecret, (req: Request, res: Response): void => {
+    const maxAgeHours = req.body?.maxAgeHours ? Number(req.body.maxAgeHours) : CONFIG.jobRetentionHours;
+    const result = cleanExpiredJobs(jobs, maxAgeHours);
+    res.json({ success: true, ...result, maxAgeHours });
   });
 
   // 7. Get section details and code
