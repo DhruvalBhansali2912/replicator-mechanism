@@ -20,9 +20,12 @@ An automated, self-contained service with a **REST API** and **Interactive Web D
    - Evaluates selectors against section DOM trees to discard unused rules.
    - Generates both human-readable beautified CSS (`section.css`) and compact minified CSS (`section.min.css`).
 5. **100% Offline Fidelity & Relative Link Rewriting**:
-   - Downloads images, SVGs, webfonts, and background media into a local `./assets/` directory.
+   - Downloads images, SVGs, webfonts, videos, and background media into a local `./assets/` directory.
+   - Recursively resolves ES Module imports (`import './*.built.js'`) for offline runtime fidelity.
+   - Preserves HTML5 full document tags, video resolution basepaths, desktop hover flyouts, search modals, and mobile responsive menus.
+   - Automatic mobile navigation drilldown glitch patch preventing submenu text collisions.
    - Rewrites all internal website links (e.g., `https://example.com/pricing` -> `/pricing/`) while preserving anchor hashes and search params.
-   - Preserves mobile responsive views, navigation menus, and animations.
+   - See [WALKTHROUGH.md](./WALKTHROUGH.md) for full architectural breakdown and offline fidelity case studies.
 6. **Production & VPS Ready**:
    - Built-in `Dockerfile` and `docker-compose.yml` pre-configured with Linux font dependencies and Chromium.
    - REST API and interactive browser-based dashboard.

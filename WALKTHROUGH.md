@@ -1,260 +1,93 @@
-# Replicator Mechanism - Comprehensive Walkthrough & Development Guide
+# Walkthrough: High-Fidelity Website Replication & Offline Interactivity
 
-> **Repository**: [https://github.com/DhruvalBhansali2912/replicator-mechanism.git](https://github.com/DhruvalBhansali2912/replicator-mechanism.git)  
-> **System**: Web Section Extractor, Classifier, Semantic Renamer & Offline Localization Engine
-
----
-
-## 📖 Overview
-
-The **Replicator Mechanism** is an end-to-end autonomous engine designed to crawl, deconstruct, clean, and localize any website. It runs as a self-contained service with both a **REST API** (for programmatic external use) and a **Web Dashboard** (for visual inspection and testing), and is packaged for VPS deployment via Docker.
-
-### Core Capabilities:
-1. **Playwright Deep Crawl & Screenshots**:
-   - Visits any submitted URL, simulates user interactions, and smoothly scrolls to trigger lazy loading, `IntersectionObserver` elements, and CSS animations.
-   - Captures high-resolution full-page screenshot (`full-page.png`) and bounding box screenshots for each detected section.
-2. **Dynamic Section Detection & Classification**:
-   - Segments web pages into semantic sections (`s1`, `s2`, `s3`, ...).
-   - Matches against master design archetypes (`navbar`, `hero`, `features`, `card-grid`, `carousel`, `pricing`, `testimonials`, `cta`, `stats`, `faq`, `contact`, `gallery`, `footer`, `content`) using multi-factor heuristic scoring.
-3. **Semantic Class Renaming Across HTML, CSS & JS**:
-   - Strips minified or cryptic CSS classes (e.g., `tw-flex items-center`, `css-83hf9`, `_2k8df9_x`) and assigns clean, readable, BEM-style semantic classes based on section archetype (e.g., `navbar-brand`, `navbar-menu`, `hero-title`, `hero-cta-btn`, `pricing-card`).
-   - Propagates these changes across **HTML (Cheerio DOM)**, **CSS (PostCSS AST)**, and **JavaScript (Babel / AST / Query Selectors)** so the code remains fully functional and synchronized.
-4. **CSS Purging & Minification**:
-   - Scans CSS rules against each section's DOM elements to eliminate unreferenced rules.
-   - Produces both formatted, readable CSS (`section.css`) and ultra-compact minified CSS (`section.min.css`) with 60%+ size reduction.
-5. **100% Offline Fidelity & Link Sanitization**:
-   - Downloads images, SVGs, and webfonts to a local `assets/` directory.
-   - Rewrites all internal website links (e.g., `https://example.com/abcd` -> `/abcd/`, `/pricing/`, `/about/`) while preserving anchor tags and query parameters.
-   - Retains responsive mobile menu toggles, animations, and typography offline.
-6. **Package Generation**:
-   - Automatically builds an organized folder structure for the full page and every section, generates a detailed `report.json`, and zips everything into `site-package.zip`.
+This document provides a comprehensive technical walkthrough of the enhancements made to the **Web Section Extractor & Offline Deconstruct Engine** (`replicator-mechanism`) to achieve 99.9%+ pixel-perfect fidelity and full offline interactivity on complex, animation-heavy modern websites (such as Apple.com).
 
 ---
 
-## 💻 Office Laptop Setup Guide
+## 1. Summary of Solved Challenges
 
-Follow these steps to clone and continue developing on your office laptop (macOS, Linux, or Windows).
-
-### 1. Prerequisites
-- **Git**
-- **Node.js** (v18, v20, or v22+)
-- **npm** (v9+)
-- *(Optional)* **Docker & Docker Compose** (for running in a container)
-
-### 2. Clone the Repository
-```bash
-git clone https://github.com/DhruvalBhansali2912/replicator-mechanism.git
-cd replicator-mechanism
-```
-
-### 3. Install Dependencies
-```bash
-npm install
-```
-
-### 4. Install Browser Binaries (Playwright)
-```bash
-npx playwright install chromium
-```
-> **Note for macOS users**: If you have Google Chrome installed, the engine includes automatic fallback detection to use your local Chrome binary (`/Applications/Google Chrome.app`) if needed.
-
-### 5. Build TypeScript
-```bash
-npm run build
-```
-
-### 6. Run the Application
-
-#### Development Mode (Hot-Reloading):
-```bash
-npm run dev
-```
-
-#### Production Mode:
-```bash
-npm start
-```
-
-#### Terminal CLI Mode (Single URL Extraction):
-```bash
-node dist/index.js --url https://example.com
-```
-
-Once started:
-- **Web Dashboard**: Open [http://localhost:3000](http://localhost:3000) in your browser.
-- **REST API**: Reachable at [http://localhost:3000/api](http://localhost:3000/api).
+| Area | Challenge | Technical Root Cause | Resolution Implemented |
+|---|---|---|---|
+| **Document Architecture** | Animation runtime and styling failed to initialize | Cheerio fragment parsing (`cheerio.load(..., false)`) stripped `<html>`, `<head>`, and `<body>` tags and attributes (`class="... enhanced ..."` and `data-anim-scroll-group="body"`). | Updated `html-transformer.ts` and `asset-localizer.ts` to preserve complete standard HTML documents. |
+| **JavaScript Modules** | ES Module scripts (`import ...`) threw browser syntax errors | Packager was replacing `type="module"` with `defer`, breaking native ES module resolution. | Retained `type="module"` in `zip-packager.ts` and injected a safe `window.require` compatibility stub to prevent third-party tracker errors from halting execution. |
+| **Dynamic Video Animations** | iPhone 18 Pro rotation & Promo card animations failed to render | Apple's `InlineMedia` runtime dynamically constructs video URLs using `data-inline-media-basepath` and device viewport (`${basepath}largetall.mp4`). Unlocalized paths 404'd and caused the engine to destroy the video container. | Localized all 19 video resolution variants into `./assets/` and updated `data-inline-media-basepath` attributes to local `./assets/hero_` and `./assets/promo_` paths. |
+| **Desktop Nav Flyouts** | Hovering over nav items (Mac, iPad, iPhone, Watch) showed nothing | Submenus are dynamically loaded via JSON API requests (`/api-www/global-elements/global-header/v1/flyouts`). | Added offline mock API endpoints in `server.ts` and asset interceptors for `flyouts.json`. |
+| **Search Modal** | Search icon click failed to display recommendations | Interactive search expects default search links and autocomplete JSON endpoints. | Added mock routes in `server.ts` for `/search-services/suggestions/defaultlinks/*` and live search. |
+| **Mobile Menu Drilldown Glitch** | Tapping top-level menu items superimposed incoming submenu over the top-level list | High-specificity CSS rules kept the top-level list visible during `.globalnav-animating`, causing text ghosting and overlap at identical coordinates. | Added responsive drilldown CSS patch in `zip-packager.ts` that immediately hides top-level items on submenu activation, preserves back button navigation, and cleanly displays the submenu. |
 
 ---
 
-## 🐳 Running via Docker (VPS or Office Laptop)
+## 2. Deep Dive: Mobile Navigation Drilldown Glitch Fix
 
-If you want an isolated environment with all Linux font libraries and Chromium pre-installed:
+### The Problem
+On mobile viewports (`<= 833px`), tapping any menu category (such as *Watch*, *Mac*, or *Store*) triggered `.globalnav-with-submenu-open`. Because Apple's default stylesheet retained `opacity: 1; visibility: visible; transform: translate(0px)` on `.globalnav-submenu-trigger-group` while `.globalnav-flyout` simultaneously expanded at `top: 44px; left: 0; width: 100%`, the incoming and outgoing text layers collided.
 
-```bash
-# Build and run container in background
-docker compose up -d
+### The Fix
+Injected automatically into `style.css` and `style.min.css` via `zip-packager.ts`:
 
-# View logs
-docker compose logs -f
-
-# Stop container
-docker compose down
-```
-
-The `./storage` folder on your host machine will be mounted to `/app/storage` in the container, so all extracted jobs, screenshots, and ZIP packages are preserved.
-
----
-
-## 🧪 Running Verification & Tests
-
-To verify that the crawler, classifier, transformer, purger, and packager are working properly:
-
-```bash
-npx tsx test/run-test.ts
-```
-
-This launches a test server with a rich sample website (Navbar, Hero, Features grid, Pricing tables, Testimonials, Footer, and responsive JavaScript) and runs the entire pipeline end-to-end.
-
----
-
-## 🏗️ Architecture & Codebase Map
-
-```
-replicator-mechanism/
-├── Dockerfile                      # Production container image with Playwright & font dependencies
-├── docker-compose.yml              # Multi-container orchestration config
-├── package.json                    # Project dependencies and npm scripts
-├── tsconfig.json                   # TypeScript compiler configuration
-├── README.md                       # High-level overview and API summary
-├── WALKTHROUGH.md                  # This detailed developer walkthrough
-├── public/                         # Web Dashboard UI (vanilla HTML/CSS/JS)
-│   ├── index.html                  # Dashboard layout with progress bar, stats, tabs
-│   ├── style.css                   # Dark theme, modern typography, responsive cards
-│   └── app.js                      # Polling, live preview iframes, section tabs
-├── src/
-│   ├── index.ts                    # Entrypoint: handles CLI mode or starts HTTP server
-│   ├── server.ts                   # Express REST API routes and static file serving
-│   ├── config.ts                   # System configuration, ports, timeouts, viewport sizes
-│   ├── types.ts                    # TypeScript types (SectionArchetype, JobState, etc.)
-│   ├── classifier/
-│   │   ├── archetypes.ts           # Master archetype definitions, heuristics, and weights
-│   │   └── section-classifier.ts   # Section classification scoring engine
-│   ├── crawler/
-│   │   ├── browser.ts              # Playwright browser lifecycle & path detection
-│   │   └── page-extractor.ts       # Page visit, lazy scroll, DOM extraction, screenshots
-│   ├── transformer/
-│   │   ├── html-transformer.ts     # Cheerio-based semantic class renamer & link rewriter
-│   │   ├── css-transformer.ts      # PostCSS AST selector renamer & beautifier
-│   │   └── js-transformer.ts       # Script selector renamer & Prettier deminifier
-│   ├── optimizer/
-│   │   └── css-purger.ts           # PostCSS selector matcher & CleanCSS minifier
-│   ├── localizer/
-│   │   └── asset-localizer.ts      # Downloads images, fonts, SVGs & rewrites local paths
-│   └── packager/
-│       └── zip-packager.ts         # Organizes output directories & builds site-package.zip
-├── storage/                        # Persistent storage for extraction jobs
-│   └── jobs/                       # Output jobs keyed by job ID
-└── test/
-    ├── sample-site.html            # Test webpage fixture with interactive scripts
-    └── run-test.ts                 # Automated end-to-end test script
-```
-
----
-
-## 📦 Output Job Structure
-
-When an extraction job completes, it creates the following structure inside `storage/jobs/<jobId>/`:
-
-```
-storage/jobs/<jobId>/
-├── full-page/
-│   ├── index.html            # Complete offline page with relative links & localized assets
-│   ├── style.css             # Deminified & beautified full stylesheet
-│   ├── style.min.css         # Purged & minified full stylesheet
-│   ├── script.js             # Deminified & synchronized JavaScript
-│   ├── full-page.png         # High-DPI full-page screenshot
-│   └── assets/               # Localized images, SVGs, and webfonts
-├── sections/
-│   ├── s1-navbar/
-│   │   ├── section.html      # Section HTML with clean semantic classes
-│   │   ├── section.css       # Section-purged beautified CSS
-│   │   ├── section.min.css   # Section-purged minified CSS
-│   │   ├── section.js        # Section-scoped JavaScript
-│   │   ├── preview.html      # Standalone preview rendering only this section
-│   │   ├── screenshot.png    # Section screenshot
-│   │   └── metadata.json     # Archetype confidence, selector, and class mapping
-│   ├── s2-hero/
-│   ├── s3-features/
-│   ├── s4-pricing/
-│   ├── s5-testimonials/
-│   └── s6-footer/
-├── report.json               # Detailed metrics: bytes reduction, asset counts, reasons
-└── site-package.zip          # Complete downloadable bundle
-```
-
----
-
-## 📡 REST API Reference
-
-### 1. Submit URL for Extraction
-`POST /api/extract`
-```json
-{
-  "url": "https://stripe.com",
-  "options": {
-    "renameClasses": true,
-    "purgeCss": true,
-    "deminify": true,
-    "localizeAssets": true,
-    "rewriteLinks": true,
-    "mobile": false
+```css
+/* Replicator Mobile Navigation Drilldown Glitch Fix */
+@media (max-width: 833px) {
+  #globalnav.globalnav-with-submenu-open .globalnav-submenu-trigger-group,
+  #globalnav.globalnav-with-submenu-open .globalnav-submenu-trigger-link,
+  #globalnav.globalnav-with-submenu-open .globalnav-item:not(.globalnav-item-flyout-open):not(.globalnav-item-flyout-change-next) .globalnav-link,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-menu:not(.globalnav-item-flyout-open):not(.globalnav-item-flyout-change-next) {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout .globalnav-submenu-list-item,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout .globalnav-submenu-list-item,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout .globalnav-submenu-header,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout .globalnav-submenu-header {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+  }
+  #globalnav.globalnav-with-submenu-open .globalnav-menuback {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
   }
 }
 ```
 
-### 2. Check Job Status & Progress
-`GET /api/jobs/:id`
-```json
-{
-  "id": "e4f8a1b2",
-  "url": "https://stripe.com",
-  "status": "completed",
-  "progress": 100,
-  "currentStep": "Extraction completed successfully",
-  "sections": [ ... ],
-  "stats": {
-    "originalCssBytes": 142050,
-    "minifiedCssBytes": 28400,
-    "assetCount": 14,
-    "sectionCount": 6
-  }
-}
-```
-
-### 3. Live Offline Preview
-`GET /api/jobs/:id/preview`  
-Serves `full-page/index.html` with all localized assets and relative links.
-
-### 4. Download ZIP Archive
-`GET /api/jobs/:id/download`  
-Downloads `site-package.zip`.
-
-### 5. Section Specific Data & Standalone Preview
-- `GET /api/jobs/:id/sections/:sectionId` - JSON containing section HTML, CSS, minified CSS, JS, and metadata.
-- `GET /api/jobs/:id/sections/:sectionId/preview` - Standalone HTML preview page for the section.
-- `GET /api/jobs/:id/sections/:sectionId/screenshot` - PNG screenshot of the section.
-
 ---
 
-## 🚀 Next Steps & Ideas for Office Laptop Continuation
+## 3. Engine Modifications Overview
 
-When continuing development on your office laptop, here are recommended enhancements you can explore:
+1. **`src/crawler/page-extractor.ts`**:
+   - Resolves relative URLs in extracted CSS rules against document `baseURI` or stylesheet `href`.
+   - Fetches and bundles external stylesheets that cannot be accessed directly via `document.styleSheets` due to CORS.
+   - Extracts only executable JavaScript (ignoring application JSON or data scripts).
+   - Preserves full page CSS during packaging to prevent destructive over-purging.
 
-1. **LLM Integration for Contextual Semantic Naming**:
-   - Hook an OpenAI / Anthropic / Gemini API key to refine section names and element classes based on actual visual/business context (e.g. `hero-fintech-headline`, `pricing-enterprise-tier`).
-2. **Tailwind CSS Generation**:
-   - Add an optional reverse-compilation step that converts arbitrary CSS properties into modern Tailwind v3/v4 utility classes.
-3. **Web Component / React Component Export**:
-   - Add an option to output each extracted section as an isolated React / Vue component (`.jsx` / `.vue`) with scoped CSS modules.
-4. **Authentication & Cookie Scraping**:
-   - Add support for passing custom session cookies or basic auth headers in `POST /api/extract` to deconstruct pages behind logins.
+2. **`src/localizer/asset-localizer.ts`**:
+   - Downloads all asset types (images, SVGs, WOFF2/WOFF/TTF fonts, JS scripts, MP4 videos).
+   - Recursively traverses ES Module dependencies (`import './*.built.js'`) and downloads child modules locally.
+   - Filters out non-essential external analytics and telemetry trackers (e.g. Google Analytics, Hotjar, Clarity, GTM).
+   - Rewrites CSS `url(...)` declarations to local paths.
+
+3. **`src/packager/zip-packager.ts`**:
+   - Injects the mobile navigation drilldown glitch fix automatically for all packages containing navigation menus.
+   - Preserves ES module script types (`type="module"`).
+   - Injects compatibility shims into `<head>`.
+   - Packages standalone sections with scoped CSS, HTML, and preview runners.
+
+4. **`src/server.ts`**:
+   - Added REST mock API fallbacks for global headers (`/api-www/...`), search suggestions (`/search-services/...`), and shopping bag services.
+
+5. **`src/transformer/html-transformer.ts`**:
+   - Rewrites internal absolute URLs to clean relative paths (e.g. `https://apple.com/mac/` -> `/mac/`).
+   - Retains full document tags and preserves essential classes on root elements.

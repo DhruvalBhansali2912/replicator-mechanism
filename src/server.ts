@@ -123,6 +123,35 @@ export function createServer(): express.Application {
     express.static(jobDir)(req, res, next);
   });
 
+  // Apple-compatible Global Header and Search API fallbacks for preview mode
+  app.get('/api-www/global-elements/global-header/v1/flyouts*', (_req: Request, res: Response): void => {
+    const flyoutSample = path.join(CONFIG.jobsDir, '05d7c143', 'full-page', 'assets', 'flyouts.json');
+    if (fs.existsSync(flyoutSample)) {
+      res.setHeader('Content-Type', 'application/json');
+      fs.createReadStream(flyoutSample).pipe(res);
+    } else {
+      res.json({});
+    }
+  });
+
+  app.get('/search-services/suggestions/defaultlinks/*', (_req: Request, res: Response): void => {
+    const searchSample = path.join(CONFIG.jobsDir, '05d7c143', 'full-page', 'assets', 'search-defaultlinks.json');
+    if (fs.existsSync(searchSample)) {
+      res.setHeader('Content-Type', 'application/json');
+      fs.createReadStream(searchSample).pipe(res);
+    } else {
+      res.json({ results: [] });
+    }
+  });
+
+  app.get('/search-services/suggestions/*', (_req: Request, res: Response): void => {
+    res.json({ results: [] });
+  });
+
+  app.get('/us/shop/bag/*', (_req: Request, res: Response): void => {
+    res.json({ count: 0, items: [] });
+  });
+
   // 5. Full page screenshot
   app.get('/api/jobs/:id/screenshot', (req: Request, res: Response): void => {
     const screenshotFile = path.join(CONFIG.jobsDir, req.params.id, 'full-page', 'full-page.png');

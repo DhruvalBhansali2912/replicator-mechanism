@@ -10,6 +10,7 @@ import { CONFIG } from '../config.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
+import axios from 'axios';
 
 export interface ExtractionResult {
   fullPageScreenshot: Buffer;
@@ -77,26 +78,56 @@ export class PageExtractor {
       onProgress?.('Extracting live DOM and stylesheets...', 50);
       const renderedHtml = await page.content();
       const extractedStylesheets = await page.evaluate(() => {
-        const cssTexts: string[] = [];
+        const results: { text: string; baseHref: string }[] = [];
+
         // Inline <style> tags
         document.querySelectorAll('style').forEach((st) => {
-          if (st.textContent) cssTexts.push(st.textContent);
+          if (st.textContent) {
+            results.push({
+              text: st.textContent,
+              baseHref: document.baseURI || window.location.href,
+            });
+          }
         });
+
         // Embedded stylesheets from rules if accessible
         for (let i = 0; i < document.styleSheets.length; i++) {
           try {
             const sheet = document.styleSheets[i];
+            const baseHref = sheet.href || document.baseURI || window.location.href;
             let sheetText = '';
             for (let j = 0; j < sheet.cssRules.length; j++) {
               sheetText += sheet.cssRules[j].cssText + '\n';
             }
-            if (sheetText) cssTexts.push(sheetText);
+            if (sheetText) {
+              results.push({ text: sheetText, baseHref });
+            }
           } catch {
             // Cross-origin stylesheet security restriction, will fallback to fetching links
           }
         }
-        return cssTexts;
+        return results;
       });
+
+      // Helper to resolve relative CSS URLs to canonical absolute URLs
+      const resolveCssUrls = (cssText: string, base: string) => {
+        return cssText.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (fullMatch, quote, rawUrl) => {
+          const trimmed = (rawUrl || '').trim();
+          if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+            return fullMatch;
+          }
+          try {
+            return `url("${new URL(trimmed, base).href}")`;
+          } catch {
+            return fullMatch;
+          }
+        });
+      };
+
+      const resolvedStylesheets: string[] = [];
+      for (const item of extractedStylesheets) {
+        resolvedStylesheets.push(resolveCssUrls(item.text, item.baseHref));
+      }
 
       // Also gather external CSS links
       const $ = cheerio.load(renderedHtml);
@@ -110,17 +141,45 @@ export class PageExtractor {
         }
       });
 
-      // Extract inline scripts
+      // Fallback: fetch external stylesheets that could not be read via document.styleSheets
+      for (const extHref of externalCssLinks) {
+        try {
+          const resp = await axios.get(extHref, {
+            timeout: 8000,
+            headers: {
+              'User-Agent': CONFIG.crawler.userAgent,
+              'Referer': url,
+            },
+          });
+          if (typeof resp.data === 'string' && resp.data.trim()) {
+            resolvedStylesheets.push(resolveCssUrls(resp.data, extHref));
+          }
+        } catch {
+          // Ignore external stylesheet fetch failures
+        }
+      }
+
+      // Extract inline scripts (ONLY executable JavaScript, ignore JSON data scripts)
       const inlineScripts: string[] = [];
       $('script').each((_, el) => {
-        const scriptText = $(el).html();
-        if (scriptText && scriptText.trim()) {
-          inlineScripts.push(scriptText);
+        const type = ($(el).attr('type') || '').toLowerCase().trim();
+        const src = $(el).attr('src');
+        if (src) return; // External script, kept in HTML or handled by localizer
+        if (
+          type === '' ||
+          type === 'text/javascript' ||
+          type === 'application/javascript' ||
+          type === 'module'
+        ) {
+          const scriptText = $(el).html();
+          if (scriptText && scriptText.trim()) {
+            inlineScripts.push(scriptText);
+          }
         }
       });
       const combinedJs = inlineScripts.join('\n;\n');
 
-      let combinedCss = extractedStylesheets.join('\n\n');
+      let combinedCss = resolvedStylesheets.join('\n\n');
 
       // 5. Discover top-level sections
       onProgress?.('Detecting and analyzing page sections...', 60);
@@ -204,39 +263,34 @@ export class PageExtractor {
       // 7. Full page transformation
       onProgress?.('Optimizing full page assets and links...', 85);
 
-      // Cleaned full page HTML with rewritten internal links & semantic classes
+      // Cleaned full page HTML with rewritten internal links
       let transformedFullHtml = HtmlTransformer.rewriteInternalLinks(renderedHtml, url);
-      const $full = cheerio.load(transformedFullHtml);
 
-      // Apply section class transformations to full page DOM
-      for (const [oldCls, newCls] of Object.entries(globalClassMapping)) {
-        $full(`.${escapeSelector(oldCls)}`).each((_, el) => {
-          const $el = $full(el);
-          $el.removeClass(oldCls);
-          $el.addClass(newCls);
-        });
-      }
-      for (const [oldId, newId] of Object.entries(globalIdMapping)) {
-        $full(`#${escapeSelector(oldId)}`).attr('id', newId);
+      // Add semantic classes if renameClasses is enabled, without wiping original styling classes
+      if (options.renameClasses) {
+        const $full = cheerio.load(transformedFullHtml);
+        for (const [oldCls, newCls] of Object.entries(globalClassMapping)) {
+          $full(`.${escapeSelector(oldCls)}`).each((_, el) => {
+            $full(el).addClass(newCls);
+          });
+        }
+        transformedFullHtml = $full.html();
       }
 
-      transformedFullHtml = $full.html();
+      // For full page CSS:
+      // Preserve complete combined CSS to guarantee 100% offline visual fidelity
+      const fullPageCss = options.deminify !== false
+        ? await CssTransformer.beautify(combinedCss)
+        : combinedCss;
 
-      // Transform global CSS
-      const transformedGlobalCss = await CssTransformer.transformSelectors(
-        combinedCss,
-        globalClassMapping,
-        globalIdMapping
-      );
-      const globalPurge = await this.cssPurger.purge(transformedGlobalCss, transformedFullHtml);
+      let fullPageMinCss = combinedCss;
+      if (options.purgeCss !== false) {
+        const globalPurge = await this.cssPurger.purge(combinedCss, transformedFullHtml);
+        fullPageMinCss = globalPurge.minifiedCss || combinedCss;
+      }
 
       // Transform global JS
-      const transformedGlobalJs = JsTransformer.transformScript(
-        combinedJs,
-        globalClassMapping,
-        globalIdMapping
-      );
-      const beautifiedGlobalJs = await JsTransformer.deminify(transformedGlobalJs);
+      const beautifiedGlobalJs = await JsTransformer.deminify(combinedJs);
 
       onProgress?.('Completing extraction...', 95);
 
@@ -245,8 +299,8 @@ export class PageExtractor {
         originalHtml: renderedHtml,
         transformedHtml: transformedFullHtml,
         originalCss: combinedCss,
-        transformedCss: globalPurge.purgedCss,
-        minifiedCss: globalPurge.minifiedCss,
+        transformedCss: fullPageCss,
+        minifiedCss: fullPageMinCss,
         originalJs: combinedJs,
         transformedJs: beautifiedGlobalJs,
         sections: extractedSections,

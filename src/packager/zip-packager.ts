@@ -5,6 +5,45 @@ import { ExtractionResult } from '../crawler/page-extractor.js';
 import { AssetLocalizer } from '../localizer/asset-localizer.js';
 import { ExtractionOptions, JobState, SectionMetadata } from '../types.js';
 import { CONFIG } from '../config.js';
+import * as cheerio from 'cheerio';
+
+const REPLICATOR_NAV_PATCH_CSS = `
+/* Replicator Mobile Navigation Drilldown Glitch Fix */
+@media (max-width: 833px) {
+  #globalnav.globalnav-with-submenu-open .globalnav-submenu-trigger-group,
+  #globalnav.globalnav-with-submenu-open .globalnav-submenu-trigger-link,
+  #globalnav.globalnav-with-submenu-open .globalnav-item:not(.globalnav-item-flyout-open):not(.globalnav-item-flyout-change-next) .globalnav-link,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-menu:not(.globalnav-item-flyout-open):not(.globalnav-item-flyout-change-next) {
+    display: none !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout .globalnav-submenu-list-item,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout .globalnav-submenu-list-item,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout .globalnav-submenu-header,
+  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout .globalnav-submenu-header {
+    opacity: 1 !important;
+    transform: none !important;
+    visibility: visible !important;
+  }
+  #globalnav.globalnav-with-submenu-open .globalnav-menuback {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: none !important;
+  }
+}
+`;
 
 export class ZipPackager {
   private localizer = new AssetLocalizer();
@@ -28,20 +67,27 @@ export class ZipPackager {
     // 1. Localize assets for full-page
     let finalHtml = result.transformedHtml;
     let finalCss = result.transformedCss;
+    let finalMinifiedCss = result.minifiedCss;
 
     if (options.localizeAssets !== false) {
       const localization = await this.localizer.localize(finalHtml, finalCss, url, assetsDir);
       finalHtml = localization.html;
       finalCss = localization.css;
+      finalMinifiedCss = this.localizer.rewriteCssUrls(result.minifiedCss, url);
     }
 
-    // Embed links to style.css and script.js in full-page index.html
+    if (finalCss.includes('globalnav') || finalHtml.includes('globalnav')) {
+      finalCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
+      finalMinifiedCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
+    }
+
+    // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
     finalHtml = injectStylesAndScripts(finalHtml);
 
     // Save full page files
     fs.writeFileSync(path.join(fullPageDir, 'index.html'), finalHtml, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'style.css'), finalCss, 'utf8');
-    fs.writeFileSync(path.join(fullPageDir, 'style.min.css'), result.minifiedCss, 'utf8');
+    fs.writeFileSync(path.join(fullPageDir, 'style.min.css'), finalMinifiedCss, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'script.js'), result.transformedJs, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'full-page.png'), result.fullPageScreenshot);
 
@@ -53,14 +99,21 @@ export class ZipPackager {
       const secDir = path.join(sectionsDir, secFolderName);
       fs.mkdirSync(secDir, { recursive: true });
 
+      let secCss = sec.purgedCss;
+      let secMinCss = sec.minifiedCss;
+      if (secCss.includes('globalnav') || sec.cleanedHtml.includes('globalnav')) {
+        secCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
+        secMinCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
+      }
+
       // Save HTML, CSS, JS
       fs.writeFileSync(path.join(secDir, 'section.html'), sec.cleanedHtml, 'utf8');
-      fs.writeFileSync(path.join(secDir, 'section.css'), sec.purgedCss, 'utf8');
-      fs.writeFileSync(path.join(secDir, 'section.min.css'), sec.minifiedCss, 'utf8');
+      fs.writeFileSync(path.join(secDir, 'section.css'), secCss, 'utf8');
+      fs.writeFileSync(path.join(secDir, 'section.min.css'), secMinCss, 'utf8');
       fs.writeFileSync(path.join(secDir, 'section.js'), sec.scopedJs, 'utf8');
 
       // Standalone preview HTML for this section
-      const standaloneHtml = generateStandaloneSectionHtml(sec.meta.name, sec.cleanedHtml, sec.purgedCss, sec.scopedJs);
+      const standaloneHtml = generateStandaloneSectionHtml(sec.meta.name, sec.cleanedHtml, secCss, sec.scopedJs);
       fs.writeFileSync(path.join(secDir, 'preview.html'), standaloneHtml, 'utf8');
 
       // Screenshot
@@ -121,24 +174,41 @@ export class ZipPackager {
 }
 
 function injectStylesAndScripts(html: string): string {
-  // If html already has <head>, append <link rel="stylesheet" href="./style.css">
-  let modified = html;
-  const linkTag = '\n  <link rel="stylesheet" href="./style.css">';
-  const scriptTag = '\n  <script src="./script.js" defer></script>';
+  const $ = cheerio.load(html);
 
-  if (modified.includes('</head>')) {
-    modified = modified.replace('</head>', `${linkTag}\n</head>`);
+  // Remove existing stylesheet links since all styles are now merged into style.css
+  $('link[rel="stylesheet"]').remove();
+  $('script[src="./script.js"]').remove();
+
+  // Inject require compatibility shim to prevent tracker errors from halting modules
+  const requireShim = `
+  <script>
+  window.require = window.require || function() {
+    return {
+      passiveTracker: function() { return { record: function() {} }; },
+      register: function() {},
+      track: function() {},
+      beacon: function() {}
+    };
+  };
+  globalThis.require = window.require;
+  </script>`;
+
+  if ($('head').length > 0) {
+    $('head').prepend(requireShim);
+    $('head').append('\n  <link rel="stylesheet" href="./style.css">\n');
   } else {
-    modified = `${linkTag}\n${modified}`;
+    $.root().prepend(requireShim);
+    $.root().prepend('\n<link rel="stylesheet" href="./style.css">\n');
   }
 
-  if (modified.includes('</body>')) {
-    modified = modified.replace('</body>', `${scriptTag}\n</body>`);
+  if ($('body').length > 0) {
+    $('body').append('\n  <script src="./script.js" defer></script>\n');
   } else {
-    modified = `${modified}\n${scriptTag}`;
+    $.root().append('\n<script src="./script.js" defer></script>\n');
   }
 
-  return modified;
+  return $.html();
 }
 
 function generateStandaloneSectionHtml(title: string, html: string, css: string, js: string): string {

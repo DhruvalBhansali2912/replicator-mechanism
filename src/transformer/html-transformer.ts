@@ -12,7 +12,7 @@ export class HtmlTransformer {
    * Sanitizes all links in the HTML so internal/origin links become clean relative paths (e.g. /abcd/)
    */
   public static rewriteInternalLinks(html: string, pageOrigin: string): string {
-    const $ = cheerio.load(html, { xmlMode: false }, false);
+    const $ = cheerio.load(html);
     let parsedOrigin: URL | null = null;
     try {
       parsedOrigin = new URL(pageOrigin);
@@ -120,8 +120,10 @@ export class HtmlTransformer {
       if (oldRootId) {
         idMapping[oldRootId] = newRootId;
       }
-      rootEl.attr('class', newRootClass);
-      rootEl.attr('id', newRootId);
+      rootEl.addClass(newRootClass);
+      if (!rootEl.attr('id')) {
+        rootEl.attr('id', newRootId);
+      }
     }
 
     // Traverse all descendants
@@ -138,21 +140,21 @@ export class HtmlTransformer {
       if (currentClass) {
         const classes = currentClass.split(/\s+/).filter(Boolean);
         for (const cls of classes) {
-          // Only map if not already mapped or provide consolidated semantic name
           if (!classMapping[cls]) {
             classMapping[cls] = newClassName;
           }
         }
-        $el.attr('class', newClassName);
+        $el.addClass(newClassName);
       } else {
-        // Even if element had no class, assign semantic class for readability
-        $el.attr('class', newClassName);
+        $el.addClass(newClassName);
       }
 
       if (currentId) {
         const newId = `${sectionId}-${role}-${Object.keys(idMapping).length + 1}`;
         idMapping[currentId] = newId;
-        $el.attr('id', newId);
+        if (!$el.attr('id')) {
+          $el.attr('id', newId);
+        }
       }
     });
 
