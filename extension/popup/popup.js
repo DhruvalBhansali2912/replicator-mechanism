@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnActivateKey = document.getElementById('btn-activate-key');
   const btnStartExtract = document.getElementById('btn-start-extract');
   const btnRechargeTokens = document.getElementById('btn-recharge-tokens');
+  const btnCancelProgress = document.getElementById('btn-cancel-progress');
   const btnSettingsToggle = document.getElementById('btn-settings-toggle');
 
   const progressFill = document.getElementById('progress-bar-fill');
@@ -210,6 +211,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Dismiss / Replicate Another Page
   btnDismissCompleted.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: 'DISMISS_JOB' }, () => {
+      showView('ready');
+    });
+  });
+
+  // Cancel In-Progress Replication
+  btnCancelProgress?.addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'DISMISS_JOB' }, () => {
       showView('ready');
     });

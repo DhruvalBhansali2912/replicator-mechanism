@@ -81,7 +81,7 @@ export function requireApiKeyAndDevice(
     return;
   }
 
-  if (details.tokensBalance < 1) {
+  if (req.path === '/api/extract' && details.tokensBalance < 1) {
     res.status(402).json({
       success: false,
       error: 'INSUFFICIENT_TOKENS',

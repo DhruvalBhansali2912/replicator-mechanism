@@ -184,6 +184,24 @@ async function pollJobStep(jobId, apiUrl) {
 
     await chrome.storage.local.set({ activeJob: updatedJob });
 
+    // Check if job is stuck in queued for too long (> 40s)
+    if (jobData.status === 'queued') {
+      const { activeJob } = await chrome.storage.local.get(['activeJob']);
+      if (activeJob && activeJob.startedAt && Date.now() - activeJob.startedAt > 40000) {
+        stopPolling();
+        chrome.action.setBadgeText({ text: 'ERR' });
+        chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
+        await chrome.storage.local.set({
+          activeJob: {
+            ...updatedJob,
+            status: 'failed',
+            error: 'Server crawler timed out during initialization. Please try again.',
+          },
+        });
+        return;
+      }
+    }
+
     // Update badge progress
     if (jobData.status === 'crawling' || jobData.status === 'packaging' || jobData.status === 'transforming' || jobData.status === 'queued') {
       chrome.action.setBadgeText({ text: `${jobData.progress || 0}%` });
