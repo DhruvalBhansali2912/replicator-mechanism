@@ -132,6 +132,42 @@ export function createServer(): express.Application {
     }
   });
 
+  // Recharge trial / dev tokens (compensation & testing)
+  app.post('/api/keys/recharge-trial', (req: Request, res: Response): void => {
+    try {
+      const apiKey = (req.body?.apiKey || req.headers['x-api-key']) as string;
+      const count = req.body?.count ? Number(req.body.count) : 10;
+      if (!apiKey) {
+        res.status(400).json({ success: false, error: 'MISSING_API_KEY', message: 'Field "apiKey" is required.' });
+        return;
+      }
+      const record = authDb.getApiKey(apiKey.trim());
+      if (!record) {
+        res.status(404).json({ success: false, error: 'KEY_NOT_FOUND', message: 'API key not found.' });
+        return;
+      }
+      record.tokensBalance += count;
+      record.updatedAt = new Date().toISOString();
+      authDb.saveApiKey(record);
+      authDb.logAudit({
+        id: crypto.randomUUID(),
+        apiKey: record.apiKey,
+        action: 'credit',
+        delta: count,
+        balanceAfter: record.tokensBalance,
+        reason: 'Free trial / dev compensation recharge',
+        timestamp: record.updatedAt,
+      });
+      res.json({
+        success: true,
+        message: `Successfully credited ${count} tokens!`,
+        balance: record.tokensBalance,
+      });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
   // 1. Submit URL for extraction
   app.post('/api/extract', requireApiKeyAndDevice, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { url, options = {} } = req.body;
@@ -460,13 +496,17 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     job.completedAt = new Date().toISOString();
 
     // Deduct 1 token upon successful extraction if an API key is associated
-    if (job.apiKey) {
+    // STRICT ZERO-DEDUCTION GUARANTEE: Only deduct if zip archive exists and is non-empty (> 5000 bytes)
+    const isValidPackage = fs.existsSync(zipPath) && fs.statSync(zipPath).size > 5000 && sectionsMeta.length > 0;
+    if (job.apiKey && isValidPackage) {
       try {
         const remaining = keyService.deductToken(job.apiKey, job.id);
         console.log(`[Token] Deducted 1 token for job ${job.id}. Remaining balance: ${remaining}`);
       } catch (tokenErr: any) {
         console.error(`[Token] Failed to deduct token for job ${job.id}:`, tokenErr.message);
       }
+    } else if (job.apiKey) {
+      console.warn(`[Token] Skipping deduction for job ${job.id}: Output package was invalid or empty.`);
     }
     job.stats = {
       originalHtmlBytes: Buffer.byteLength(result.originalHtml, 'utf8'),

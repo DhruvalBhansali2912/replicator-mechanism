@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const inputApiKey = document.getElementById('input-api-key');
   const btnActivateKey = document.getElementById('btn-activate-key');
   const btnStartExtract = document.getElementById('btn-start-extract');
+  const btnRechargeTokens = document.getElementById('btn-recharge-tokens');
   const btnSettingsToggle = document.getElementById('btn-settings-toggle');
 
   const progressFill = document.getElementById('progress-bar-fill');
@@ -214,6 +215,39 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   });
 
+  // Recharge Free Dev Tokens
+  btnRechargeTokens?.addEventListener('click', async () => {
+    const { apiKey, apiUrl } = await chrome.storage.local.get(['apiKey', 'apiUrl']);
+    if (!apiKey) return;
+
+    btnRechargeTokens.disabled = true;
+    btnRechargeTokens.textContent = 'Crediting tokens...';
+
+    try {
+      const endpoint = `${(apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '')}/api/keys/recharge-trial`;
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, count: 10 }),
+      });
+
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        await chrome.storage.local.set({ balance: data.balance });
+        updateBalanceDisplay(data.balance);
+        showAlert('🎉 Credited +10 Free Tokens! Ready to replicate.', 'info');
+        setTimeout(() => hideAlert(), 3500);
+      } else {
+        showAlert(data.message || data.error || 'Failed to recharge tokens.', 'error');
+      }
+    } catch (err) {
+      showAlert(`Network error: ${err.message}`, 'error');
+    } finally {
+      btnRechargeTokens.disabled = false;
+      btnRechargeTokens.innerHTML = '<span>🎁 Add 10 Free Dev Tokens</span>';
+    }
+  });
+
   // --- HELPER FUNCTIONS ---
 
   function showView(name) {
@@ -255,6 +289,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function updateBalanceDisplay(count) {
     balanceCount.textContent = count !== undefined ? `${count}` : '--';
+    if (count !== undefined && count < 1) {
+      btnRechargeTokens?.classList.remove('hidden');
+    } else {
+      btnRechargeTokens?.classList.add('hidden');
+    }
   }
 
   function showAlert(msg, type = 'info') {
