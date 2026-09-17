@@ -1,8 +1,11 @@
 import fs from 'fs';
 import path from 'path';
+import https from 'https';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import crypto from 'crypto';
+
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 export interface LocalizedAssetResult {
   html: string;
@@ -58,6 +61,34 @@ export class AssetLocalizer {
           }
         }
       }
+    });
+
+    // Also gather URLs from inside <noscript> tags
+    $('noscript').each((_, el) => {
+      const noscriptHtml = $(el).html() || '';
+      if (!noscriptHtml.trim()) return;
+      const $nos = cheerio.load(noscriptHtml);
+      $nos('img, source, video, audio, link[rel*="icon"]').each((_, nEl) => {
+        const $nEl = $nos(nEl);
+        const src = $nEl.attr('src');
+        const srcset = $nEl.attr('srcset');
+        const href = $nEl.attr('href');
+        const poster = $nEl.attr('poster');
+
+        if (src && isValidAssetUrl(src)) assetUrlsToDownload.add(resolveUrl(src, baseUrl));
+        if (href && isValidAssetUrl(href)) assetUrlsToDownload.add(resolveUrl(href, baseUrl));
+        if (poster && isValidAssetUrl(poster)) assetUrlsToDownload.add(resolveUrl(poster, baseUrl));
+
+        if (srcset) {
+          const parts = srcset.split(',').map((s) => s.trim());
+          for (const part of parts) {
+            const urlPart = part.split(/\s+/)[0];
+            if (isValidAssetUrl(urlPart)) {
+              assetUrlsToDownload.add(resolveUrl(urlPart, baseUrl));
+            }
+          }
+        }
+      });
     });
 
     // 2. Gather external scripts: strip tracking/telemetry scripts, download functional scripts
@@ -173,6 +204,17 @@ export class AssetLocalizer {
       }
     });
 
+    // Rewrite within <noscript> tags
+    $('noscript').each((_, el) => {
+      let content = $(el).html() || '';
+      for (const [origUrl, localName] of this.downloadedUrls.entries()) {
+        if (content.includes(origUrl)) {
+          content = content.replaceAll(origUrl, `./assets/${localName}`);
+        }
+      }
+      $(el).html(content);
+    });
+
     // 6. Rewrite CSS url() references
     const updatedCss = this.rewriteCssUrls(css, baseUrl);
 
@@ -231,6 +273,7 @@ export class AssetLocalizer {
         responseType: 'arraybuffer',
         timeout: 12000,
         headers,
+        httpsAgent,
       });
 
       // Guess filename from URL or header
