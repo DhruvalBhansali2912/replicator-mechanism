@@ -147,6 +147,8 @@ export function createServer(): express.Application {
         return;
       }
       record.tokensBalance += count;
+      record.boundDeviceId = null;
+      record.boundDeviceName = null;
       record.updatedAt = new Date().toISOString();
       authDb.saveApiKey(record);
       authDb.logAudit({
@@ -155,14 +157,37 @@ export function createServer(): express.Application {
         action: 'credit',
         delta: count,
         balanceAfter: record.tokensBalance,
-        reason: 'Free trial / dev compensation recharge',
+        reason: 'Free trial / dev compensation recharge (device lock reset)',
         timestamp: record.updatedAt,
       });
       res.json({
         success: true,
-        message: `Successfully credited ${count} tokens!`,
+        message: `Successfully credited ${count} tokens and reset device binding!`,
         balance: record.tokensBalance,
       });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
+  // Unlock device binding (allows user to re-link their key to current browser)
+  app.post('/api/keys/unlock-device', (req: Request, res: Response): void => {
+    try {
+      const apiKey = (req.body?.apiKey || req.headers['x-api-key']) as string;
+      if (!apiKey) {
+        res.status(400).json({ success: false, error: 'MISSING_API_KEY' });
+        return;
+      }
+      const record = authDb.getApiKey(apiKey.trim());
+      if (!record) {
+        res.status(404).json({ success: false, error: 'KEY_NOT_FOUND' });
+        return;
+      }
+      record.boundDeviceId = null;
+      record.boundDeviceName = null;
+      record.updatedAt = new Date().toISOString();
+      authDb.saveApiKey(record);
+      res.json({ success: true, message: 'Device lock reset successfully. You can now use this key on this browser.' });
     } catch (err: any) {
       res.status(400).json({ success: false, error: err.message });
     }
