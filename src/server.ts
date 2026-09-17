@@ -292,15 +292,20 @@ export function createServer(): express.Application {
       // Check if job completed on disk (e.g. after container restart)
       const zipPath = path.join(CONFIG.jobsDir, req.params.id, 'site-package.zip');
       if (fs.existsSync(zipPath)) {
+        let meta: any = {};
+        const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+        if (fs.existsSync(metaPath)) {
+          try { meta = JSON.parse(fs.readFileSync(metaPath, 'utf8')); } catch {}
+        }
         job = {
           id: req.params.id,
-          url: '',
-          options: { url: '' },
+          url: meta.url || '',
+          options: meta.options || { url: meta.url || '' },
           status: 'completed',
           progress: 100,
           currentStep: 'Extraction completed successfully',
-          createdAt: new Date().toISOString(),
-          completedAt: new Date().toISOString(),
+          createdAt: meta.createdAt || new Date().toISOString(),
+          completedAt: meta.completedAt || new Date().toISOString(),
           sections: [],
           packageZipPath: zipPath,
         };
@@ -332,7 +337,19 @@ export function createServer(): express.Application {
     const match = referer.match(/\/api\/jobs\/([a-zA-Z0-9_-]+)\/preview/);
     if (match) {
       const jobId = match[1];
+      let targetUrl = '';
       const job = jobs.get(jobId);
+      if (job && job.url) {
+        targetUrl = job.url;
+      } else {
+        const metaPath = path.join(CONFIG.jobsDir, jobId, 'job.json');
+        if (fs.existsSync(metaPath)) {
+          try {
+            targetUrl = JSON.parse(fs.readFileSync(metaPath, 'utf8')).url || '';
+          } catch {}
+        }
+      }
+
       const relativeAssetPath = req.originalUrl.replace(/^\//, '');
       const localFilePath = path.join(CONFIG.jobsDir, jobId, 'full-page', relativeAssetPath);
       if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
@@ -340,9 +357,9 @@ export function createServer(): express.Application {
         return;
       }
       // If asset is not stored in full-page, redirect to original target origin
-      if (job && job.url) {
+      if (targetUrl) {
         try {
-          const origin = new URL(job.url).origin;
+          const origin = new URL(targetUrl).origin;
           res.redirect(302, `${origin}${req.originalUrl}`);
           return;
         } catch {}

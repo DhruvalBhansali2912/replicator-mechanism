@@ -64,6 +64,13 @@ export class ZipPackager {
     fs.mkdirSync(sectionsDir, { recursive: true });
     fs.mkdirSync(assetsDir, { recursive: true });
 
+    // Persist job metadata so url and options survive server restarts
+    fs.writeFileSync(
+      path.join(jobDir, 'job.json'),
+      JSON.stringify({ id: jobId, url, options, completedAt: new Date().toISOString() }, null, 2),
+      'utf8'
+    );
+
     // 1. Localize assets for full-page
     let finalHtml = result.transformedHtml;
     let finalCss = result.transformedCss;
