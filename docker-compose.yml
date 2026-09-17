@@ -13,6 +13,7 @@ services:
       - PORT=3000
       - HOST=0.0.0.0
       - MAX_CONCURRENT_JOBS=4
+      - REPLICATOR_MASTER_SECRET=${REPLICATOR_MASTER_SECRET:-repl_sec_dev_key_2026}
     volumes:
       - ./storage:/app/storage
     shm_size: '2gb' # Recommended for headless Chromium multi-page rendering
