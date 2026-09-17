@@ -217,6 +217,7 @@ function injectStylesAndScripts(html: string): string {
   $('script[src="./script.js"]').remove();
 
   // Inject require compatibility shim and SPA router stabilizer
+  // Inject require compatibility shim to prevent tracker errors from halting modules
   const requireShim = `
   <script>
   window.require = window.require || function() {
@@ -228,16 +229,6 @@ function injectStylesAndScripts(html: string): string {
     };
   };
   globalThis.require = window.require;
-
-  // SPA router stabilizer (React Router, Vue, Next.js):
-  // Ensures client routers mount home route "/" instead of failing or unmounting on preview/file paths
-  (function() {
-    try {
-      if (window.location.pathname !== '/' && (window.location.pathname.includes('/preview') || window.location.protocol === 'file:' || window.location.pathname.endsWith('.html'))) {
-        window.history.replaceState(null, '', '/');
-      }
-    } catch (e) {}
-  })();
   </script>`;
 
   if ($('head').length > 0) {
