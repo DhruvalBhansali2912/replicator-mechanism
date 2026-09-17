@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>InventKid Page Replicator</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Top Bar -->
+    <header class="top-bar">
+      <div class="brand">
+        <img src="../icons/icon32.png" alt="Logo" class="brand-icon">
+        <span class="brand-name">Page Replicator</span>
+      </div>
+      <div class="header-actions">
+        <div id="badge-balance" class="token-badge" title="Remaining Replication Credits">
+          <span class="token-coin">🪙</span>
+          <span id="balance-count">--</span>
+        </div>
+        <button id="btn-settings-toggle" class="icon-btn" title="Settings & License">⚙️</button>
+      </div>
+    </header>
+
+    <!-- Alert / Banner message -->
+    <div id="alert-banner" class="banner hidden"></div>
+
+    <!-- VIEW 1: License Activation (Shown when no key is set) -->
+    <div id="view-license" class="view hidden">
+      <div class="card license-card">
+        <h3>🔑 Activate Your License</h3>
+        <p class="text-muted">Enter your License Key from inventkid.com to start replicating pages.</p>
+
+        <div class="input-group">
+          <label for="input-api-key">License Key</label>
+          <input type="password" id="input-api-key" placeholder="rep_live_xxxxxxxxxxxxxxxx" autocomplete="off" />
+        </div>
+
+        <button id="btn-activate-key" class="btn btn-primary full-width">
+          Activate License
+        </button>
+
+        <div class="license-footer">
+          <a href="https://inventkid.com" target="_blank" class="link-btn" id="link-claim-credits">
+            🎁 Claim 3 Free Credits on InventKid.com
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 2: Ready to Replicate -->
+    <div id="view-ready" class="view">
+      <div class="card target-card">
+        <span class="card-label">CURRENT TAB</span>
+        <div class="url-display">
+          <span id="target-icon">🌐</span>
+          <span id="target-url" class="truncate-url">Detecting active page...</span>
+        </div>
+      </div>
+
+      <!-- Extraction Options Accordion -->
+      <details class="options-details">
+        <summary>Advanced Extraction Options</summary>
+        <div class="options-body">
+          <label class="checkbox-row">
+            <input type="checkbox" id="opt-localize" checked />
+            <span>Localize all images, fonts, and videos (100% offline)</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="opt-mobile" />
+            <span>Simulate Mobile Viewport (iPhone / 390px)</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="opt-purge" checked />
+            <span>Purge unused CSS & minify</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" id="opt-rename" checked />
+            <span>Rename classes semantically</span>
+          </label>
+        </div>
+      </details>
+
+      <button id="btn-start-extract" class="btn btn-primary btn-replicate full-width">
+        <span class="btn-icon">⚡</span>
+        <span class="btn-text">Replicate Page (-1 Token)</span>
+      </button>
+
+      <div class="server-status">
+        <span class="status-dot online"></span>
+        <span id="server-url-display">Connected to replicator.inventkid.com</span>
+      </div>
+    </div>
+
+    <!-- VIEW 3: In Progress (Background Persistent) -->
+    <div id="view-progress" class="view hidden">
+      <div class="card progress-card">
+        <div class="progress-header">
+          <span class="spinner"></span>
+          <h4 id="progress-percent-text">0%</h4>
+        </div>
+
+        <div class="progress-bar-track">
+          <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+        </div>
+
+        <p id="progress-step-text" class="step-text">Starting crawler...</p>
+
+        <div class="background-info-box">
+          ℹ️ <strong>Background Active:</strong> You can close this window, switch tabs, or minimize Chrome. The replication will continue seamlessly in the background.
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: Completed Results -->
+    <div id="view-completed" class="view hidden">
+      <div class="card result-card">
+        <div class="success-badge">✓</div>
+        <h3>Replication Complete!</h3>
+        <p id="result-summary" class="text-muted">Successfully cloned page into clean package.</p>
+
+        <div class="action-buttons">
+          <button id="btn-open-preview" class="btn btn-secondary full-width">
+            👁️ Open Live Preview
+          </button>
+          <button id="btn-download-zip" class="btn btn-success full-width">
+            📦 Download Clean ZIP
+          </button>
+        </div>
+
+        <button id="btn-dismiss-completed" class="btn btn-subtle full-width">
+          Replicate Another Page
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

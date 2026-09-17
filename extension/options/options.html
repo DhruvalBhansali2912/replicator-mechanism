@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Replicator Settings - InventKid</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="options-container">
+    <header class="header">
+      <img src="../icons/icon48.png" alt="Logo" class="logo">
+      <div>
+        <h2>InventKid Page Replicator Settings</h2>
+        <p class="subtitle">Manage your License Key, device binding, and API server connection.</p>
+      </div>
+    </header>
+
+    <div id="status-message" class="message-banner hidden"></div>
+
+    <!-- License Section -->
+    <section class="settings-section">
+      <h3>🔑 License & Device Binding</h3>
+
+      <div class="form-group">
+        <label for="input-api-key">Active License Key</label>
+        <div class="input-with-button">
+          <input type="password" id="input-api-key" placeholder="rep_live_xxxxxxxxxxxxxxxx" />
+          <button id="btn-toggle-key-visibility" class="btn btn-secondary">Reveal</button>
+        </div>
+        <small>Your license key is bound to this computer's unique hardware identifier.</small>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-label">Remaining Tokens</span>
+          <span id="stat-balance" class="stat-value">--</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">Device Identifier</span>
+          <span id="stat-device-id" class="stat-value font-mono">--</span>
+        </div>
+      </div>
+
+      <div class="actions-row">
+        <button id="btn-save-license" class="btn btn-primary">Save & Verify License</button>
+        <button id="btn-unlink-key" class="btn btn-danger">Unlink License Key</button>
+      </div>
+    </section>
+
+    <!-- Server Connection Section -->
+    <section class="settings-section">
+      <h3>🌐 Server Endpoint Configuration</h3>
+
+      <div class="form-group">
+        <label for="select-server-preset">Environment Preset</label>
+        <select id="select-server-preset">
+          <option value="https://replicator.inventkid.com">Production (https://replicator.inventkid.com)</option>
+          <option value="http://localhost:3000">Local Development (http://localhost:3000)</option>
+          <option value="custom">Custom Server URL...</option>
+        </select>
+      </div>
+
+      <div class="form-group" id="custom-server-group">
+        <label for="input-api-url">Custom Server Base URL</label>
+        <input type="text" id="input-api-url" placeholder="https://replicator.inventkid.com" />
+      </div>
+
+      <button id="btn-save-server" class="btn btn-primary">Save Server URL</button>
+    </section>
+
+    <!-- Store Link -->
+    <footer class="footer">
+      <p>Need more extraction credits? Visit <a href="https://inventkid.com" target="_blank">inventkid.com</a> to top up tokens.</p>
+    </footer>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
