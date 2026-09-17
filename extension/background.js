@@ -21,6 +21,16 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 });
 
+// Resume background polling on Service Worker startup / wake-up if an active job is unfinished
+resumePendingJobIfAny();
+
+// Watchdog alarm listener to keep background polling alive across minimized/idle states
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === 'replicator_watchdog') {
+    await resumePendingJobIfAny();
+  }
+});
+
 let pollingInterval = null;
 
 // Message listener from Popup / Options UI
@@ -120,76 +130,113 @@ async function handleStartExtraction({ url, options }) {
 function startPolling(jobId, apiUrl, apiKey, deviceId) {
   stopPolling();
 
+  // Create an alarm watchdog to wake up service worker if minimized / suspended
+  chrome.alarms.create('replicator_watchdog', { periodInMinutes: 0.2 });
+
+  // Immediate first check
+  pollJobStep(jobId, apiUrl);
+
   pollingInterval = setInterval(async () => {
-    try {
-      const endpoint = `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}`;
-      const resp = await fetch(endpoint);
-
-      if (!resp.ok) return;
-
-      const jobData = await resp.json();
-
-      const updatedJob = {
-        id: jobId,
-        url: jobData.url,
-        status: jobData.status,
-        progress: jobData.progress || 0,
-        currentStep: jobData.currentStep || 'Processing...',
-        previewUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/preview`,
-        downloadUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/download`,
-        sectionCount: jobData.sections ? jobData.sections.length : 0,
-        error: jobData.error,
-        completedAt: jobData.completedAt,
-      };
-
-      await chrome.storage.local.set({ activeJob: updatedJob });
-
-      // Update badge progress
-      if (jobData.status === 'crawling' || jobData.status === 'packaging' || jobData.status === 'transforming') {
-        chrome.action.setBadgeText({ text: `${jobData.progress}%` });
-        chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
-      }
-
-      // Check for completion
-      if (jobData.status === 'completed') {
-        stopPolling();
-        chrome.action.setBadgeText({ text: 'DONE' });
-        chrome.action.setBadgeBackgroundColor({ color: '#10B981' });
-
-        // Trigger desktop system notification
-        chrome.notifications.create(`job-complete-${jobId}`, {
-          type: 'basic',
-          iconUrl: 'icons/icon128.png',
-          title: 'Page Replication Complete!',
-          message: `Finished cloning: ${jobData.url}. Click to open preview.`,
-          priority: 2,
-        });
-
-        // Refresh token balance
-        await refreshAccountBalance();
-      } else if (jobData.status === 'failed') {
-        stopPolling();
-        chrome.action.setBadgeText({ text: 'ERR' });
-        chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
-
-        chrome.notifications.create(`job-fail-${jobId}`, {
-          type: 'basic',
-          iconUrl: 'icons/icon128.png',
-          title: 'Replication Failed',
-          message: jobData.error || 'An error occurred during replication.',
-          priority: 2,
-        });
-      }
-    } catch (e) {
-      console.warn('Background polling check failed:', e.message);
-    }
+    await pollJobStep(jobId, apiUrl);
   }, 1500);
+}
+
+async function pollJobStep(jobId, apiUrl) {
+  try {
+    const endpoint = `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}`;
+    const resp = await fetch(endpoint);
+
+    if (!resp.ok) return;
+
+    const jobData = await resp.json();
+
+    const updatedJob = {
+      id: jobId,
+      url: jobData.url,
+      status: jobData.status,
+      progress: jobData.progress || 0,
+      currentStep: jobData.currentStep || 'Processing...',
+      previewUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/preview`,
+      downloadUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/download`,
+      sectionCount: jobData.sections ? jobData.sections.length : 0,
+      error: jobData.error,
+      completedAt: jobData.completedAt,
+    };
+
+    await chrome.storage.local.set({ activeJob: updatedJob });
+
+    // Update badge progress
+    if (jobData.status === 'crawling' || jobData.status === 'packaging' || jobData.status === 'transforming' || jobData.status === 'queued') {
+      chrome.action.setBadgeText({ text: `${jobData.progress || 0}%` });
+      chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
+    }
+
+    // Check for completion
+    if (jobData.status === 'completed') {
+      stopPolling();
+      chrome.action.setBadgeText({ text: 'DONE' });
+      chrome.action.setBadgeBackgroundColor({ color: '#10B981' });
+
+      // Trigger desktop system notification
+      chrome.notifications.create(`job-complete-${jobId}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Page Replication Complete!',
+        message: `Finished cloning: ${jobData.url}. Click to open preview.`,
+        priority: 2,
+      });
+
+      // Refresh token balance
+      await refreshAccountBalance();
+    } else if (jobData.status === 'failed') {
+      stopPolling();
+      chrome.action.setBadgeText({ text: 'ERR' });
+      chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
+
+      chrome.notifications.create(`job-fail-${jobId}`, {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Replication Failed',
+        message: jobData.error || 'An error occurred during replication.',
+        priority: 2,
+      });
+    }
+  } catch (e) {
+    console.warn('Background polling check failed:', e.message);
+  }
 }
 
 function stopPolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
     pollingInterval = null;
+  }
+  chrome.alarms.clear('replicator_watchdog');
+}
+
+/**
+ * Checks storage on worker startup or alarm to resume any pending jobs
+ */
+async function resumePendingJobIfAny() {
+  try {
+    const { activeJob, apiUrl, apiKey, deviceId } = await chrome.storage.local.get([
+      'activeJob',
+      'apiUrl',
+      'apiKey',
+      'deviceId',
+    ]);
+
+    if (!activeJob || !activeJob.id) return;
+
+    if (!['completed', 'failed'].includes(activeJob.status)) {
+      if (!pollingInterval) {
+        startPolling(activeJob.id, apiUrl || 'https://replicator.inventkid.com', apiKey, deviceId);
+      } else {
+        await pollJobStep(activeJob.id, apiUrl || 'https://replicator.inventkid.com');
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to resume pending job:', err);
   }
 }
 
