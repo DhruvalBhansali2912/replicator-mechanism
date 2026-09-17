@@ -194,6 +194,8 @@ node dist/index.js --url https://example.com
 
 ```
 web-extractor-engine/
+├── .github/workflows/           # CI/CD Automated Deployment
+│   └── deploy.yml
 ├── Dockerfile                   # VPS Docker container spec
 ├── docker-compose.yml           # VPS orchestration config
 ├── package.json                 # Dependencies & build scripts
@@ -207,6 +209,7 @@ web-extractor-engine/
 │   ├── server.ts                # Express REST API routes
 │   ├── config.ts                # System settings & crawler options
 │   ├── types.ts                 # TypeScript interfaces
+│   ├── auth/                    # API keys, tokens & device binding
 │   ├── classifier/              # Section archetypes & matching engine
 │   ├── crawler/                 # Playwright browser manager & extractor
 │   ├── localizer/               # Asset downloader & offline localizer
@@ -214,5 +217,23 @@ web-extractor-engine/
 │   ├── packager/                # ZIP builder & report generator
 │   └── transformer/             # HTML, CSS, and JS semantic rewriters
 └── storage/
+    ├── auth.json                # Persistent API key & device database
     └── jobs/                    # Output jobs, previews, assets, and ZIPs
 ```
+
+---
+
+## Automated CI/CD Deployment (GitHub Actions)
+
+A GitHub Actions workflow is pre-configured in [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) that automatically builds and deploys updates to your AlmaLinux VPS whenever code is pushed to `main`.
+
+### Setup Instructions:
+In your GitHub repository, navigate to **Settings -> Secrets and variables -> Actions**, and add the following repository secrets:
+
+| Secret Name | Value | Example |
+|---|---|---|
+| `VPS_HOST` | VPS IP address or domain | `replicator.inventkid.com` |
+| `VPS_USER` | SSH username on the VPS | `root` |
+| `VPS_SSH_KEY` | Private SSH Key with access to the VPS | Contents of `~/.ssh/id_ed25519` |
+| `VPS_PORT` | SSH Port (optional, defaults to 22) | `22` |
+

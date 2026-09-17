@@ -1,0 +1,63 @@
+name: Deploy to AlmaLinux VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build & Deploy via SSH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Remote Deployment via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            echo "================================================="
+            echo "🚀 Starting Deployment on $(hostname) at $(date)"
+            echo "================================================="
+
+            DEPLOY_DIR="/opt/replicator-mechanism"
+
+            if [ ! -d "$DEPLOY_DIR" ]; then
+              echo "Error: Deployment directory $DEPLOY_DIR does not exist."
+              exit 1
+            fi
+
+            cd "$DEPLOY_DIR"
+
+            echo "📦 Fetching latest code from origin/main..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "🐳 Building and starting Docker containers..."
+            docker compose up -d --build
+
+            echo "🧹 Cleaning up dangling Docker images..."
+            docker image prune -f
+
+            echo "🩺 Running Health Check on Port 3000..."
+            sleep 4
+            for i in {1..10}; do
+              if curl -s -f http://127.0.0.1:3000/api/jobs > /dev/null; then
+                echo "✅ Health check passed! Replicator API is healthy."
+                exit 0
+              fi
+              echo "Waiting for service to boot (attempt $i/10)..."
+              sleep 2
+            done
+
+            echo "❌ Service did not respond within timeout!"
+            docker compose logs --tail=50
+            exit 1
