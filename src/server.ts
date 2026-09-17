@@ -195,9 +195,42 @@ export function createServer(): express.Application {
     res.json({ jobs: jobList });
   });
 
+  // Storage Stats (Admin) - Must precede /api/jobs/:id
+  app.get('/api/jobs/storage-stats', requireMasterSecret, (_req: Request, res: Response): void => {
+    const stats = getStorageStats(jobs);
+    res.json({ success: true, stats });
+  });
+
+  // Manual Trigger Cleanup (Admin) - Must precede /api/jobs/:id
+  app.post('/api/jobs/cleanup', requireMasterSecret, (req: Request, res: Response): void => {
+    const maxAgeHours = req.body?.maxAgeHours ? Number(req.body.maxAgeHours) : CONFIG.jobRetentionHours;
+    const result = cleanExpiredJobs(jobs, maxAgeHours);
+    res.json({ success: true, ...result, maxAgeHours });
+  });
+
   // 3. Get job status & details
   app.get('/api/jobs/:id', (req: Request, res: Response): void => {
-    const job = jobs.get(req.params.id);
+    let job = jobs.get(req.params.id);
+    if (!job) {
+      // Check if job completed on disk (e.g. after container restart)
+      const zipPath = path.join(CONFIG.jobsDir, req.params.id, 'site-package.zip');
+      if (fs.existsSync(zipPath)) {
+        job = {
+          id: req.params.id,
+          url: '',
+          options: { url: '' },
+          status: 'completed',
+          progress: 100,
+          currentStep: 'Extraction completed successfully',
+          createdAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          sections: [],
+          packageZipPath: zipPath,
+        };
+        jobs.set(req.params.id, job);
+      }
+    }
+
     if (!job) {
       res.status(404).json({ error: 'Job not found' });
       return;
@@ -263,19 +296,6 @@ export function createServer(): express.Application {
       return;
     }
     res.download(zipFile, `extracted-site-${req.params.id}.zip`);
-  });
-
-  // Storage Stats (Admin)
-  app.get('/api/jobs/storage-stats', requireMasterSecret, (_req: Request, res: Response): void => {
-    const stats = getStorageStats(jobs);
-    res.json({ success: true, stats });
-  });
-
-  // Manual Trigger Cleanup (Admin)
-  app.post('/api/jobs/cleanup', requireMasterSecret, (req: Request, res: Response): void => {
-    const maxAgeHours = req.body?.maxAgeHours ? Number(req.body.maxAgeHours) : CONFIG.jobRetentionHours;
-    const result = cleanExpiredJobs(jobs, maxAgeHours);
-    res.json({ success: true, ...result, maxAgeHours });
   });
 
   // 7. Get section details and code

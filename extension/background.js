@@ -141,12 +141,31 @@ function startPolling(jobId, apiUrl, apiKey, deviceId) {
   }, 1500);
 }
 
+let consecutiveErrors = 0;
+
 async function pollJobStep(jobId, apiUrl) {
   try {
     const endpoint = `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}`;
     const resp = await fetch(endpoint);
 
-    if (!resp.ok) return;
+    if (!resp.ok) {
+      consecutiveErrors++;
+      if (consecutiveErrors >= 6) {
+        stopPolling();
+        chrome.action.setBadgeText({ text: 'ERR' });
+        chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
+        const failedJob = {
+          id: jobId,
+          status: 'failed',
+          progress: 0,
+          error: 'Replication job was lost during server restart. Please try again.',
+        };
+        await chrome.storage.local.set({ activeJob: failedJob });
+      }
+      return;
+    }
+
+    consecutiveErrors = 0;
 
     const jobData = await resp.json();
 
@@ -211,6 +230,7 @@ function stopPolling() {
     clearInterval(pollingInterval);
     pollingInterval = null;
   }
+  consecutiveErrors = 0;
   chrome.alarms.clear('replicator_watchdog');
 }
 
