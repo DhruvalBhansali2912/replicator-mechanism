@@ -38,6 +38,11 @@ export function createServer(): express.Application {
     app.use(express.static(publicDir));
   }
 
+  // Health check endpoint
+  app.get('/api/health', (_req: Request, res: Response): void => {
+    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  });
+
   // --- AUTH & TOKEN API ---
 
   // Credit or issue API key (called by WooCommerce upon order completion)
