@@ -2,6 +2,7 @@ node_modules
 dist
 storage/jobs/*
 !storage/jobs/.gitkeep
+storage/auth.json
 .DS_Store
 *.log
 npm-debug.log*

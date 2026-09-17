@@ -9,6 +9,12 @@ import { PageExtractor } from './crawler/page-extractor.js';
 import { ZipPackager } from './packager/zip-packager.js';
 import { ExtractionOptions, JobState } from './types.js';
 import { MASTER_ARCHETYPES } from './classifier/archetypes.js';
+import { keyService } from './auth/key-service.js';
+import {
+  requireApiKeyAndDevice,
+  requireMasterSecret,
+  AuthenticatedRequest,
+} from './auth/middleware.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,8 +38,74 @@ export function createServer(): express.Application {
     app.use(express.static(publicDir));
   }
 
+  // --- AUTH & TOKEN API ---
+
+  // Credit or issue API key (called by WooCommerce upon order completion)
+  app.post('/api/keys/credit', requireMasterSecret, (req: Request, res: Response): void => {
+    try {
+      const { email, tokens, orderId, isFreeTrial } = req.body;
+      if (!email || tokens === undefined) {
+        res.status(400).json({ success: false, error: 'MISSING_FIELDS', message: 'Fields "email" and "tokens" are required.' });
+        return;
+      }
+      const result = keyService.creditKey({
+        email,
+        tokens: Number(tokens),
+        orderId,
+        isFreeTrial: Boolean(isFreeTrial),
+      });
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
+  // Verify key & bind device (called by Chrome Extension on install or verification)
+  app.post('/api/keys/verify', (req: Request, res: Response): void => {
+    const apiKey = (req.body.apiKey || req.headers['x-api-key']) as string;
+    const deviceId = (req.body.deviceId || req.headers['x-device-id']) as string;
+    const deviceName = (req.body.deviceName || req.headers['x-device-name']) as string;
+
+    const result = keyService.verifyAndBindDevice(apiKey, deviceId, deviceName);
+    if (!result.valid) {
+      res.status(403).json({ success: false, ...result });
+      return;
+    }
+    res.json({ success: true, ...result });
+  });
+
+  // Get key details and remaining balance (called by Chrome Extension)
+  app.get('/api/keys/balance', requireApiKeyAndDevice, (req: AuthenticatedRequest, res: Response): void => {
+    const keyRecord = req.apiKeyRecord!;
+    res.json({
+      success: true,
+      apiKey: keyRecord.apiKey,
+      customerEmail: keyRecord.customerEmail,
+      balance: keyRecord.tokensBalance,
+      tokensUsed: keyRecord.tokensUsed,
+      isFreeTrial: keyRecord.isFreeTrial,
+      boundDeviceId: keyRecord.boundDeviceId,
+      boundDeviceName: keyRecord.boundDeviceName,
+    });
+  });
+
+  // Reset device binding (called by WooCommerce My Account or Admin via Master Secret)
+  app.post('/api/keys/reset-device', requireMasterSecret, (req: Request, res: Response): void => {
+    try {
+      const { emailOrKey, reason } = req.body;
+      if (!emailOrKey) {
+        res.status(400).json({ success: false, error: 'MISSING_FIELD', message: 'Field "emailOrKey" is required.' });
+        return;
+      }
+      keyService.resetDevice(emailOrKey, reason);
+      res.json({ success: true, message: 'Device binding reset successfully.' });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
   // 1. Submit URL for extraction
-  app.post('/api/extract', async (req: Request, res: Response): Promise<void> => {
+  app.post('/api/extract', requireApiKeyAndDevice, async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     const { url, options = {} } = req.body;
 
     if (!url || typeof url !== 'string') {
@@ -52,6 +124,7 @@ export function createServer(): express.Application {
     const jobState: JobState = {
       id: jobId,
       url,
+      apiKey: req.apiKeyRecord?.apiKey,
       options: {
         url,
         renameClasses: options.renameClasses !== false,
@@ -85,6 +158,7 @@ export function createServer(): express.Application {
       statusUrl: `/api/jobs/${jobId}`,
       previewUrl: `/api/jobs/${jobId}/preview`,
       downloadUrl: `/api/jobs/${jobId}/download`,
+      tokensBalance: req.apiKeyRecord ? req.apiKeyRecord.tokensBalance : undefined,
     });
   });
 
@@ -323,6 +397,16 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     job.progress = 100;
     job.currentStep = 'Extraction completed successfully';
     job.completedAt = new Date().toISOString();
+
+    // Deduct 1 token upon successful extraction if an API key is associated
+    if (job.apiKey) {
+      try {
+        const remaining = keyService.deductToken(job.apiKey, job.id);
+        console.log(`[Token] Deducted 1 token for job ${job.id}. Remaining balance: ${remaining}`);
+      } catch (tokenErr: any) {
+        console.error(`[Token] Failed to deduct token for job ${job.id}:`, tokenErr.message);
+      }
+    }
     job.stats = {
       originalHtmlBytes: Buffer.byteLength(result.originalHtml, 'utf8'),
       transformedHtmlBytes: Buffer.byteLength(result.transformedHtml, 'utf8'),

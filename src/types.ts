@@ -70,6 +70,7 @@ export interface JobState {
   createdAt: string;
   completedAt?: string;
   error?: string;
+  apiKey?: string;
   fullPageScreenshot?: string;
   sections: SectionMetadata[];
   stats?: {
