@@ -278,16 +278,7 @@ export class PageExtractor {
       // Cleaned full page HTML with rewritten internal links
       let transformedFullHtml = HtmlTransformer.rewriteInternalLinks(renderedHtml, url);
 
-      // Add semantic classes if renameClasses is enabled, without wiping original styling classes
-      if (options.renameClasses) {
-        const $full = cheerio.load(transformedFullHtml);
-        for (const [oldCls, newCls] of Object.entries(globalClassMapping)) {
-          $full(`.${escapeSelector(oldCls)}`).each((_, el) => {
-            $full(el).addClass(newCls);
-          });
-        }
-        transformedFullHtml = $full.html();
-      }
+      // Preserve original clean classes on full page HTML to guarantee 100% layout fidelity without cross-section contamination
 
       // For full page CSS:
       // Preserve complete combined CSS to guarantee 100% offline visual fidelity

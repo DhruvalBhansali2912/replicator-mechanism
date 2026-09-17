@@ -113,6 +113,7 @@ export class ZipPackager {
       });
       finalHtml = $.html();
 
+      finalHtml = finalHtml.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
       finalCss = finalCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
       finalMinifiedCss = finalMinifiedCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
     }
@@ -216,7 +217,43 @@ function injectStylesAndScripts(html: string): string {
   $('link[rel="stylesheet"]').remove();
   $('script[src="./script.js"]').remove();
 
-  // Inject require compatibility shim and SPA router stabilizer
+  // Remove rogue trackers and SPA application bundles that break offline/static previews
+  $('script').each((_, el) => {
+    const $s = $(el);
+    const src = ($s.attr('src') || '').toLowerCase();
+    const content = $s.html() || '';
+    if (
+      src.includes('tawk') ||
+      src.includes('twk-') ||
+      src.includes('munchkin') ||
+      src.includes('oaiq') ||
+      src.includes('apollo') ||
+      src.includes('gtm') ||
+      src.includes('googletagmanager') ||
+      src.includes('facebook') ||
+      src.includes('launch-') ||
+      /index-[a-z0-9_-]+\.js/i.test(src) ||
+      content.includes('gtag(') ||
+      content.includes('dataLayer') ||
+      content.includes('Munchkin.init') ||
+      content.includes('oaiq')
+    ) {
+      $s.remove();
+    }
+  });
+
+  // Remove modulepreloads for those same chunks
+  $('link[rel="modulepreload"]').each((_, el) => {
+    const href = ($(el).attr('href') || '').toLowerCase();
+    if (
+      href.includes('tawk') ||
+      href.includes('twk-') ||
+      /index-[a-z0-9_-]+\.js/i.test(href)
+    ) {
+      $(el).remove();
+    }
+  });
+
   // Inject require compatibility shim to prevent tracker errors from halting modules
   const requireShim = `
   <script>
@@ -245,7 +282,12 @@ function injectStylesAndScripts(html: string): string {
     $.root().append('\n<script src="./script.js" defer></script>\n');
   }
 
-  return $.html();
+  let finalHtmlStr = $.html();
+  if (!finalHtmlStr.trim().toLowerCase().startsWith('<!doctype html>')) {
+    finalHtmlStr = '<!DOCTYPE html>\n' + finalHtmlStr;
+  }
+
+  return finalHtmlStr;
 }
 
 function generateStandaloneSectionHtml(title: string, html: string, css: string, js: string): string {
