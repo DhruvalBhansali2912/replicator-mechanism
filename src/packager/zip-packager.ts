@@ -111,7 +111,25 @@ export class ZipPackager {
           $el.attr('poster', `${origin}${poster}`);
         }
       });
+
+      $('[srcset]').each((_, el) => {
+        const $el = $(el);
+        const srcset = $el.attr('srcset');
+        if (srcset && srcset.includes('/')) {
+          const updated = srcset.split(',').map(part => {
+            const trimmed = part.trim();
+            if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
+              return `${origin}${trimmed}`;
+            }
+            return trimmed;
+          }).join(', ');
+          $el.attr('srcset', updated);
+        }
+      });
       finalHtml = $.html();
+
+      // Rewrite Apple navigation wwwDomain to relative so flyouts route through server proxy
+      finalHtml = finalHtml.replace(/"wwwDomain"\s*:\s*"www\.apple\.com"/g, `"wwwDomain":""`);
 
       finalHtml = finalHtml.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
       finalCss = finalCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
@@ -254,7 +272,7 @@ function injectStylesAndScripts(html: string): string {
     }
   });
 
-  // Inject require compatibility shim to prevent tracker errors from halting modules
+  // Inject compatibility shim to prevent tracker errors from halting modules and route CORS APIs
   const requireShim = `
   <script>
   window.require = window.require || function() {
@@ -266,6 +284,21 @@ function injectStylesAndScripts(html: string): string {
     };
   };
   globalThis.require = window.require;
+
+  // Intercept CORS-restricted global nav and flyouts APIs to route through local proxy
+  (function() {
+    const _origFetch = window.fetch;
+    if (_origFetch) {
+      window.fetch = function(url, options) {
+        if (typeof url === 'string') {
+          if (url.includes('apple.com/api-www/')) {
+            url = url.replace(/^https?:\\/\\/[^\\/]+/, '');
+          }
+        }
+        return _origFetch.call(this, url, options);
+      };
+    }
+  })();
   </script>`;
 
   if ($('head').length > 0) {
