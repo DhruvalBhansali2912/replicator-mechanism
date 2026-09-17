@@ -90,6 +90,10 @@ export class AuthDatabase {
   public getAllKeys(): ApiKeyRecord[] {
     return [...this.data.apiKeys];
   }
+
+  public getAuditLogs(): AuditLogRecord[] {
+    return [...this.data.auditLogs];
+  }
 }
 
 export const authDb = new AuthDatabase();

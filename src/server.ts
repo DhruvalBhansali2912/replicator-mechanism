@@ -10,6 +10,7 @@ import { ZipPackager } from './packager/zip-packager.js';
 import { ExtractionOptions, JobState } from './types.js';
 import { MASTER_ARCHETYPES } from './classifier/archetypes.js';
 import { keyService } from './auth/key-service.js';
+import { authDb } from './auth/db.js';
 import {
   requireApiKeyAndDevice,
   requireMasterSecret,
@@ -57,6 +58,15 @@ export function createServer(): express.Application {
   });
 
   // --- AUTH & TOKEN API ---
+
+  // Admin Overview: Inspect all keys & recent audit logs
+  app.get('/api/keys/admin-overview', requireMasterSecret, (_req: Request, res: Response): void => {
+    res.json({
+      success: true,
+      keys: authDb.getAllKeys(),
+      auditLogs: authDb.getAuditLogs().slice(-50),
+    });
+  });
 
   // Credit or issue API key (called by WooCommerce upon order completion)
   app.post('/api/keys/credit', requireMasterSecret, (req: Request, res: Response): void => {
