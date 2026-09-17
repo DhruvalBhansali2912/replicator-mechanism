@@ -171,15 +171,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    btnStartExtract.disabled = true;
+    hideAlert();
+
+    // Capture client DOM snapshot as anti-bot / Cloudflare bypass fallback
+    let htmlSnapshot = '';
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.id && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+        const results = await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          func: () => document.documentElement.outerHTML,
+        });
+        if (results && results[0] && results[0].result) {
+          htmlSnapshot = results[0].result;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not grab active tab DOM snapshot:', e);
+    }
+
     const options = {
       localizeAssets: document.getElementById('opt-localize').checked,
       mobile: document.getElementById('opt-mobile').checked,
       purgeCss: document.getElementById('opt-purge').checked,
       renameClasses: document.getElementById('opt-rename').checked,
+      htmlSnapshot: htmlSnapshot || undefined,
     };
-
-    btnStartExtract.disabled = true;
-    hideAlert();
 
     // Delegate execution to background.js so it continues if popup closes
     chrome.runtime.sendMessage(

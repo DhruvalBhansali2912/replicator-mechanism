@@ -45,17 +45,29 @@ export class PageExtractor {
     try {
       // 1. Visit URL
       onProgress?.('Navigating to target URL...', 20);
+      let response: any = null;
       try {
-        await page.goto(url, {
+        response = await page.goto(url, {
           waitUntil: 'networkidle',
           timeout: options.timeoutMs || CONFIG.crawler.defaultTimeoutMs,
         });
       } catch {
         // Fallback to load state
-        await page.goto(url, {
+        response = await page.goto(url, {
           waitUntil: 'load',
           timeout: options.timeoutMs || CONFIG.crawler.defaultTimeoutMs,
-        });
+        }).catch(() => null);
+      }
+
+      // Check if target website rejected datacenter crawler (Cloudflare 403 / 429 / 503)
+      const isBlocked = response && (response.status() === 403 || response.status() === 429 || response.status() === 503);
+      if (isBlocked) {
+        if (options.htmlSnapshot && options.htmlSnapshot.length > 500) {
+          onProgress?.('Target blocked crawler (403). Using active tab snapshot...', 25);
+          await page.setContent(options.htmlSnapshot, { waitUntil: 'load' });
+        } else {
+          throw new Error(`Target website blocked server crawler with HTTP ${response.status()}.`);
+        }
       }
 
       if (options.waitForSelector) {

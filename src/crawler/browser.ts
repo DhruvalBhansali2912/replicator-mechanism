@@ -49,11 +49,43 @@ export class BrowserManager {
 
     const context = await browser.newContext({
       viewport,
-      userAgent: CONFIG.crawler.userAgent,
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
       isMobile,
       hasTouch: isMobile,
       deviceScaleFactor: 2, // High-DPI screenshots
       ignoreHTTPSErrors: true,
+      locale: 'en-US',
+      timezoneId: 'America/New_York',
+      extraHTTPHeaders: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-site': 'none',
+        'sec-fetch-user': '?1',
+        'Upgrade-Insecure-Requests': '1',
+      },
+    });
+
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+      (window as any).chrome = {
+        runtime: {},
+        loadTimes: () => {},
+        csi: () => {},
+        app: {},
+      };
+      Object.defineProperty(navigator, 'plugins', {
+        get: () => [1, 2, 3, 4, 5],
+      });
+      Object.defineProperty(navigator, 'languages', {
+        get: () => ['en-US', 'en'],
+      });
     });
 
     const page = await context.newPage();
