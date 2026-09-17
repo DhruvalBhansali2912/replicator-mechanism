@@ -80,7 +80,8 @@ async function handleStartExtraction({ url, options }) {
     throw new Error('Please enter your License Key before starting replication.');
   }
 
-  const endpoint = `${apiUrl.replace(/\/$/, '')}/api/extract`;
+  const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+  const endpoint = `${baseUrl}/api/extract`;
 
   const response = await fetch(endpoint, {
     method: 'POST',
@@ -108,8 +109,8 @@ async function handleStartExtraction({ url, options }) {
     progress: 0,
     currentStep: 'Job queued...',
     startedAt: Date.now(),
-    previewUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/preview`,
-    downloadUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/download`,
+    previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
+    downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
   };
 
   await chrome.storage.local.set({ activeJob: initialJob });
@@ -119,7 +120,7 @@ async function handleStartExtraction({ url, options }) {
   chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
 
   // Start background polling that persists across tab changes / popup closes
-  startPolling(jobId, apiUrl, apiKey, deviceId);
+  startPolling(jobId, baseUrl, apiKey, deviceId);
 
   return { success: true, jobId, activeJob: initialJob };
 }
@@ -130,14 +131,16 @@ async function handleStartExtraction({ url, options }) {
 function startPolling(jobId, apiUrl, apiKey, deviceId) {
   stopPolling();
 
+  const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+
   // Create an alarm watchdog to wake up service worker if minimized / suspended
   chrome.alarms.create('replicator_watchdog', { periodInMinutes: 0.2 });
 
   // Immediate first check
-  pollJobStep(jobId, apiUrl);
+  pollJobStep(jobId, baseUrl);
 
   pollingInterval = setInterval(async () => {
-    await pollJobStep(jobId, apiUrl);
+    await pollJobStep(jobId, baseUrl);
   }, 1500);
 }
 
@@ -145,7 +148,8 @@ let consecutiveErrors = 0;
 
 async function pollJobStep(jobId, apiUrl) {
   try {
-    const endpoint = `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}`;
+    const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+    const endpoint = `${baseUrl}/api/jobs/${jobId}`;
     const resp = await fetch(endpoint);
 
     if (!resp.ok) {
@@ -158,7 +162,9 @@ async function pollJobStep(jobId, apiUrl) {
           id: jobId,
           status: 'failed',
           progress: 0,
-          error: 'Replication job was lost during server restart. Please try again.',
+          error: resp.status === 404
+            ? 'Replication job expired or was reset during a server update. Please try again.'
+            : `Server returned HTTP ${resp.status}. Please try again.`,
         };
         await chrome.storage.local.set({ activeJob: failedJob });
       }
@@ -175,8 +181,8 @@ async function pollJobStep(jobId, apiUrl) {
       status: jobData.status,
       progress: jobData.progress || 0,
       currentStep: jobData.currentStep || 'Processing...',
-      previewUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/preview`,
-      downloadUrl: `${apiUrl.replace(/\/$/, '')}/api/jobs/${jobId}/download`,
+      previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
+      downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
       sectionCount: jobData.sections ? jobData.sections.length : 0,
       error: jobData.error,
       completedAt: jobData.completedAt,
@@ -303,7 +309,8 @@ async function refreshAccountBalance() {
   if (!apiKey) return { success: false, error: 'No API key' };
 
   try {
-    const endpoint = `${apiUrl.replace(/\/$/, '')}/api/keys/balance`;
+    const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+    const endpoint = `${baseUrl}/api/keys/balance`;
     const resp = await fetch(endpoint, {
       headers: {
         'X-API-Key': apiKey,

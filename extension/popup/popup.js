@@ -82,7 +82,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Check if there is an active or recently completed job
     if (store.activeJob) {
-      renderJobState(store.activeJob);
+      if (store.activeJob.status === 'failed') {
+        await chrome.storage.local.remove(['activeJob']);
+        showView('ready');
+      } else {
+        renderJobState(store.activeJob);
+      }
     } else {
       showView('ready');
     }
