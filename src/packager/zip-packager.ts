@@ -81,6 +81,35 @@ export class ZipPackager {
       finalMinifiedCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
     }
 
+    // Canonicalize any remaining unlocalized root-relative URLs (/assets, /fonts) to original origin
+    let origin = '';
+    try {
+      origin = new URL(url).origin;
+    } catch {}
+
+    if (origin) {
+      const $ = cheerio.load(finalHtml);
+      $('[src^="/"], [href^="/"], [poster^="/"]').each((_, el) => {
+        const $el = $(el);
+        const src = $el.attr('src');
+        if (src && src.startsWith('/') && !src.startsWith('//')) {
+          $el.attr('src', `${origin}${src}`);
+        }
+        const href = $el.attr('href');
+        if (href && href.startsWith('/') && !href.startsWith('//')) {
+          $el.attr('href', `${origin}${href}`);
+        }
+        const poster = $el.attr('poster');
+        if (poster && poster.startsWith('/') && !poster.startsWith('//')) {
+          $el.attr('poster', `${origin}${poster}`);
+        }
+      });
+      finalHtml = $.html();
+
+      finalCss = finalCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
+      finalMinifiedCss = finalMinifiedCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
+    }
+
     // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
     finalHtml = injectStylesAndScripts(finalHtml);
 

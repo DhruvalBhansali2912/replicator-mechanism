@@ -325,6 +325,32 @@ export function createServer(): express.Application {
     express.static(jobDir)(req, res, next);
   });
 
+  // Dynamic proxy/fallback for root-relative assets (/assets/*, /fonts/*, /wp-content/*, etc.)
+  // requested by preview pages when modern frameworks (Vite, React, Webpack) request chunks from root
+  app.use(['/assets', '/fonts', '/wp-content', '/wp-includes', '/static', '/media', '/_next'], (req: Request, res: Response, next) => {
+    const referer = req.headers.referer || '';
+    const match = referer.match(/\/api\/jobs\/([a-zA-Z0-9_-]+)\/preview/);
+    if (match) {
+      const jobId = match[1];
+      const job = jobs.get(jobId);
+      const relativeAssetPath = req.originalUrl.replace(/^\//, '');
+      const localFilePath = path.join(CONFIG.jobsDir, jobId, 'full-page', relativeAssetPath);
+      if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
+        res.sendFile(localFilePath);
+        return;
+      }
+      // If asset is not stored in full-page, redirect to original target origin
+      if (job && job.url) {
+        try {
+          const origin = new URL(job.url).origin;
+          res.redirect(302, `${origin}${req.originalUrl}`);
+          return;
+        } catch {}
+      }
+    }
+    next();
+  });
+
   // Apple-compatible Global Header and Search API fallbacks for preview mode
   app.get('/api-www/global-elements/global-header/v1/flyouts*', (_req: Request, res: Response): void => {
     const flyoutSample = path.join(CONFIG.jobsDir, '05d7c143', 'full-page', 'assets', 'flyouts.json');
