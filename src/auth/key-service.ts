@@ -168,13 +168,24 @@ export class KeyService {
         timestamp: now,
       });
     } else if (record.boundDeviceId !== deviceId) {
-      // 2. Key is already bound to another device
-      return {
-        valid: false,
-        error: 'DEVICE_MISMATCH',
-        message:
-          'This API key is already bound to another device. Multi-user key sharing is not permitted. Please reset your device binding or purchase a dedicated license.',
-      };
+      // Key was previously bound to another device.
+      // Auto-transfer device binding to current device upon explicit license activation.
+      const oldDevice = record.boundDeviceId;
+      record.boundDeviceId = deviceId;
+      record.boundDeviceName = deviceName || 'Chrome Browser';
+      record.deviceBoundAt = now;
+      record.updatedAt = now;
+      authDb.saveApiKey(record);
+
+      authDb.logAudit({
+        id: crypto.randomUUID(),
+        apiKey: record.apiKey,
+        action: 'bind_device',
+        delta: 0,
+        balanceAfter: record.tokensBalance,
+        reason: `Transferred device binding from ${oldDevice} to ${deviceId} (${record.boundDeviceName})`,
+        timestamp: now,
+      });
     }
 
     return {
