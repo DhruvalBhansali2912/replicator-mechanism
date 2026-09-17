@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Section Extractor & Offline Engine</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">⚡</div>
+        <div class="brand-text">
+          <h1>Web Deconstruct Engine</h1>
+          <p>Extract, Classify, Clean & Localize Websites with 100% Offline Fidelity</p>
+        </div>
+      </div>
+      <div class="header-badges">
+        <span class="badge api-badge">REST API Active</span>
+        <span class="badge vps-badge">VPS Ready</span>
+      </div>
+    </header>
+
+    <!-- Submission Card -->
+    <section class="card extraction-card">
+      <form id="extract-form">
+        <div class="input-group">
+          <input
+            type="url"
+            id="target-url"
+            placeholder="Enter website URL (e.g., https://stripe.com or https://linear.app)"
+            required
+          />
+          <button type="submit" id="submit-btn" class="primary-btn">
+            <span class="btn-text">Deconstruct & Extract</span>
+            <span class="spinner" hidden></span>
+          </button>
+        </div>
+
+        <div class="options-grid">
+          <label class="toggle-option">
+            <input type="checkbox" id="opt-rename" checked />
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">Rename Classes Semantically</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" id="opt-purge" checked />
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">Purge & Minify CSS</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" id="opt-links" checked />
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">Rewrite Internal Links to Relative (/abcd/)</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" id="opt-assets" checked />
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">Download Assets for Offline View</span>
+          </label>
+          <label class="toggle-option">
+            <input type="checkbox" id="opt-mobile" />
+            <span class="checkbox-custom"></span>
+            <span class="toggle-label">Mobile Emulation</span>
+          </label>
+        </div>
+      </form>
+    </section>
+
+    <!-- Progress Card -->
+    <section id="progress-card" class="card progress-card" hidden>
+      <div class="progress-header">
+        <span id="current-step-label">Initializing Playwright Chromium...</span>
+        <span id="progress-percentage">0%</span>
+      </div>
+      <div class="progress-bar-container">
+        <div id="progress-bar-fill" class="progress-bar-fill" style="width: 0%"></div>
+      </div>
+    </section>
+
+    <!-- Results Container -->
+    <main id="results-container" class="results-container" hidden>
+      <!-- Overview & Stats -->
+      <section class="card stats-card">
+        <div class="stats-header">
+          <div class="target-info">
+            <span class="pill-label">EXTRACTED TARGET</span>
+            <h2 id="result-url-display">https://example.com</h2>
+          </div>
+          <div class="action-buttons">
+            <a id="preview-btn" target="_blank" class="secondary-btn">🌐 Live Offline Preview</a>
+            <a id="download-zip-btn" class="primary-btn download-btn">📦 Download ZIP Package</a>
+          </div>
+        </div>
+
+        <div class="metrics-grid">
+          <div class="metric-box">
+            <span class="metric-val" id="stat-sections">0</span>
+            <span class="metric-name">Sections Extracted</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-val" id="stat-css-reduction">0%</span>
+            <span class="metric-name">CSS Reduction</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-val" id="stat-assets">0</span>
+            <span class="metric-name">Assets Localized</span>
+          </div>
+          <div class="metric-box">
+            <span class="metric-val" id="stat-html-size">0 KB</span>
+            <span class="metric-name">Cleaned HTML</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Sections Grid -->
+      <div class="content-split">
+        <!-- Section List (Left Column) -->
+        <div class="sections-column">
+          <h3 class="column-title">Extracted & Classified Sections</h3>
+          <div id="sections-list" class="sections-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Section Detail / Code Inspector (Right Column) -->
+        <div class="inspector-column">
+          <div class="card inspector-card">
+            <div class="inspector-header">
+              <div class="inspector-title">
+                <span id="inspector-badge" class="section-badge">s1-navbar</span>
+                <h3 id="inspector-name">Navigation Bar</h3>
+              </div>
+              <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="preview">Preview</button>
+                <button class="tab-btn" data-tab="html">HTML</button>
+                <button class="tab-btn" data-tab="css">CSS (Beautified)</button>
+                <button class="tab-btn" data-tab="min-css">CSS (Minified)</button>
+                <button class="tab-btn" data-tab="js">JS</button>
+                <button class="tab-btn" data-tab="meta">Metadata</button>
+              </div>
+            </div>
+
+            <div class="tab-contents">
+              <div id="tab-preview" class="tab-panel active">
+                <iframe id="section-iframe" title="Section Preview"></iframe>
+              </div>
+              <div id="tab-html" class="tab-panel">
+                <pre><code id="code-html">Loading HTML...</code></pre>
+              </div>
+              <div id="tab-css" class="tab-panel">
+                <pre><code id="code-css">Loading CSS...</code></pre>
+              </div>
+              <div id="tab-min-css" class="tab-panel">
+                <pre><code id="code-min-css">Loading Minified CSS...</code></pre>
+              </div>
+              <div id="tab-js" class="tab-panel">
+                <pre><code id="code-js">No scripts in this section.</code></pre>
+              </div>
+              <div id="tab-meta" class="tab-panel">
+                <pre><code id="code-meta">Loading Metadata...</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Past Jobs History -->
+    <section class="card history-card">
+      <h3>Recent Extraction Jobs</h3>
+      <div id="history-list" class="history-list">
+        <p class="empty-state">No jobs executed yet. Enter a URL above to start.</p>
+      </div>
+    </section>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

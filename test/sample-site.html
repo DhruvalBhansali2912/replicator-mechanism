@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ApexCloud - Cloud Infrastructure</title>
+  <style>
+    /* Global styles */
+    :root {
+      --primary-color: #4f46e5;
+      --text-dark: #111827;
+      --bg-light: #f9fafb;
+    }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: var(--text-dark);
+      background: #ffffff;
+    }
+    .tw-flex { display: flex; }
+    .tw-justify-between { justify-content: space-between; }
+    .tw-items-center { align-items: center; }
+    .tw-p-4 { padding: 1rem 2rem; }
+    .c-header-nav { background: #ffffff; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; z-index: 100; }
+    .c-logo-wrap { font-size: 1.25rem; font-weight: bold; color: var(--primary-color); }
+    .c-menu-list { list-style: none; display: flex; gap: 1.5rem; margin: 0; padding: 0; }
+    .c-menu-link { text-decoration: none; color: #4b5563; font-weight: 500; }
+    .c-menu-link:hover { color: var(--primary-color); }
+    .btn-primary-cta { background: var(--primary-color); color: #fff; padding: 0.5rem 1.2rem; border-radius: 6px; border: none; cursor: pointer; }
+    .c-mobile-btn { display: none; background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+
+    /* Hero */
+    .hero-wrapper-box { padding: 4rem 2rem; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%); text-align: center; }
+    .hero-h1-lead { font-size: 3rem; font-weight: 800; margin-bottom: 1rem; color: #1e1b4b; }
+    .hero-sub-text { font-size: 1.25rem; color: #6b7280; max-width: 600px; margin: 0 auto 2rem; }
+    .hero-img-box { margin-top: 2rem; max-width: 800px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+
+    /* Features */
+    .feat-section-container { padding: 4rem 2rem; background: #ffffff; }
+    .feat-grid-3col { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; max-width: 1100px; margin: 0 auto; }
+    .feat-card-item { padding: 2rem; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .feat-card-title { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+
+    /* Pricing */
+    .pricing-sec-wrap { padding: 4rem 2rem; background: #f3f4f6; text-align: center; }
+    .pricing-cards-flex { display: flex; justify-content: center; gap: 2rem; margin-top: 2rem; }
+    .price-card { background: white; padding: 2.5rem; border-radius: 8px; width: 280px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+    .price-val { font-size: 2.5rem; font-weight: 800; margin: 1rem 0; }
+    .price-per { font-size: 0.875rem; color: #6b7280; }
+
+    /* Testimonials */
+    .testi-sec-box { padding: 4rem 2rem; background: #ffffff; text-align: center; }
+    .testi-quote-txt { font-size: 1.25rem; font-style: italic; max-width: 700px; margin: 0 auto 1.5rem; color: #374151; }
+    .testi-author-name { font-weight: bold; color: #111827; }
+
+    /* Footer */
+    .site-footer-box { background: #111827; color: #9ca3af; padding: 3rem 2rem; }
+    .footer-content { max-width: 1100px; margin: 0 auto; display: flex; justify-content: space-between; }
+    .footer-copy { margin-top: 2rem; text-align: center; font-size: 0.875rem; border-top: 1px solid #374151; padding-top: 1.5rem; }
+  </style>
+</head>
+<body>
+  <!-- Section 1: Navigation Bar -->
+  <header class="c-header-nav tw-flex tw-justify-between tw-items-center tw-p-4" id="main-nav-bar">
+    <div class="c-logo-wrap">ApexCloud</div>
+    <ul class="c-menu-list">
+      <li><a class="c-menu-link" href="https://example.com/features">Features</a></li>
+      <li><a class="c-menu-link" href="https://example.com/pricing">Pricing</a></li>
+      <li><a class="c-menu-link" href="https://example.com/testimonials">Customers</a></li>
+      <li><a class="c-menu-link" href="https://example.com/contact/">Contact Us</a></li>
+    </ul>
+    <button class="btn-primary-cta" id="nav-cta-button">Sign Up</button>
+    <button class="c-mobile-btn" id="mobile-toggle-btn">&#9776;</button>
+  </header>
+
+  <!-- Section 2: Hero Section -->
+  <section class="hero-wrapper-box" id="hero-banner">
+    <h1 class="hero-h1-lead">Scale Your Infrastructure Seamlessly</h1>
+    <p class="hero-sub-text">Deploy lightning fast cloud instances across 45 global regions in under 10 seconds.</p>
+    <div>
+      <button class="btn-primary-cta" id="hero-get-started-btn">Start 14-Day Free Trial</button>
+    </div>
+  </section>
+
+  <!-- Section 3: Features / Cards -->
+  <section class="feat-section-container" id="features-showcase">
+    <div class="feat-grid-3col">
+      <div class="feat-card-item">
+        <h3 class="feat-card-title">Instant Provisioning</h3>
+        <p>Zero wait time with automatic container orchestration and bare-metal speeds.</p>
+      </div>
+      <div class="feat-card-item">
+        <h3 class="feat-card-title">Edge Acceleration</h3>
+        <p>Built-in globally distributed edge caching to minimize latency for all end users.</p>
+      </div>
+      <div class="feat-card-item">
+        <h3 class="feat-card-title">Enterprise Security</h3>
+        <p>End-to-end encryption with automatic DDoS protection and strict compliance.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 4: Pricing Section -->
+  <section class="pricing-sec-wrap" id="pricing-plans">
+    <h2>Transparent Pricing for Modern Teams</h2>
+    <div class="pricing-cards-flex">
+      <div class="price-card">
+        <h3>Starter</h3>
+        <div class="price-val">$19<span class="price-per">/month</span></div>
+        <p>Perfect for side projects and prototypes.</p>
+        <button class="btn-primary-cta">Choose Starter</button>
+      </div>
+      <div class="price-card">
+        <h3>Pro</h3>
+        <div class="price-val">$49<span class="price-per">/month</span></div>
+        <p>For growing startups and scaling apps.</p>
+        <button class="btn-primary-cta">Choose Pro</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section 5: Testimonials -->
+  <section class="testi-sec-box" id="customer-reviews">
+    <h2>What Engineering Leaders Say</h2>
+    <blockquote class="testi-quote-txt">
+      "ApexCloud reduced our compute costs by 40% while doubling our request throughput. It is the best cloud platform we have ever used."
+    </blockquote>
+    <div class="testi-author-name">Sarah Chen &mdash; VP of Engineering at TechFlow</div>
+  </section>
+
+  <!-- Section 6: Footer -->
+  <footer class="site-footer-box" id="site-footer">
+    <div class="footer-content">
+      <div>
+        <h4>ApexCloud Inc.</h4>
+        <p>Next generation cloud infrastructure.</p>
+      </div>
+      <div>
+        <a href="https://example.com/privacy-policy" style="color:#9ca3af;">Privacy Policy</a> &bull;
+        <a href="https://example.com/terms" style="color:#9ca3af;">Terms of Service</a>
+      </div>
+    </div>
+    <div class="footer-copy">
+      &copy; 2026 ApexCloud Technologies. All rights reserved.
+    </div>
+  </footer>
+
+  <script id="main-site-script">
+    // Interactive script: mobile menu toggle
+    const toggleBtn = document.querySelector('#mobile-toggle-btn');
+    const menuList = document.querySelector('.c-menu-list');
+    if (toggleBtn && menuList) {
+      toggleBtn.addEventListener('click', function() {
+        menuList.classList.toggle('tw-flex');
+      });
+    }
+
+    // Interactive button click
+    const ctaBtn = document.querySelector('#nav-cta-button');
+    if (ctaBtn) {
+      ctaBtn.addEventListener('click', function() {
+        console.log('Sign up clicked');
+      });
+    }
+  </script>
+</body>
+</html>
