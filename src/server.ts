@@ -40,10 +40,15 @@ export function createServer(): express.Application {
   // Start automated periodic cleanup of expired jobs & ZIP archives
   startPeriodicCleanup(jobs, CONFIG.cleanupIntervalMinutes, CONFIG.jobRetentionHours);
 
-  // Web Dashboard Static Assets
+  // Web Dashboard: Hidden by default so public visitors cannot directly access or use the generator
   const publicDir = path.resolve(__dirname, '../public');
-  if (fs.existsSync(publicDir)) {
+  if (CONFIG.enableWebDashboard && fs.existsSync(publicDir)) {
     app.use(express.static(publicDir));
+  } else {
+    // Redirect root domain to official website
+    app.get('/', (_req: Request, res: Response): void => {
+      res.redirect(302, 'https://inventkid.com');
+    });
   }
 
   // Health check endpoint

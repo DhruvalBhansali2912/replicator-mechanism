@@ -13,6 +13,7 @@ export const CONFIG = {
   masterSecret: process.env.REPLICATOR_MASTER_SECRET || 'repl_sec_dev_key_2026',
   jobRetentionHours: parseInt(process.env.JOB_RETENTION_HOURS || '24', 10),
   cleanupIntervalMinutes: parseInt(process.env.CLEANUP_INTERVAL_MINUTES || '60', 10),
+  enableWebDashboard: process.env.ENABLE_WEB_DASHBOARD === 'true',
   crawler: {
     userAgent:
       'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
