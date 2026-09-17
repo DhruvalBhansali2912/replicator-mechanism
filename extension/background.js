@@ -19,7 +19,50 @@ chrome.runtime.onInstalled.addListener(async () => {
   if (Object.keys(updates).length > 0) {
     await chrome.storage.local.set(updates);
   }
+
+  await registerUserAgentRule();
 });
+
+// Ensure outgoing requests carry custom User-Agent to bypass corporate proxies/Zscaler CBI
+async function registerUserAgentRule() {
+  if (!chrome.declarativeNetRequest) return;
+  try {
+    const { apiUrl } = await chrome.storage.local.get(['apiUrl']);
+    let targetHost = 'replicator.inventkid.com';
+    if (apiUrl) {
+      try {
+        targetHost = new URL(apiUrl).hostname;
+      } catch {}
+    }
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [1001],
+      addRules: [
+        {
+          id: 1001,
+          priority: 1,
+          action: {
+            type: 'modifyHeaders',
+            requestHeaders: [
+              {
+                header: 'User-Agent',
+                operation: 'set',
+                value: 'InventKid-Extension/1.0',
+              },
+            ],
+          },
+          condition: {
+            urlFilter: `||${targetHost}`,
+            resourceTypes: ['xmlhttprequest', 'other'],
+          },
+        },
+      ],
+    });
+  } catch (err) {
+    console.warn('Failed to register User-Agent header rule:', err);
+  }
+}
+
+registerUserAgentRule();
 
 // Resume background polling on Service Worker startup / wake-up if an active job is unfinished
 resumePendingJobIfAny();

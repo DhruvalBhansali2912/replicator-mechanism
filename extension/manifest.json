@@ -27,7 +27,8 @@
     "storage",
     "downloads",
     "notifications",
-    "alarms"
+    "alarms",
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "https://replicator.inventkid.com/*",
