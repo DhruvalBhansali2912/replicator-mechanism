@@ -363,6 +363,17 @@ function injectStylesAndScripts(html: string): string {
       };
     }
   })();
+
+  // Universal Cookie Banner & Consent Dismiss Handler (Runs in capture phase before frameworks mount)
+  document.addEventListener('click', function(e) {
+    var btn = e.target && e.target.closest ? e.target.closest('.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url') : null;
+    if (btn) {
+      var banner = btn.closest('.cookie-banner') || btn.closest('[class*="cookie-banner"]:not([class*="--"])') || btn.closest('[class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"]');
+      if (banner) {
+        banner.style.setProperty('display', 'none', 'important');
+      }
+    }
+  }, true);
   </script>`;
 
   if ($('head').length > 0) {
