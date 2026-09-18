@@ -45,6 +45,13 @@ const REPLICATOR_NAV_PATCH_CSS = `
 }
 `;
 
+const REPLICATOR_GLOBAL_PATCH_CSS = `
+/* Clean up obstructive cookie consent banners in static cloned previews */
+.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track {
+  display: none !important;
+}
+`;
+
 export class ZipPackager {
   private localizer = new AssetLocalizer();
 
@@ -87,6 +94,9 @@ export class ZipPackager {
       finalCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
       finalMinifiedCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
     }
+
+    finalCss += '\n' + REPLICATOR_GLOBAL_PATCH_CSS;
+    finalMinifiedCss += '\n' + REPLICATOR_GLOBAL_PATCH_CSS;
 
     // Canonicalize any remaining unlocalized root-relative URLs (/assets, /fonts) to original origin
     let origin = '';
@@ -193,6 +203,7 @@ export class ZipPackager {
     }
 
     $cleanup('[data-component-list*="InlineMedia"] .inline-media-wrapper').addClass('loaded playing');
+    $cleanup('.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track').remove();
     finalHtml = $cleanup.html();
 
     // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
