@@ -5,11 +5,13 @@
 
 // Initialize permanent Device ID and default configuration
 chrome.runtime.onInstalled.addListener(async () => {
-  const data = await chrome.storage.local.get(['deviceId', 'apiUrl']);
+  const data = await chrome.storage.local.get(['deviceId', 'apiUrl', 'apiKey']);
   const updates = {};
 
-  if (!data.deviceId) {
-    updates.deviceId = crypto.randomUUID();
+  let deviceId = data.deviceId;
+  if (!deviceId) {
+    deviceId = crypto.randomUUID();
+    updates.deviceId = deviceId;
   }
 
   if (!data.apiUrl) {
@@ -21,7 +23,52 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 
   await registerUserAgentRule();
+
+  // Auto-provision trial key with 3 free tokens if not already present
+  if (!data.apiKey) {
+    await ensureTrialProvisioned();
+  }
 });
+
+/**
+ * Automatically provisions a default trial API key pre-credited with 3 tokens.
+ */
+async function ensureTrialProvisioned() {
+  try {
+    const data = await chrome.storage.local.get(['apiKey', 'deviceId', 'apiUrl']);
+    if (data.apiKey) return { success: true, apiKey: data.apiKey };
+
+    let deviceId = data.deviceId;
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      await chrome.storage.local.set({ deviceId });
+    }
+
+    const apiUrl = (data.apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+    const res = await fetch(`${apiUrl}/api/keys/auto-trial`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId,
+        deviceName: 'Chrome Extension',
+      }),
+    });
+
+    const result = await res.json();
+    if (res.ok && result.success && result.apiKey) {
+      await chrome.storage.local.set({
+        apiKey: result.apiKey,
+        balance: result.balance !== undefined ? result.balance : 3,
+        isFreeTrial: result.isFreeTrial !== undefined ? result.isFreeTrial : true,
+      });
+      return { success: true, apiKey: result.apiKey, balance: result.balance };
+    }
+    return { success: false, error: result.error || 'Failed to auto-provision trial key' };
+  } catch (err) {
+    console.warn('Auto-provision trial failed:', err);
+    return { success: false, error: err.message };
+  }
+}
 
 // Ensure outgoing requests carry custom User-Agent to bypass corporate proxies/Zscaler CBI
 async function registerUserAgentRule() {
@@ -94,6 +141,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   if (request.action === 'REFRESH_BALANCE') {
     refreshAccountBalance()
+      .then((res) => sendResponse(res))
+      .catch((err) => sendResponse({ success: false, error: err.message }));
+    return true;
+  }
+
+  if (request.action === 'AUTO_PROVISION') {
+    ensureTrialProvisioned()
       .then((res) => sendResponse(res))
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;

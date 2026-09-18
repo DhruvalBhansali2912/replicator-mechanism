@@ -64,6 +64,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
+  // Copy API key to clipboard
+  const btnCopyOptions = document.getElementById('btn-copy-key-options');
+  btnCopyOptions?.addEventListener('click', async () => {
+    const key = inputApiKey.value.trim();
+    if (!key) {
+      showMessage('No API Key to copy.', 'error');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(key);
+      const orig = btnCopyOptions.textContent;
+      btnCopyOptions.textContent = '✓ Copied!';
+      setTimeout(() => {
+        btnCopyOptions.textContent = orig;
+      }, 2000);
+      showMessage('API Key copied to clipboard! Paste at checkout to recharge.', 'success');
+    } catch {
+      inputApiKey.select();
+      document.execCommand('copy');
+      showMessage('API Key copied to clipboard!', 'success');
+    }
+  });
+
   // Save License
   btnSaveLicense.addEventListener('click', async () => {
     const key = inputApiKey.value.trim();

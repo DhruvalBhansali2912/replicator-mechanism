@@ -26,11 +26,11 @@
     <!-- Alert / Banner message -->
     <div id="alert-banner" class="banner hidden"></div>
 
-    <!-- VIEW 1: License Activation (Shown when no key is set) -->
+    <!-- VIEW 1: License Activation (Fallback if auto-provision was offline) -->
     <div id="view-license" class="view hidden">
       <div class="card license-card">
         <h3>🔑 Activate Your License</h3>
-        <p class="text-muted">Enter your License Key from inventkid.com to start replicating pages.</p>
+        <p class="text-muted">Enter your License Key from inventkid.com or claim 3 free credits instantly.</p>
 
         <div class="input-group">
           <label for="input-api-key">License Key</label>
@@ -41,9 +41,13 @@
           Activate License
         </button>
 
+        <button id="btn-auto-provision-fallback" class="btn btn-secondary full-width" style="margin-top: 8px;">
+          ⚡ Get 3 Free Trial Tokens (Instant)
+        </button>
+
         <div class="license-footer">
           <a href="https://inventkid.com" target="_blank" class="link-btn" id="link-claim-credits">
-            🎁 Claim 3 Free Credits on InventKid.com
+            🛒 Buy Token Packs on InventKid.com
           </a>
         </div>
       </div>
@@ -57,6 +61,45 @@
           <span id="target-icon">🌐</span>
           <span id="target-url" class="truncate-url">Detecting active page...</span>
         </div>
+      </div>
+
+      <!-- API Key & Quick Copy Card -->
+      <div class="card api-key-card">
+        <div class="api-key-header">
+          <span class="card-label">YOUR EXTENSION API KEY</span>
+          <span id="trial-badge" class="key-badge">3 Free Tokens</span>
+        </div>
+        <div class="api-key-row">
+          <div class="key-field-container">
+            <input type="text" id="display-api-key" class="key-field font-mono" value="" readonly spellcheck="false" title="Click to copy full key" />
+          </div>
+          <button id="btn-copy-key" class="btn-copy-pill" title="Copy full API Key to clipboard">
+            <span id="btn-copy-icon">📋</span>
+            <span id="btn-copy-label">Copy</span>
+          </button>
+        </div>
+        <div class="key-hint">
+          💡 Paste this key at checkout on <a href="https://inventkid.com" target="_blank" class="store-link">inventkid.com</a> to top up tokens automatically.
+        </div>
+      </div>
+
+      <!-- Out of Tokens / Purchase Guide (Appears when balance is 0) -->
+      <div id="exhausted-card" class="card exhausted-card hidden">
+        <div class="exhausted-header">
+          <span class="exhausted-badge">⚠️ Tokens Exhausted</span>
+          <h4>Need More Replications?</h4>
+        </div>
+        <p class="exhausted-desc">
+          You have used your 3 free trial tokens. Purchase tokens on <strong>inventkid.com</strong> to continue cloning pages:
+        </p>
+        <div class="exhausted-steps">
+          <div class="step-item"><span class="step-num">1</span> <span>Click <strong>Copy</strong> above to copy your API key</span></div>
+          <div class="step-item"><span class="step-num">2</span> <span>Paste your key in the checkout field</span></div>
+          <div class="step-item"><span class="step-num">3</span> <span>Tokens will be added to this key instantly!</span></div>
+        </div>
+        <a href="https://inventkid.com" target="_blank" class="btn btn-success full-width btn-buy-store">
+          🛒 Buy Tokens on InventKid.com
+        </a>
       </div>
 
       <!-- Extraction Options Accordion -->

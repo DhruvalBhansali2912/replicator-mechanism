@@ -74,16 +74,35 @@ export function createServer(): express.Application {
     res.json({ record });
   });
 
+  // Auto-provision default trial key pre-credited with 3 tokens (called by Chrome Extension on first install/open)
+  app.post('/api/keys/auto-trial', (req: Request, res: Response): void => {
+    try {
+      const deviceId = (req.body?.deviceId || req.headers['x-device-id']) as string;
+      const deviceName = (req.body?.deviceName || req.headers['x-device-name']) as string;
+
+      if (!deviceId) {
+        res.status(400).json({ success: false, error: 'MISSING_DEVICE_ID', message: 'Field "deviceId" or X-Device-Id header is required.' });
+        return;
+      }
+
+      const result = keyService.provisionTrial(deviceId, deviceName);
+      res.json({ success: true, ...result });
+    } catch (err: any) {
+      res.status(400).json({ success: false, error: err.message });
+    }
+  });
+
   // Credit or issue API key (called by WooCommerce upon order completion)
   app.post('/api/keys/credit', requireMasterSecret, (req: Request, res: Response): void => {
     try {
-      const { email, tokens, orderId, isFreeTrial } = req.body;
-      if (!email || tokens === undefined) {
-        res.status(400).json({ success: false, error: 'MISSING_FIELDS', message: 'Fields "email" and "tokens" are required.' });
+      const { email, apiKey, tokens, orderId, isFreeTrial } = req.body;
+      if ((!email && !apiKey) || tokens === undefined) {
+        res.status(400).json({ success: false, error: 'MISSING_FIELDS', message: 'Fields "email" or "apiKey", and "tokens" are required.' });
         return;
       }
       const result = keyService.creditKey({
         email,
+        apiKey,
         tokens: Number(tokens),
         orderId,
         isFreeTrial: Boolean(isFreeTrial),

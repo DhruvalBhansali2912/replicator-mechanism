@@ -17,10 +17,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const inputApiKey = document.getElementById('input-api-key');
   const btnActivateKey = document.getElementById('btn-activate-key');
+  const btnAutoProvisionFallback = document.getElementById('btn-auto-provision-fallback');
   const btnStartExtract = document.getElementById('btn-start-extract');
   const btnRechargeTokens = document.getElementById('btn-recharge-tokens');
   const btnCancelProgress = document.getElementById('btn-cancel-progress');
   const btnSettingsToggle = document.getElementById('btn-settings-toggle');
+
+  const displayApiKey = document.getElementById('display-api-key');
+  const btnCopyKey = document.getElementById('btn-copy-key');
+  const btnCopyIcon = document.getElementById('btn-copy-icon');
+  const btnCopyLabel = document.getElementById('btn-copy-label');
+  const trialBadge = document.getElementById('trial-badge');
+  const exhaustedCard = document.getElementById('exhausted-card');
 
   const progressFill = document.getElementById('progress-bar-fill');
   const progressPercentText = document.getElementById('progress-percent-text');
@@ -45,21 +53,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // 2. Load Stored Data
-  const store = await chrome.storage.local.get([
+  let store = await chrome.storage.local.get([
     'apiKey',
     'deviceId',
     'balance',
     'apiUrl',
     'activeJob',
+    'isFreeTrial',
   ]);
 
   const apiUrl = store.apiUrl || 'https://replicator.inventkid.com';
   serverUrlDisplay.textContent = `Server: ${apiUrl.replace(/^https?:\/\//, '')}`;
 
-  // Check if API key is present
+  // If no API key is present, auto-provision default 3-token trial key immediately
+  if (!store.apiKey) {
+    try {
+      const provRes = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'AUTO_PROVISION' }, resolve);
+      });
+      if (provRes && provRes.success && provRes.apiKey) {
+        store.apiKey = provRes.apiKey;
+        store.balance = provRes.balance !== undefined ? provRes.balance : 3;
+        store.isFreeTrial = provRes.isFreeTrial !== undefined ? provRes.isFreeTrial : true;
+      }
+    } catch (e) {
+      console.warn('Auto-provision during popup load failed:', e);
+    }
+  }
+
+  // Check if API key is present after auto-provision attempt
   if (!store.apiKey) {
     showView('license');
   } else {
+    // Populate display key
+    if (displayApiKey) {
+      displayApiKey.value = store.apiKey;
+    }
+
     if (store.balance !== undefined) {
       updateBalanceDisplay(store.balance);
     }
@@ -142,6 +172,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         updateBalanceDisplay(data.balance);
+        if (displayApiKey) {
+          displayApiKey.value = key;
+        }
         showAlert('License activated successfully!', 'info');
         setTimeout(() => {
           hideAlert();
@@ -157,6 +190,71 @@ document.addEventListener('DOMContentLoaded', async () => {
       btnActivateKey.textContent = 'Activate License';
     }
   });
+
+  // Fallback Auto-Provision Button
+  btnAutoProvisionFallback?.addEventListener('click', async () => {
+    btnAutoProvisionFallback.disabled = true;
+    btnAutoProvisionFallback.textContent = 'Generating Key...';
+
+    try {
+      const provRes = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'AUTO_PROVISION' }, resolve);
+      });
+
+      if (provRes && provRes.success && provRes.apiKey) {
+        store.apiKey = provRes.apiKey;
+        store.balance = provRes.balance !== undefined ? provRes.balance : 3;
+        if (displayApiKey) {
+          displayApiKey.value = provRes.apiKey;
+        }
+        updateBalanceDisplay(store.balance);
+        showAlert('🎉 3 Free Trial Tokens credited!', 'info');
+        setTimeout(() => {
+          hideAlert();
+          showView('ready');
+        }, 1000);
+      } else {
+        showAlert(provRes?.error || 'Failed to generate trial key', 'error');
+      }
+    } catch (e) {
+      showAlert(`Error: ${e.message}`, 'error');
+    } finally {
+      btnAutoProvisionFallback.disabled = false;
+      btnAutoProvisionFallback.textContent = '⚡ Get 3 Free Trial Tokens (Instant)';
+    }
+  });
+
+  // 1-Click Copy API Key Handler
+  async function copyApiKeyToClipboard() {
+    const keyToCopy = (displayApiKey && displayApiKey.value) || store.apiKey;
+    if (!keyToCopy) return;
+
+    try {
+      await navigator.clipboard.writeText(keyToCopy);
+      if (btnCopyKey) {
+        btnCopyKey.classList.add('copied');
+        if (btnCopyIcon) btnCopyIcon.textContent = '✓';
+        if (btnCopyLabel) btnCopyLabel.textContent = 'Copied!';
+        setTimeout(() => {
+          btnCopyKey.classList.remove('copied');
+          if (btnCopyIcon) btnCopyIcon.textContent = '📋';
+          if (btnCopyLabel) btnCopyLabel.textContent = 'Copy';
+        }, 2000);
+      }
+      showAlert('✓ API Key copied! Paste it at checkout on inventkid.com to add tokens.', 'info');
+      setTimeout(() => hideAlert(), 4500);
+    } catch (err) {
+      if (displayApiKey) {
+        displayApiKey.select();
+        document.execCommand('copy');
+      }
+      showAlert('API Key copied to clipboard!', 'info');
+      setTimeout(() => hideAlert(), 3000);
+    }
+  }
+
+  btnCopyKey?.addEventListener('click', copyApiKeyToClipboard);
+  displayApiKey?.addEventListener('click', copyApiKeyToClipboard);
 
   // Start Replication Button
   btnStartExtract.addEventListener('click', async () => {
@@ -380,8 +478,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   function updateBalanceDisplay(count) {
     balanceCount.textContent = count !== undefined ? `${count}` : '--';
     if (count !== undefined && count < 1) {
+      exhaustedCard?.classList.remove('hidden');
+      btnStartExtract.disabled = true;
+      btnStartExtract.innerHTML = '<span class="btn-icon">⚠️</span> <span class="btn-text">Tokens Depleted (0 Remaining)</span>';
       btnRechargeTokens?.classList.remove('hidden');
     } else {
+      exhaustedCard?.classList.add('hidden');
+      btnStartExtract.disabled = false;
+      btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate Page (-1 Token)</span>';
       btnRechargeTokens?.classList.add('hidden');
     }
   }
