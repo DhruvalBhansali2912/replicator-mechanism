@@ -111,7 +111,7 @@ export class PageExtractor {
       // 4. Extract rendered DOM and all CSS/JS
       onProgress?.('Extracting live DOM and stylesheets...', 50);
       const renderedHtml = await page.content();
-      const extractedStylesheets = await page.evaluate(() => {
+      const extractedStylesheets = await page.evaluate(async () => {
         const results: { text: string; baseHref: string }[] = [];
 
         // Inline <style> tags
@@ -124,20 +124,32 @@ export class PageExtractor {
           }
         });
 
-        // Embedded stylesheets from rules if accessible
+        // Embedded stylesheets from rules if accessible, or fetch in page context if cross-origin
         for (let i = 0; i < document.styleSheets.length; i++) {
+          const sheet = document.styleSheets[i];
+          const baseHref = sheet.href || document.baseURI || window.location.href;
+          let sheetText = '';
           try {
-            const sheet = document.styleSheets[i];
-            const baseHref = sheet.href || document.baseURI || window.location.href;
-            let sheetText = '';
-            for (let j = 0; j < sheet.cssRules.length; j++) {
-              sheetText += sheet.cssRules[j].cssText + '\n';
-            }
-            if (sheetText) {
-              results.push({ text: sheetText, baseHref });
+            if (sheet.cssRules && sheet.cssRules.length > 0) {
+              for (let j = 0; j < sheet.cssRules.length; j++) {
+                sheetText += sheet.cssRules[j].cssText + '\n';
+              }
             }
           } catch {
-            // Cross-origin stylesheet security restriction, will fallback to fetching links
+            // Cross-origin stylesheet security restriction
+          }
+
+          if (!sheetText && sheet.href && !sheet.href.startsWith('chrome-extension://')) {
+            try {
+              const resp = await fetch(sheet.href);
+              if (resp.ok) {
+                sheetText = await resp.text();
+              }
+            } catch {}
+          }
+
+          if (sheetText) {
+            results.push({ text: sheetText, baseHref });
           }
         }
         return results;

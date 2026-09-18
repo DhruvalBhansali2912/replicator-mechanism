@@ -302,20 +302,54 @@ document.addEventListener('DOMContentLoaded', async () => {
               await new Promise((r) => setTimeout(r, 300));
             }
 
-            // 3. Extract loaded CSS rules directly from document.styleSheets
+            // 3. Extract loaded CSS rules directly from document.styleSheets and <link rel="stylesheet">
             const stylesheets = [];
+            const fetchedHrefs = new Set();
+
             for (let i = 0; i < document.styleSheets.length; i++) {
+              const sheet = document.styleSheets[i];
+              let css = '';
               try {
-                const sheet = document.styleSheets[i];
-                let css = '';
-                for (let j = 0; j < sheet.cssRules.length; j++) {
-                  css += sheet.cssRules[j].cssText + '\n';
-                }
-                if (css.trim()) {
-                  stylesheets.push(css);
+                if (sheet.cssRules && sheet.cssRules.length > 0) {
+                  for (let j = 0; j < sheet.cssRules.length; j++) {
+                    css += sheet.cssRules[j].cssText + '\n';
+                  }
                 }
               } catch (e) {
                 // Cross-origin CSS rule security restriction
+              }
+
+              // If sheet could not be read via cssRules (cross-origin/CDN), fetch it directly inside the tab context!
+              if (!css.trim() && sheet.href && !sheet.href.startsWith('chrome-extension://')) {
+                try {
+                  fetchedHrefs.add(sheet.href);
+                  const resp = await fetch(sheet.href);
+                  if (resp.ok) {
+                    css = await resp.text();
+                  }
+                } catch (fetchErr) {}
+              }
+
+              if (css.trim()) {
+                stylesheets.push(css);
+              }
+            }
+
+            // Also check all <link rel="stylesheet"> tags in the document to ensure no external CDN styles were missed
+            const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+            for (const link of links) {
+              const href = link.href;
+              if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
+                try {
+                  fetchedHrefs.add(href);
+                  const resp = await fetch(href);
+                  if (resp.ok) {
+                    const text = await resp.text();
+                    if (text.trim()) {
+                      stylesheets.push(text);
+                    }
+                  }
+                } catch (e) {}
               }
             }
 

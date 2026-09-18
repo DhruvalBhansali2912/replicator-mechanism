@@ -209,7 +209,13 @@ export class AssetLocalizer {
       if (src) {
         const absUrl = resolveUrl(src, baseUrl);
         const local = this.getLocalPath(absUrl);
-        if (local) $el.attr('src', `./assets/${local}`);
+        if (local) {
+          $el.attr('src', `./assets/${local}`);
+        } else if (absUrl.startsWith(origin) || absUrl.includes('/assets/js/') || absUrl.includes('_bm') || absUrl.includes('_sec')) {
+          // If a private script from the target domain was not localized (e.g. rejected by bot defense),
+          // keeping the remote src will fail with ERR_BLOCKED_BY_ORB or CORS errors in the browser.
+          $el.remove();
+        }
       }
     });
 

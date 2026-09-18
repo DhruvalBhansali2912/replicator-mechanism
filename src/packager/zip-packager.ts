@@ -325,6 +325,12 @@ function injectStylesAndScripts(html: string): string {
       src.includes('errlog') ||
       src.includes('location-script') ||
       src.includes('datadog') ||
+      src.includes('akamai') ||
+      src.includes('_bm') ||
+      src.includes('_sec') ||
+      src.includes('chat-config') ||
+      src.includes('help-me-charge') ||
+      src.includes('cuaverse') ||
       /index-[a-z0-9_-]+\.js/i.test(src) ||
       content.includes('gtag(') ||
       content.includes('dataLayer') ||
@@ -341,6 +347,9 @@ function injectStylesAndScripts(html: string): string {
     if (
       href.includes('tawk') ||
       href.includes('twk-') ||
+      href.includes('akamai') ||
+      href.includes('_bm') ||
+      href.includes('_sec') ||
       /index-[a-z0-9_-]+\.js/i.test(href)
     ) {
       $(el).remove();
@@ -360,7 +369,7 @@ function injectStylesAndScripts(html: string): string {
   };
   globalThis.require = window.require;
 
-  // Intercept CORS-restricted global nav and flyouts APIs to route through local proxy
+  // Intercept CORS-restricted and internal API calls to prevent unhandled network exceptions
   (function() {
     const _origFetch = window.fetch;
     if (_origFetch) {
@@ -369,8 +378,52 @@ function injectStylesAndScripts(html: string): string {
           if (url.includes('apple.com/api-www/')) {
             url = url.replace(/^https?:\\/\\/[^\\/]+/, '');
           }
+          if (
+            url.includes('_sec/') ||
+            url.includes('_bm/') ||
+            url.includes('chat-config') ||
+            url.includes('help-me-charge') ||
+            url.includes('cuaverse') ||
+            url.includes('datadog')
+          ) {
+            return Promise.resolve(new Response(JSON.stringify({}), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+          }
         }
-        return _origFetch.call(this, url, options);
+        return _origFetch.call(this, url, options).catch(function() {
+          return Promise.resolve(new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        });
+      };
+    }
+
+    if (window.XMLHttpRequest) {
+      const _origOpen = XMLHttpRequest.prototype.open;
+      const _origSend = XMLHttpRequest.prototype.send;
+      XMLHttpRequest.prototype.open = function(method, url) {
+        this._reqUrl = typeof url === 'string' ? url : '';
+        return _origOpen.apply(this, arguments);
+      };
+      XMLHttpRequest.prototype.send = function() {
+        var u = (this._reqUrl || '').toLowerCase();
+        if (
+          u.includes('_sec/') ||
+          u.includes('_bm/') ||
+          u.includes('chat-config') ||
+          u.includes('help-me-charge') ||
+          u.includes('cuaverse')
+        ) {
+          var self = this;
+          setTimeout(function() {
+            try {
+              Object.defineProperty(self, 'readyState', { value: 4, writable: true });
+              Object.defineProperty(self, 'status', { value: 200, writable: true });
+              Object.defineProperty(self, 'responseText', { value: '{}', writable: true });
+              if (typeof self.onreadystatechange === 'function') self.onreadystatechange();
+              if (typeof self.onload === 'function') self.onload();
+            } catch(e) {}
+          }, 10);
+          return;
+        }
+        return _origSend.apply(this, arguments);
       };
     }
   })();
