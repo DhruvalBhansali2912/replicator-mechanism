@@ -59,24 +59,46 @@ export class PageExtractor {
         }).catch(() => null);
       }
 
-      // Check if target website rejected datacenter crawler (Cloudflare 403 / 429 / 503)
-      const isBlocked = response && (response.status() === 403 || response.status() === 429 || response.status() === 503);
+      // Check if target website rejected datacenter crawler (Cloudflare / Akamai 403 / 429 / 503)
+      const isBlocked = !response || (response.status() === 403 || response.status() === 429 || response.status() === 503);
       if (isBlocked) {
         if (options.htmlSnapshot && options.htmlSnapshot.length > 500) {
-          onProgress?.('Target blocked crawler (403). Using active tab snapshot...', 25);
-          await page.setContent(options.htmlSnapshot, { waitUntil: 'load' });
+          onProgress?.('Target blocked crawler (403/CDN). Using active tab snapshot...', 25);
+          let snapshotHtml = options.htmlSnapshot;
+          if (!/<base\s/i.test(snapshotHtml)) {
+            if (/<head[^>]*>/i.test(snapshotHtml)) {
+              snapshotHtml = snapshotHtml.replace(/<head[^>]*>/i, (m) => `${m}\n<base href="${url}">`);
+            } else {
+              snapshotHtml = `<base href="${url}">\n` + snapshotHtml;
+            }
+          }
+          if (options.clientStylesheets && options.clientStylesheets.length > 0) {
+            const clientStyles = options.clientStylesheets
+              .filter(Boolean)
+              .map((css) => `<style data-client-snapshot="true">${css}</style>`)
+              .join('\n');
+            if (/<head[^>]*>/i.test(snapshotHtml)) {
+              snapshotHtml = snapshotHtml.replace(/<head[^>]*>/i, (m) => `${m}\n${clientStyles}`);
+            } else {
+              snapshotHtml = clientStyles + '\n' + snapshotHtml;
+            }
+          }
+          await page.setContent(snapshotHtml, { waitUntil: 'load' });
         } else {
-          throw new Error(`Target website blocked server crawler with HTTP ${response.status()}.`);
+          throw new Error(`Target website blocked server crawler with HTTP ${response ? response.status() : 'ERROR'}.`);
         }
       }
 
       if (options.waitForSelector) {
         await page.waitForSelector(options.waitForSelector, { timeout: 10000 }).catch(() => {});
+      } else {
+        // Wait for SPA client containers (React / Next.js / Vue) to mount into DOM
+        await page.waitForSelector('#root > *, #app > *, #__next > *, main, [role="main"], body > div', { timeout: 8000 }).catch(() => {});
       }
 
-      // 2. Trigger lazy loading and animations
+      // 2. Trigger lazy loading, dynamic hydration, and animations
       onProgress?.('Triggering animations & lazy-loaded assets...', 30);
-      await this.scrollPage(page);
+      await this.scrollAndSettlePage(page);
       await page.waitForTimeout(CONFIG.crawler.settleWaitMs);
 
       // 3. Capture full page screenshot
@@ -137,6 +159,13 @@ export class PageExtractor {
       };
 
       const resolvedStylesheets: string[] = [];
+      if (options.clientStylesheets && options.clientStylesheets.length > 0) {
+        for (const item of options.clientStylesheets) {
+          if (item && item.trim()) {
+            resolvedStylesheets.push(resolveCssUrls(item, url));
+          }
+        }
+      }
       for (const item of extractedStylesheets) {
         resolvedStylesheets.push(resolveCssUrls(item.text, item.baseHref));
       }
@@ -315,24 +344,46 @@ export class PageExtractor {
     }
   }
 
-  private async scrollPage(page: any): Promise<void> {
+  private async scrollAndSettlePage(page: any): Promise<void> {
+    // 1. Scroll through page smoothly in steps with pauses so IntersectionObservers fire
     await page.evaluate(async () => {
-      await new Promise<void>((resolve) => {
-        let totalHeight = 0;
-        const distance = 400;
-        const timer = setInterval(() => {
-          const scrollHeight = document.body.scrollHeight;
-          window.scrollBy(0, distance);
-          totalHeight += distance;
+      const scrollStep = Math.max(350, Math.floor(window.innerHeight * 0.7));
+      const maxScroll = Math.min(document.body.scrollHeight, 25000);
 
-          if (totalHeight >= scrollHeight || totalHeight > 15000) {
-            clearInterval(timer);
-            window.scrollTo(0, 0); // Scroll back to top
-            resolve();
-          }
-        }, 150);
-      });
+      // Scroll down step-by-step
+      for (let y = 0; y < maxScroll; y += scrollStep) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 180));
+      }
+
+      // Settle at the bottom of the page where talent / footer / async sections are
+      window.scrollTo(0, maxScroll);
+      await new Promise((r) => setTimeout(r, 1200));
+
+      // Scroll back up step-by-step
+      for (let y = maxScroll; y > 0; y -= scrollStep * 2) {
+        window.scrollTo(0, y);
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      window.scrollTo(0, 0);
     });
+
+    // 2. Wait for network requests to settle
+    await page.waitForLoadState('networkidle', { timeout: 3500 }).catch(() => {});
+
+    // 3. Monitor dynamic skeleton loaders / pulse animations / placeholders
+    // Wait until placeholders are replaced by real content (up to 4.5 seconds max)
+    const settleStart = Date.now();
+    while (Date.now() - settleStart < 4500) {
+      const hasActiveSkeletons = await page.evaluate(() => {
+        const skeletons = document.querySelectorAll(
+          '.animate-pulse, [class*="skeleton"], [class*="loading-placeholder"], .exclusive-offers-empty'
+        );
+        return skeletons.length > 0;
+      });
+      if (!hasActiveSkeletons) break;
+      await page.waitForTimeout(400);
+    }
   }
 
   private async detectSections(page: any): Promise<

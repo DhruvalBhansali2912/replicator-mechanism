@@ -172,19 +172,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     btnStartExtract.disabled = true;
+    btnStartExtract.textContent = 'Preparing Page...';
     hideAlert();
 
-    // Capture client DOM snapshot as anti-bot / Cloudflare bypass fallback
+    // Capture client DOM snapshot and stylesheets as anti-bot / Cloudflare bypass fallback
     let htmlSnapshot = '';
+    let clientStylesheets = [];
     try {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tab && tab.id && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
         const results = await chrome.scripting.executeScript({
           target: { tabId: tab.id },
-          func: () => document.documentElement.outerHTML,
+          func: async () => {
+            // 1. Scroll page smoothly to trigger any lazy loaders & intersection observers in tab
+            const scrollHeight = document.body.scrollHeight;
+            const vh = window.innerHeight;
+            for (let y = 0; y < scrollHeight; y += vh) {
+              window.scrollTo(0, y);
+              await new Promise((r) => setTimeout(r, 60));
+            }
+            window.scrollTo(0, 0);
+            await new Promise((r) => setTimeout(r, 400));
+
+            // 2. Wait up to 2.5s for skeletons if present
+            const start = Date.now();
+            while (Date.now() - start < 2500) {
+              const skeletons = document.querySelectorAll(
+                '.animate-pulse, [class*="skeleton"], .exclusive-offers-empty, [class*="loading-placeholder"]'
+              );
+              if (skeletons.length === 0) break;
+              await new Promise((r) => setTimeout(r, 300));
+            }
+
+            // 3. Extract loaded CSS rules directly from document.styleSheets
+            const stylesheets = [];
+            for (let i = 0; i < document.styleSheets.length; i++) {
+              try {
+                const sheet = document.styleSheets[i];
+                let css = '';
+                for (let j = 0; j < sheet.cssRules.length; j++) {
+                  css += sheet.cssRules[j].cssText + '\n';
+                }
+                if (css.trim()) {
+                  stylesheets.push(css);
+                }
+              } catch (e) {
+                // Cross-origin CSS rule security restriction
+              }
+            }
+
+            return {
+              html: document.documentElement.outerHTML,
+              stylesheets: stylesheets,
+            };
+          },
         });
+
         if (results && results[0] && results[0].result) {
-          htmlSnapshot = results[0].result;
+          htmlSnapshot = results[0].result.html;
+          clientStylesheets = results[0].result.stylesheets || [];
         }
       }
     } catch (e) {
@@ -197,6 +243,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       purgeCss: document.getElementById('opt-purge').checked,
       renameClasses: document.getElementById('opt-rename').checked,
       htmlSnapshot: htmlSnapshot || undefined,
+      clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
     };
 
     // Delegate execution to background.js so it continues if popup closes
@@ -207,6 +254,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       (res) => {
         btnStartExtract.disabled = false;
+        btnStartExtract.textContent = 'Replicate Current Page';
         if (res && res.success) {
           renderJobState(res.activeJob);
         } else {

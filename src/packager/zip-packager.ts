@@ -309,10 +309,84 @@ function injectStylesAndScripts(html: string): string {
     $.root().prepend('\n<link rel="stylesheet" href="./style.css">\n');
   }
 
+  // Universal Mobile Navigation & Hamburger Toggle Shim
+  const mobileNavShim = `
+  <script>
+  (function() {
+    function initMobileNav() {
+      const getElements = function(sel) { return Array.from(document.querySelectorAll(sel)); };
+
+      document.addEventListener('click', function(e) {
+        var target = e.target;
+        if (!target || !(target instanceof Element)) return;
+
+        // 1. Close Button or Overlay Click
+        var closeBtn = target.closest('.mobile-menu-close, [aria-label*="close" i], [class*="close-menu"]');
+        var overlay = target.closest('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]');
+        if (closeBtn || (overlay && target === overlay)) {
+          getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]').forEach(function(el) {
+            el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
+          });
+          getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]').forEach(function(el) {
+            el.classList.remove('show', 'open', 'active');
+          });
+          document.body.classList.remove('menu-open', 'mobile-menu-open', 'overflow-hidden');
+          return;
+        }
+
+        // 2. Hamburger / Menu Toggle Click
+        var toggleBtn = target.closest(
+          '.mobile-menu-btn, button[class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"]'
+        );
+        if (toggleBtn) {
+          e.preventDefault();
+          e.stopPropagation();
+          var menus = getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]');
+          var overlays = getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]');
+          var willOpen = !menus.some(function(m) {
+            return m.classList.contains('mobile-menu-open') || m.classList.contains('open');
+          });
+
+          menus.forEach(function(m) {
+            m.classList.toggle('mobile-menu-open', willOpen);
+            m.classList.toggle('open', willOpen);
+            m.classList.toggle('active', willOpen);
+          });
+          overlays.forEach(function(o) {
+            o.classList.toggle('show', willOpen);
+            o.classList.toggle('open', willOpen);
+            o.classList.toggle('active', willOpen);
+          });
+          document.body.classList.toggle('menu-open', willOpen);
+          toggleBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+          return;
+        }
+
+        // 3. Mobile Navigation Accordion Sub-links
+        var subNavBtn = target.closest('.mobile-nav-item > button, .mobile-nav-link');
+        if (subNavBtn && subNavBtn.tagName === 'BUTTON') {
+          var next = subNavBtn.nextElementSibling;
+          if (next) {
+            e.preventDefault();
+            next.classList.toggle('hidden');
+            next.classList.toggle('open');
+          }
+        }
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMobileNav);
+    } else {
+      initMobileNav();
+    }
+  })();
+  </script>`;
+
   if ($('body').length > 0) {
-    $('body').append('\n  <script src="./script.js" defer></script>\n');
+    $('body').append('\n  <script src="./script.js" defer></script>\n' + mobileNavShim + '\n');
   } else {
-    $.root().append('\n<script src="./script.js" defer></script>\n');
+    $.root().append('\n<script src="./script.js" defer></script>\n' + mobileNavShim + '\n');
   }
 
   let finalHtmlStr = $.html();
