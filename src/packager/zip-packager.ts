@@ -136,6 +136,17 @@ export class ZipPackager {
       finalMinifiedCss = finalMinifiedCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
     }
 
+    // Sanitize CDN transform commas in URLs
+    finalHtml = finalHtml.replace(/upload\/([^/"'>]+)\//gi, (m, seg) => {
+      return 'upload/' + seg.replace(/,\s*/g, '%2C').replace(/,/g, '%2C').replace(/\s+/g, '') + '/';
+    });
+    finalCss = finalCss.replace(/upload\/([^/"'>]+)\//gi, (m, seg) => {
+      return 'upload/' + seg.replace(/,\s*/g, '%2C').replace(/,/g, '%2C').replace(/\s+/g, '') + '/';
+    });
+    finalMinifiedCss = finalMinifiedCss.replace(/upload\/([^/"'>]+)\//gi, (m, seg) => {
+      return 'upload/' + seg.replace(/,\s*/g, '%2C').replace(/,/g, '%2C').replace(/\s+/g, '') + '/';
+    });
+
     // Clean up empty dummy picture sources that block offline image rendering
     const $cleanup = cheerio.load(finalHtml);
     $cleanup('picture source').each((_, el) => {
@@ -149,6 +160,19 @@ export class ZipPackager {
         srcset === ''
       ) {
         $el.remove();
+      }
+    });
+
+    // Ensure every <picture> has an <img> fallback child for offline/static rendering
+    $cleanup('picture').each((_, el) => {
+      const $p = $cleanup(el);
+      if ($p.find('img').length === 0) {
+        const firstSource = $p.find('source').first();
+        const srcset = (firstSource.attr('srcset') || firstSource.attr('src') || '').trim();
+        if (srcset) {
+          const firstUrl = srcset.split(/\s+/)[0];
+          $p.append(`<img src="${firstUrl}" class="tcl-react-media__asset" alt="">`);
+        }
       }
     });
 
@@ -285,6 +309,10 @@ function injectStylesAndScripts(html: string): string {
       src.includes('googletagmanager') ||
       src.includes('facebook') ||
       src.includes('launch-') ||
+      src.includes('sentry') ||
+      src.includes('errlog') ||
+      src.includes('location-script') ||
+      src.includes('datadog') ||
       /index-[a-z0-9_-]+\.js/i.test(src) ||
       content.includes('gtag(') ||
       content.includes('dataLayer') ||
@@ -406,6 +434,18 @@ function injectStylesAndScripts(html: string): string {
             next.classList.toggle('hidden');
             next.classList.toggle('open');
           }
+        }
+
+        // 4. Cookie Banner & Consent Dismiss Click
+        var cookieBtn = target.closest(
+          '.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url'
+        );
+        if (cookieBtn) {
+          var banner = cookieBtn.closest('.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-banner"]');
+          if (banner) {
+            banner.style.display = 'none';
+          }
+          return;
         }
       });
     }

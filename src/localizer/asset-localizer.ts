@@ -37,6 +37,15 @@ export class AssetLocalizer {
       // ignore
     }
 
+    // Sanitize commas and spaces in asset URLs (e.g. Cloudinary / Tesla transforms: upload/f_auto, q_auto)
+    // Unencoded commas break srcset candidate parsing both in HTML parsers and in browsers.
+    html = html.replace(/upload\/([^/"'>]+)\//gi, (m, seg) => {
+      return 'upload/' + seg.replace(/,\s*/g, '%2C').replace(/,/g, '%2C').replace(/\s+/g, '') + '/';
+    });
+    css = css.replace(/upload\/([^/"'>]+)\//gi, (m, seg) => {
+      return 'upload/' + seg.replace(/,\s*/g, '%2C').replace(/,/g, '%2C').replace(/\s+/g, '') + '/';
+    });
+
     const $ = cheerio.load(html);
     const assetUrlsToDownload: Set<string> = new Set();
 
@@ -389,6 +398,10 @@ function isTrackingOrAnalytics(url: string): boolean {
     lower.includes('hotjar') ||
     lower.includes('clarity.ms') ||
     lower.includes('segment.io') ||
-    lower.includes('stats.wp.com')
+    lower.includes('stats.wp.com') ||
+    lower.includes('sentry') ||
+    lower.includes('errlog') ||
+    lower.includes('location-script') ||
+    lower.includes('datadog')
   );
 }
