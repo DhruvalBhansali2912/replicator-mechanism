@@ -442,9 +442,9 @@ function injectStylesAndScripts(html: string): string {
           '.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url'
         );
         if (cookieBtn) {
-          var banner = cookieBtn.closest('.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-banner"]');
+          var banner = cookieBtn.closest('.cookie-banner') || cookieBtn.closest('[class*="cookie-banner"]:not([class*="--"])') || cookieBtn.closest('[class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"]');
           if (banner) {
-            banner.style.display = 'none';
+            banner.style.setProperty('display', 'none', 'important');
           }
           return;
         }
