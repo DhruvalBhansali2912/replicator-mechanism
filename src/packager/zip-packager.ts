@@ -71,8 +71,8 @@ export class ZipPackager {
       'utf8'
     );
 
-    // 1. Localize assets for full-page
-    let finalHtml = result.transformedHtml;
+    // Strip <base> tags so all relative paths (./assets, ./style.css, ./script.js) resolve locally
+    let finalHtml = result.transformedHtml.replace(/<base[^>]*>/gi, '');
     let finalCss = result.transformedCss;
     let finalMinifiedCss = result.minifiedCss;
 
@@ -293,6 +293,7 @@ function injectStylesAndScripts(html: string): string {
   // Remove existing stylesheet links since all styles are now merged into style.css
   $('link[rel="stylesheet"]').remove();
   $('script[src="./script.js"]').remove();
+  $('base').remove();
 
   // Remove rogue trackers and SPA application bundles that break offline/static previews
   $('script').each((_, el) => {
