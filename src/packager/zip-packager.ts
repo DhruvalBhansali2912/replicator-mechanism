@@ -136,6 +136,41 @@ export class ZipPackager {
       finalMinifiedCss = finalMinifiedCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
     }
 
+    // Clean up empty dummy picture sources that block offline image rendering
+    const $cleanup = cheerio.load(finalHtml);
+    $cleanup('picture source').each((_, el) => {
+      const $el = $cleanup(el);
+      const srcset = ($el.attr('srcset') || '').trim();
+      const dataEmpty = $el.attr('data-empty');
+      if (
+        dataEmpty !== undefined ||
+        srcset.startsWith('data:image/gif;base64') ||
+        srcset.includes('R0lGODlhAQAB') ||
+        srcset === ''
+      ) {
+        $el.remove();
+      }
+    });
+
+    // Wire up hero animated inline videos with large.mp4 fallback and autoplay
+    if (origin) {
+      $cleanup('video[data-inline-media-basepath]').each((_, el) => {
+        const $el = $cleanup(el);
+        const basepath = $el.attr('data-inline-media-basepath');
+        if (basepath && !$el.attr('src') && $el.find('source').length === 0) {
+          const fullVideoUrl = `${origin}${basepath}large.mp4`;
+          $el.append(`\n  <source src="${fullVideoUrl}" type="video/mp4">\n`);
+          $el.attr('autoplay', '');
+          $el.attr('loop', '');
+          $el.attr('muted', '');
+          $el.attr('playsinline', '');
+        }
+      });
+    }
+
+    $cleanup('[data-component-list*="InlineMedia"] .inline-media-wrapper').addClass('loaded playing');
+    finalHtml = $cleanup.html();
+
     // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
     finalHtml = injectStylesAndScripts(finalHtml);
 
@@ -383,10 +418,95 @@ function injectStylesAndScripts(html: string): string {
   })();
   </script>`;
 
+  // Universal Media Gallery & Carousel Controller (Offline & file:/// support)
+  const carouselShim = `
+  <script>
+  (function() {
+    function initMediaGalleries() {
+      const galleries = document.querySelectorAll('.media-gallery, [class*="gallery-container"]');
+      galleries.forEach(function(gallery) {
+        const items = Array.from(gallery.querySelectorAll('.media-gallery-item, [role="tabpanel"]'));
+        if (items.length <= 1) return;
+
+        const triggers = Array.from(gallery.querySelectorAll('.media-gallery-dotnav-link, .dotnav-link, [role="tab"]'));
+        let currentIndex = 0;
+        let autoPlayTimer = null;
+
+        function updateGallery(index) {
+          currentIndex = (index + items.length) % items.length;
+          items.forEach(function(item, idx) {
+            const offset = idx - currentIndex;
+            item.style.position = 'absolute';
+            item.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease';
+            item.style.transform = 'translate3d(' + (offset * 105) + '%, 0, 0)';
+            item.style.opacity = Math.abs(offset) > 2 ? '0' : '1';
+            item.style.pointerEvents = offset === 0 ? 'auto' : 'none';
+            if (offset === 0) {
+              item.classList.add('current-item');
+              item.setAttribute('aria-hidden', 'false');
+            } else {
+              item.classList.remove('current-item');
+              item.setAttribute('aria-hidden', 'true');
+            }
+          });
+
+          triggers.forEach(function(trigger, idx) {
+            const parent = trigger.parentElement;
+            if (idx === currentIndex) {
+              trigger.classList.add('current');
+              trigger.setAttribute('aria-selected', 'true');
+              if (parent) parent.classList.add('current');
+            } else {
+              trigger.classList.remove('current');
+              trigger.setAttribute('aria-selected', 'false');
+              if (parent) parent.classList.remove('current');
+            }
+          });
+        }
+
+        updateGallery(0);
+
+        triggers.forEach(function(trigger, idx) {
+          trigger.addEventListener('click', function(e) {
+            e.preventDefault();
+            updateGallery(idx);
+            resetAutoPlay();
+          });
+        });
+
+        function startAutoPlay() {
+          autoPlayTimer = setInterval(function() {
+            updateGallery(currentIndex + 1);
+          }, 4500);
+        }
+        function resetAutoPlay() {
+          if (autoPlayTimer) clearInterval(autoPlayTimer);
+          startAutoPlay();
+        }
+
+        gallery.addEventListener('mouseenter', function() {
+          if (autoPlayTimer) clearInterval(autoPlayTimer);
+        });
+        gallery.addEventListener('mouseleave', function() {
+          resetAutoPlay();
+        });
+
+        startAutoPlay();
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initMediaGalleries);
+    } else {
+      initMediaGalleries();
+    }
+  })();
+  </script>`;
+
   if ($('body').length > 0) {
-    $('body').append('\n  <script src="./script.js" defer></script>\n' + mobileNavShim + '\n');
+    $('body').append('\n  <script src="./script.js" defer></script>\n' + mobileNavShim + '\n' + carouselShim + '\n');
   } else {
-    $.root().append('\n<script src="./script.js" defer></script>\n' + mobileNavShim + '\n');
+    $.root().append('\n<script src="./script.js" defer></script>\n' + mobileNavShim + '\n' + carouselShim + '\n');
   }
 
   let finalHtmlStr = $.html();
