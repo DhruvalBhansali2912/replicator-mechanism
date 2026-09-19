@@ -54,6 +54,190 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
 .tds-locale-selector-country, .tds-locale-selector-region, .tds-locale-selector-superregion {
   display: none !important;
 }
+
+/* Universal Desktop Mega-Menu & Dropdown Hover Styles */
+.tds-site-header-panel[open],
+.dx-mega-menu-panel[open] {
+  transform: translateY(0px) !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  z-index: 500 !important;
+}
+
+.tds-site-header-panel[open] .tds-site-header-panel-content,
+.dx-mega-menu-panel[open] .tds-site-header-panel-content {
+  transform: translateY(0px) !important;
+}
+
+.dx-mega-menu-panel-content.active {
+  margin-top: 0px !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  display: grid !important;
+  z-index: 10 !important;
+}
+
+.tds-site-header-panel[open] + .tds-modal-backdrop,
+.dx-mega-menu-panel[open] + .tds-modal-backdrop {
+  display: block !important;
+  opacity: 1 !important;
+  z-index: 480 !important;
+}
+
+/* Universal Mobile Responsiveness (< 1024px and < 768px) */
+@media (max-width: 1024px) {
+  /* Prevent horizontal overflow across page shell */
+  html, body, .tds-shell, .tcl-page__shell, main, #main-content {
+    max-width: 100vw !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Responsive Freeflow Carousel Slides on mobile */
+  .tcl-freeflow-carousel__container,
+  [class*="freeflow-carousel__container"] {
+    --tcl-freeflow-carousel-container__slide--max-inline-size: 85vw !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .tcl-freeflow-carousel-container__slides {
+    padding-inline: 16px !important;
+    gap: 16px !important;
+  }
+
+  .tcl-freeflow-carousel-container__slide-container,
+  .tcl-dynamic-section,
+  [class*="slide-container"] {
+    --tcl-dynamic-section--width: 85vw !important;
+    max-width: 85vw !important;
+    inline-size: 85vw !important;
+    box-sizing: border-box !important;
+  }
+
+  .tcl-freeflow-carousel,
+  [class*="freeflow-carousel"]:not([class*="__container"]),
+  [class*="scroll-snap"] {
+    max-width: 100vw !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
+  }
+
+  /* Mobile Header Layout */
+  #tds-site-header, .tds-site-header {
+    padding-inline: 16px !important;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    height: 56px !important;
+    min-height: 56px !important;
+  }
+
+  /* Hide overflowing desktop center nav on mobile */
+  #tds-site-header ol.tds-site-nav-items.tds-align--center,
+  .tds-site-header .tds-align--center {
+    display: none !important;
+  }
+
+  /* Style mobile menu toggle button */
+  .tds-mobile-nav-toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: rgba(0, 0, 0, 0.06) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    border-radius: 4px !important;
+    padding: 6px 14px !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    color: currentColor !important;
+    border: none !important;
+    cursor: pointer !important;
+  }
+
+  /* Mobile Navigation Drawer Sheet */
+  .tds-site-header-panel.mobile-open,
+  .dx-mega-menu-panel.mobile-open,
+  dialog.tds-modal.mobile-open {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100vw !important;
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+    z-index: 99999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow-y: auto !important;
+    padding: 20px 24px 40px !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+  .tds-site-header-panel.mobile-open .tds-site-header-panel-content,
+  .dx-mega-menu-panel.mobile-open .tds-site-header-panel-content {
+    margin-block-start: 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 20px !important;
+    transform: none !important;
+    overflow: visible !important;
+  }
+
+  .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content,
+  .dx-mega-menu-panel.mobile-open .dx-mega-menu-panel-content {
+    position: relative !important;
+    inset: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content:nth-child(n+5) {
+    display: none !important;
+  }
+
+  /* Hero & Flex Module Responsive Tweaks */
+  .dx-hero__content, .tcl-flex-module__content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-inline: 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  .dx-hero__cta, .tcl-flex-module__cta {
+    flex-direction: column !important;
+    align-items: center !important;
+    width: 100% !important;
+    gap: 10px !important;
+  }
+
+  .dx-hero__cta button,
+  .dx-hero__cta a,
+  .tcl-flex-module__cta button,
+  .tcl-flex-module__cta a,
+  .permanent-cta---button-link {
+    width: 100% !important;
+    max-width: 320px !important;
+    min-width: 0 !important;
+  }
+}
 `;
 
 export class ZipPackager {
@@ -340,6 +524,25 @@ function injectStylesAndScripts(html: string): string {
   // Universal removal of obstructive locale modals
   $('.dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"]').remove();
 
+  // Ensure header has a mobile menu button if not already present
+  if ($('#tds-site-header, .tds-site-header').length > 0 && $('.tds-mobile-nav-toggle').length === 0) {
+    const endNav = $('#tds-site-header ol.tds-align--end, .tds-site-header ol.tds-align--end');
+    if (endNav.length > 0) {
+      endNav.prepend(`<li><button type="button" class="tds-site-nav-item tds--product-name tds-mobile-nav-toggle" aria-label="Menu"><span>Menu</span></button></li>`);
+    } else {
+      $('#tds-site-header, .tds-site-header').append(`<button type="button" class="tds-site-nav-item tds--product-name tds-mobile-nav-toggle" aria-label="Menu"><span>Menu</span></button>`);
+    }
+  }
+
+  // Ensure mobile close button exists on mega-panel
+  if ($('.tds-site-header-panel, .dx-mega-menu-panel').length > 0 && $('.tds-panel-mobile-close').length === 0) {
+    $('.tds-site-header-panel, .dx-mega-menu-panel').prepend(`
+      <div class="tds-panel-mobile-header" style="display:flex;justify-content:flex-end;padding:8px 0;">
+        <button type="button" class="tds-panel-mobile-close" aria-label="Close menu" style="background:transparent;border:none;font-size:24px;line-height:1;cursor:pointer;padding:8px 12px;color:inherit;">✕</button>
+      </div>
+    `);
+  }
+
   // Remove rogue trackers and SPA application bundles that break offline/static previews
   $('script').each((_, el) => {
     const $s = $(el);
@@ -502,38 +705,157 @@ function injectStylesAndScripts(html: string): string {
     $.root().prepend('\n<link rel="stylesheet" href="./style.css">\n');
   }
 
-  // Universal Mobile Navigation & Hamburger Toggle Shim
+  // Universal Header Navigation Controller (Desktop Hover Mega-Menu + Mobile Responsive Drawer)
   const mobileNavShim = `
   <script>
   (function() {
-    function initMobileNav() {
+    function initHeaderNavigation() {
       const getElements = function(sel) { return Array.from(document.querySelectorAll(sel)); };
+      const header = document.querySelector('#tds-site-header, .tds-site-header, header, [class*="site-header"]');
+      const megaPanel = document.querySelector('.tds-site-header-panel, .dx-mega-menu-panel, [class*="mega-menu-panel"]');
+      const backdrop = document.querySelector('.tds-modal-backdrop, [class*="menu-backdrop"]');
 
+      // 1. Desktop Hover & Click Mega-Menu Controller
+      if (header && megaPanel) {
+        const navButtons = Array.from(header.querySelectorAll('ol.tds-align--center button, button[id*="dx-nav-item"], [class*="site-nav-item"]'));
+        const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content, [class*="panel-content"] > div'));
+        let closeTimer = null;
+
+        function openMegaCategory(index) {
+          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+          megaPanel.setAttribute('open', '');
+          megaPanel.classList.add('open', 'tds-modal--open');
+
+          if (backdrop) {
+            backdrop.style.display = 'block';
+            backdrop.style.opacity = '1';
+            backdrop.style.pointerEvents = 'auto';
+          }
+
+          categories.forEach(function(cat, idx) {
+            const isActive = idx === index;
+            cat.classList.toggle('active', isActive);
+            if (isActive) {
+              cat.style.opacity = '1';
+              cat.style.pointerEvents = 'auto';
+              cat.style.marginTop = '0px';
+            } else {
+              cat.style.opacity = '0';
+              cat.style.pointerEvents = 'none';
+            }
+          });
+
+          navButtons.forEach(function(btn, idx) {
+            btn.setAttribute('aria-expanded', idx === index ? 'true' : 'false');
+          });
+        }
+
+        function closeMegaMenu() {
+          closeTimer = setTimeout(function() {
+            if (!megaPanel.classList.contains('mobile-open')) {
+              megaPanel.removeAttribute('open');
+              megaPanel.classList.remove('open', 'tds-modal--open');
+              categories.forEach(function(cat) {
+                cat.classList.remove('active');
+                cat.style.opacity = '0';
+                cat.style.pointerEvents = 'none';
+              });
+              if (backdrop) {
+                backdrop.style.display = 'none';
+                backdrop.style.opacity = '0';
+                backdrop.style.pointerEvents = 'none';
+              }
+              navButtons.forEach(function(btn) {
+                btn.setAttribute('aria-expanded', 'false');
+              });
+            }
+          }, 150);
+        }
+
+        navButtons.forEach(function(btn, idx) {
+          btn.addEventListener('mouseenter', function() {
+            if (window.innerWidth >= 1024) {
+              openMegaCategory(idx);
+            }
+          });
+          btn.addEventListener('click', function(e) {
+            if (window.innerWidth >= 1024) {
+              if (megaPanel.hasAttribute('open') && btn.getAttribute('aria-expanded') === 'true') {
+                closeMegaMenu();
+              } else {
+                openMegaCategory(idx);
+              }
+            }
+          });
+        });
+
+        megaPanel.addEventListener('mouseenter', function() {
+          if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+        });
+        megaPanel.addEventListener('mouseleave', function() {
+          if (window.innerWidth >= 1024) {
+            closeMegaMenu();
+          }
+        });
+
+        header.addEventListener('mouseleave', function() {
+          if (window.innerWidth >= 1024) {
+            closeMegaMenu();
+          }
+        });
+      }
+
+      // 2. Generic Dropdown Menus on Other Websites (Hover & Click)
+      document.querySelectorAll('header nav li, [class*="nav-item"], [class*="menu-item"]').forEach(function(item) {
+        const submenu = item.querySelector('.dropdown-menu, .submenu, [class*="flyout"], [class*="sub-menu"], [class*="dropdown-content"], [role="menu"]');
+        if (!submenu) return;
+
+        item.addEventListener('mouseenter', function() {
+          if (window.innerWidth >= 1024) {
+            submenu.classList.add('open', 'show', 'active');
+            item.setAttribute('aria-expanded', 'true');
+          }
+        });
+        item.addEventListener('mouseleave', function() {
+          if (window.innerWidth >= 1024) {
+            submenu.classList.remove('open', 'show', 'active');
+            item.setAttribute('aria-expanded', 'false');
+          }
+        });
+      });
+
+      // 3. Universal Mobile Menu Drawer & Toggle Handlers
       document.addEventListener('click', function(e) {
         var target = e.target;
         if (!target || !(target instanceof Element)) return;
 
-        // 1. Close Button or Overlay Click
-        var closeBtn = target.closest('.mobile-menu-close, [aria-label*="close" i], [class*="close-menu"]');
-        var overlay = target.closest('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]');
-        if (closeBtn || (overlay && target === overlay)) {
-          getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]').forEach(function(el) {
-            el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
-          });
-          getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]').forEach(function(el) {
-            el.classList.remove('show', 'open', 'active');
-          });
-          document.body.classList.remove('menu-open', 'mobile-menu-open', 'overflow-hidden');
-          return;
-        }
-
-        // 2. Hamburger / Menu Toggle Click
+        // A. Mobile Toggle Click (Tesla & Universal)
         var toggleBtn = target.closest(
-          '.mobile-menu-btn, button[class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"]'
+          '.tds-mobile-nav-toggle, .mobile-menu-btn, button[class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"]'
         );
         if (toggleBtn) {
           e.preventDefault();
           e.stopPropagation();
+
+          // Tesla specific panel
+          if (megaPanel) {
+            var willOpenMega = !megaPanel.classList.contains('mobile-open');
+            megaPanel.classList.toggle('mobile-open', willOpenMega);
+            if (willOpenMega) {
+              megaPanel.setAttribute('open', '');
+              const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content'));
+              categories.slice(0, 4).forEach(function(cat) {
+                cat.classList.add('active');
+                cat.style.opacity = '1';
+                cat.style.pointerEvents = 'auto';
+                cat.style.marginTop = '0px';
+              });
+            } else {
+              megaPanel.removeAttribute('open');
+            }
+          }
+
+          // Universal mobile menus
           var menus = getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]');
           var overlays = getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]');
           var willOpen = !menus.some(function(m) {
@@ -550,12 +872,30 @@ function injectStylesAndScripts(html: string): string {
             o.classList.toggle('open', willOpen);
             o.classList.toggle('active', willOpen);
           });
-          document.body.classList.toggle('menu-open', willOpen);
+          document.body.classList.toggle('menu-open', willOpen || (megaPanel && megaPanel.classList.contains('mobile-open')));
           toggleBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
           return;
         }
 
-        // 3. Mobile Navigation Accordion Sub-links
+        // B. Mobile Close Button or Overlay Click
+        var closeBtn = target.closest('.tds-panel-mobile-close, .mobile-menu-close, [aria-label*="close" i], [class*="close-menu"], .tds-modal-close');
+        var overlay = target.closest('.mobile-overlay, [class*="menu-overlay"], .tds-modal-backdrop, [class*="backdrop"]');
+        if (closeBtn || (overlay && target === overlay)) {
+          if (megaPanel) {
+            megaPanel.classList.remove('mobile-open', 'open', 'tds-modal--open');
+            megaPanel.removeAttribute('open');
+          }
+          getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]').forEach(function(el) {
+            el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
+          });
+          getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]').forEach(function(el) {
+            el.classList.remove('show', 'open', 'active');
+          });
+          document.body.classList.remove('menu-open', 'mobile-menu-open', 'overflow-hidden');
+          return;
+        }
+
+        // C. Mobile Navigation Accordion Sub-links
         var subNavBtn = target.closest('.mobile-nav-item > button, .mobile-nav-link');
         if (subNavBtn && subNavBtn.tagName === 'BUTTON') {
           var next = subNavBtn.nextElementSibling;
@@ -566,7 +906,7 @@ function injectStylesAndScripts(html: string): string {
           }
         }
 
-        // 4. Cookie Banner & Consent Dismiss Click
+        // D. Cookie Banner & Consent Dismiss Click
         var cookieBtn = target.closest(
           '.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url'
         );
@@ -581,9 +921,9 @@ function injectStylesAndScripts(html: string): string {
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initMobileNav);
+      document.addEventListener('DOMContentLoaded', initHeaderNavigation);
     } else {
-      initMobileNav();
+      initHeaderNavigation();
     }
   })();
   </script>`;
