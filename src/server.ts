@@ -436,14 +436,51 @@ export function createServer(): express.Application {
     res.json(job);
   });
 
-  // 4. Preview full page offline
+  // 4. Preview full page offline (with universal dynamic assets and chunks fallback)
   app.use('/api/jobs/:id/preview', (req: Request, res: Response, next) => {
     const jobDir = path.join(CONFIG.jobsDir, req.params.id, 'full-page');
     if (!fs.existsSync(jobDir)) {
       res.status(404).json({ error: 'Preview not ready or job not found' });
       return;
     }
-    express.static(jobDir)(req, res, next);
+
+    express.static(jobDir, { index: 'index.html' })(req, res, () => {
+      // Fallback 1: check inside assets/ directory for exact subpath
+      const relPath = req.path.replace(/^\/+/, '');
+      const assetPath = path.join(jobDir, 'assets', relPath);
+      if (fs.existsSync(assetPath) && fs.statSync(assetPath).isFile()) {
+        res.sendFile(assetPath);
+        return;
+      }
+      // Fallback 2: check inside assets/ directory for basename (e.g. dynamic chunk filenames)
+      const baseName = path.basename(req.path);
+      const assetBaseNamePath = path.join(jobDir, 'assets', baseName);
+      if (fs.existsSync(assetBaseNamePath) && fs.statSync(assetBaseNamePath).isFile()) {
+        res.sendFile(assetBaseNamePath);
+        return;
+      }
+      // Fallback 3: if requesting an asset with an original target URL, redirect to original origin
+      let targetUrl = '';
+      const job = jobs.get(req.params.id);
+      if (job && job.url) {
+        targetUrl = job.url;
+      } else {
+        const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+        if (fs.existsSync(metaPath)) {
+          try {
+            targetUrl = JSON.parse(fs.readFileSync(metaPath, 'utf8')).url || '';
+          } catch {}
+        }
+      }
+      if (targetUrl && (req.path.includes('.') || req.path.includes('/assets/'))) {
+        try {
+          const origin = new URL(targetUrl).origin;
+          res.redirect(302, `${origin}/${relPath}`);
+          return;
+        } catch {}
+      }
+      next();
+    });
   });
 
   // Apple-compatible Global Header and Search API proxy for preview mode
@@ -509,6 +546,16 @@ export function createServer(): express.Application {
       const localFilePath = path.join(CONFIG.jobsDir, jobId, 'full-page', relativeAssetPath);
       if (fs.existsSync(localFilePath) && fs.statSync(localFilePath).isFile()) {
         res.sendFile(localFilePath);
+        return;
+      }
+      const assetSubPath = path.join(CONFIG.jobsDir, jobId, 'full-page', 'assets', relativeAssetPath);
+      if (fs.existsSync(assetSubPath) && fs.statSync(assetSubPath).isFile()) {
+        res.sendFile(assetSubPath);
+        return;
+      }
+      const assetBaseNamePath = path.join(CONFIG.jobsDir, jobId, 'full-page', 'assets', path.basename(req.path));
+      if (fs.existsSync(assetBaseNamePath) && fs.statSync(assetBaseNamePath).isFile()) {
+        res.sendFile(assetBaseNamePath);
         return;
       }
       // If asset is not stored in full-page, redirect to original target origin

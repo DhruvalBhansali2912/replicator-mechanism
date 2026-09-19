@@ -46,8 +46,12 @@ const REPLICATOR_NAV_PATCH_CSS = `
 `;
 
 const REPLICATOR_GLOBAL_PATCH_CSS = `
-/* Clean up obstructive cookie consent banners in static cloned previews */
-.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track {
+/* Universal cleanup of obstructive cookie consent banners, geo/locale modals, and promotional overlays */
+.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track,
+.dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"],
+[class*="country-selector__container"], [class*="region-selector__container"], [class*="geo-selector"],
+[id*="locale-selector"], [id*="country-selector"], [class*="country-picker-modal"], [class*="location-prompt"],
+.tds-locale-selector-country, .tds-locale-selector-region, .tds-locale-selector-superregion {
   display: none !important;
 }
 `;
@@ -218,17 +222,28 @@ export class ZipPackager {
     }
 
     $cleanup('[data-component-list*="InlineMedia"] .inline-media-wrapper').addClass('loaded playing');
-    $cleanup('.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track').remove();
+    $cleanup(`
+      .cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track,
+      .dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"],
+      [class*="country-selector__container"], [class*="region-selector__container"], [class*="geo-selector"],
+      [id*="locale-selector"], [id*="country-selector"], [class*="country-picker-modal"], [class*="location-prompt"]
+    `).remove();
     finalHtml = $cleanup.html();
 
     // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
     finalHtml = injectStylesAndScripts(finalHtml);
 
+    // Ensure combined script is safely isolated in its own functional scope
+    let transformedJs = result.transformedJs || '';
+    if (transformedJs && !transformedJs.startsWith('(function()')) {
+      transformedJs = `(function() {\n  try {\n${transformedJs}\n  } catch (err) {\n    console.warn('Script initialization caught:', err);\n  }\n})();`;
+    }
+
     // Save full page files
     fs.writeFileSync(path.join(fullPageDir, 'index.html'), finalHtml, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'style.css'), finalCss, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'style.min.css'), finalMinifiedCss, 'utf8');
-    fs.writeFileSync(path.join(fullPageDir, 'script.js'), result.transformedJs, 'utf8');
+    fs.writeFileSync(path.join(fullPageDir, 'script.js'), transformedJs, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'full-page.png'), result.fullPageScreenshot);
 
     // 2. Save individual sections
@@ -318,8 +333,12 @@ function injectStylesAndScripts(html: string): string {
 
   // Remove existing stylesheet links since all styles are now merged into style.css
   $('link[rel="stylesheet"]').remove();
+  $('link[rel="manifest"]').remove();
   $('script[src="./script.js"]').remove();
   $('base').remove();
+
+  // Universal removal of obstructive locale modals
+  $('.dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"]').remove();
 
   // Remove rogue trackers and SPA application bundles that break offline/static previews
   $('script').each((_, el) => {
@@ -443,11 +462,31 @@ function injectStylesAndScripts(html: string): string {
     }
   })();
 
-  // Universal Cookie Banner & Consent Dismiss Handler (Runs in capture phase before frameworks mount)
+  // Universal Framework & React Safety Stub
+  window.React = window.React || {};
+  if (!window.React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED) {
+    window.React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
+      ReactCurrentDispatcher: { current: null },
+      ReactCurrentBatchConfig: { transition: null },
+      ReactCurrentOwner: { current: null },
+      assign: Object.assign
+    };
+  }
+  window.ReactDOM = window.ReactDOM || {
+    createRoot: function() { return { render: function() {}, unmount: function() {} }; },
+    render: function() {},
+    hydrate: function() {}
+  };
+
+  // Universal Cookie Banner & Modal Dismiss Handler (Runs in capture phase before frameworks mount)
   document.addEventListener('click', function(e) {
-    var btn = e.target && e.target.closest ? e.target.closest('.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url') : null;
+    var btn = e.target && e.target.closest ? e.target.closest(
+      '.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url, .dx-mini-locale-selector__close-icon-button, [class*="locale-selector"] button, [class*="country-selector"] button, [class*="modal-close"], [aria-label*="close" i]'
+    ) : null;
     if (btn) {
-      var banner = btn.closest('.cookie-banner') || btn.closest('[class*="cookie-banner"]:not([class*="--"])') || btn.closest('[class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"]');
+      var banner = btn.closest(
+        '.cookie-banner, [class*="cookie-banner"]:not([class*="--"]), [class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"], .dx-mini-locale-selector__container, [class*="locale-selector"], [class*="country-selector"], [class*="geo-selector"]'
+      );
       if (banner) {
         banner.style.setProperty('display', 'none', 'important');
       }
@@ -549,87 +588,290 @@ function injectStylesAndScripts(html: string): string {
   })();
   </script>`;
 
-  // Universal Media Gallery & Carousel Controller (Offline & file:/// support)
+  // Universal Media Gallery & Carousel Controller (Offline, Mobile & Universal Support)
   const carouselShim = `
   <script>
   (function() {
-    function initMediaGalleries() {
-      const galleries = document.querySelectorAll('.media-gallery, [class*="gallery-container"]');
-      galleries.forEach(function(gallery) {
-        const items = Array.from(gallery.querySelectorAll('.media-gallery-item, [role="tabpanel"]'));
-        if (items.length <= 1) return;
+    function initUniversalCarousels() {
+      // 1. Universal Stacked / Fade / Active-Class Carousels (e.g. Tesla Hero, Apple Media Gallery, Swiper Fade, Slick)
+      const stackedCarousels = document.querySelectorAll(
+        '.tcl-flex-module-carousel--homepage_hero_carousel, .tcl-flex-module-stacked-carousel, .media-gallery, [class*="gallery-container"], [class*="stacked-carousel"], [class*="carousel-fade"]'
+      );
 
-        const triggers = Array.from(gallery.querySelectorAll('.media-gallery-dotnav-link, .dotnav-link, [role="tab"]'));
+      stackedCarousels.forEach(function(carousel) {
+        if (carousel.hasAttribute('data-rep-init')) return;
+        carousel.setAttribute('data-rep-init', 'true');
+
+        const slides = Array.from(
+          carousel.querySelectorAll('.tcl-flex-module-carousel__slide, .media-gallery-item, [role="tabpanel"], [class*="__slide"]')
+        ).filter(function(el) {
+          return !el.closest('.tcl-freeflow-carousel') && !el.closest('[class*="freeflow"]');
+        });
+
+        if (slides.length <= 1) return;
+
+        const isAppleGallery = carousel.classList.contains('media-gallery') || carousel.querySelector('.media-gallery-item');
+        const allTabLists = Array.from(carousel.querySelectorAll('.tds-tab-list--dots, .tcl-carousel__tab-list, .media-gallery-dotnav, [role="tablist"], [class*="dot-list"]'));
+        const nextBtns = Array.from(carousel.querySelectorAll('.tcl-carousel__nav--inline-end, [aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
+        const prevBtns = Array.from(carousel.querySelectorAll('.tcl-carousel__nav--inline-start, [aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
+
         let currentIndex = 0;
+        slides.forEach(function(s, idx) {
+          if (
+            s.classList.contains('tcl-flex-module-carousel__slide--active') ||
+            s.classList.contains('active') ||
+            s.classList.contains('current-item')
+          ) {
+            currentIndex = idx;
+          }
+        });
+
         let autoPlayTimer = null;
 
-        function updateGallery(index) {
-          currentIndex = (index + items.length) % items.length;
-          items.forEach(function(item, idx) {
+        function updateStackedGallery(index) {
+          currentIndex = (index + slides.length) % slides.length;
+          slides.forEach(function(item, idx) {
             const offset = idx - currentIndex;
-            item.style.position = 'absolute';
-            item.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease';
-            item.style.transform = 'translate3d(' + (offset * 105) + '%, 0, 0)';
-            item.style.opacity = Math.abs(offset) > 2 ? '0' : '1';
-            item.style.pointerEvents = offset === 0 ? 'auto' : 'none';
-            if (offset === 0) {
-              item.classList.add('current-item');
-              item.setAttribute('aria-hidden', 'false');
+            const isActive = idx === currentIndex;
+
+            item.classList.toggle('tcl-flex-module-carousel__slide--active', isActive);
+            item.classList.toggle('current-item', isActive);
+            item.classList.toggle('active', isActive);
+            item.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+
+            if (isAppleGallery) {
+              item.style.position = 'absolute';
+              item.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease';
+              item.style.transform = 'translate3d(' + (offset * 105) + '%, 0, 0)';
+              item.style.opacity = Math.abs(offset) > 2 ? '0' : '1';
+              item.style.pointerEvents = isActive ? 'auto' : 'none';
             } else {
-              item.classList.remove('current-item');
-              item.setAttribute('aria-hidden', 'true');
+              item.style.position = 'absolute';
+              item.style.transition = 'opacity 0.6s ease, visibility 0.6s ease';
+              item.style.opacity = isActive ? '1' : '0';
+              item.style.visibility = isActive ? 'visible' : 'hidden';
+              item.style.pointerEvents = isActive ? 'auto' : 'none';
+              item.style.zIndex = isActive ? '2' : '1';
             }
           });
 
-          triggers.forEach(function(trigger, idx) {
-            const parent = trigger.parentElement;
-            if (idx === currentIndex) {
-              trigger.classList.add('current');
-              trigger.setAttribute('aria-selected', 'true');
-              if (parent) parent.classList.add('current');
-            } else {
-              trigger.classList.remove('current');
-              trigger.setAttribute('aria-selected', 'false');
-              if (parent) parent.classList.remove('current');
-            }
+          allTabLists.forEach(function(tabList) {
+            const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], .media-gallery-dotnav-link, .dotnav-link, button'));
+            dots.forEach(function(trigger, idx) {
+              const isSelected = idx === currentIndex;
+              trigger.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+              trigger.classList.toggle('current', isSelected);
+              trigger.classList.toggle('active', isSelected);
+              trigger.classList.toggle('tds-tab--selected', isSelected);
+              if (trigger.parentElement) {
+                trigger.parentElement.classList.toggle('current', isSelected);
+                trigger.parentElement.classList.toggle('active', isSelected);
+              }
+            });
           });
         }
 
-        updateGallery(0);
+        updateStackedGallery(currentIndex);
 
-        triggers.forEach(function(trigger, idx) {
-          trigger.addEventListener('click', function(e) {
+        nextBtns.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
             e.preventDefault();
-            updateGallery(idx);
+            e.stopPropagation();
+            updateStackedGallery(currentIndex + 1);
             resetAutoPlay();
+          });
+        });
+
+        prevBtns.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            updateStackedGallery(currentIndex - 1);
+            resetAutoPlay();
+          });
+        });
+
+        allTabLists.forEach(function(tabList) {
+          const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], .media-gallery-dotnav-link, .dotnav-link, button'));
+          dots.forEach(function(trigger, idx) {
+            trigger.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              updateStackedGallery(idx);
+              resetAutoPlay();
+            });
           });
         });
 
         function startAutoPlay() {
           autoPlayTimer = setInterval(function() {
-            updateGallery(currentIndex + 1);
-          }, 4500);
+            updateStackedGallery(currentIndex + 1);
+          }, 5000);
         }
         function resetAutoPlay() {
           if (autoPlayTimer) clearInterval(autoPlayTimer);
           startAutoPlay();
         }
 
-        gallery.addEventListener('mouseenter', function() {
+        carousel.addEventListener('mouseenter', function() {
           if (autoPlayTimer) clearInterval(autoPlayTimer);
         });
-        gallery.addEventListener('mouseleave', function() {
+        carousel.addEventListener('mouseleave', function() {
           resetAutoPlay();
         });
 
         startAutoPlay();
       });
+
+      // 2. Universal Horizontal Freeflow & Scroll-Snap Carousels (e.g. Tesla Product Grids, E-Commerce Rows)
+      const freeflowContainers = document.querySelectorAll(
+        '.tcl-freeflow-carousel__container, [class*="freeflow-carousel__container"], .tcl-freeflow-carousel, [class*="horizontal-carousel"]'
+      );
+
+      freeflowContainers.forEach(function(container) {
+        if (container.hasAttribute('data-rep-ff-init')) return;
+        container.setAttribute('data-rep-ff-init', 'true');
+
+        const scrollEl = container.classList.contains('tcl-freeflow-carousel')
+          ? container
+          : (container.querySelector('.tcl-freeflow-carousel, [class*="freeflow-carousel"]:not([class*="__container"])') || container);
+
+        const slides = Array.from(
+          container.querySelectorAll('.tcl-freeflow-carousel-container__slide-container, [class*="slide-container"], [class*="carousel-card"]')
+        );
+        if (slides.length <= 1) return;
+
+        const tabLists = Array.from(container.querySelectorAll('.tds-tab-list--dots, .tcl-carousel__tab-list, [role="tablist"], [class*="dot-list"]'));
+        const nextBtns = Array.from(container.querySelectorAll('.tcl-carousel__nav--inline-end, [aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
+        const prevBtns = Array.from(container.querySelectorAll('.tcl-carousel__nav--inline-start, [aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
+
+        let currentIndex = 0;
+        slides.forEach(function(s, idx) {
+          if (
+            s.classList.contains('tcl-freeflow-carousel-container__slide-container--active') ||
+            s.classList.contains('active')
+          ) {
+            currentIndex = idx;
+          }
+        });
+
+        function scrollToSlide(index) {
+          currentIndex = Math.max(0, Math.min(index, slides.length - 1));
+
+          slides.forEach(function(slide, idx) {
+            const isActive = idx === currentIndex;
+            slide.classList.toggle('tcl-freeflow-carousel-container__slide-container--active', isActive);
+            slide.classList.toggle('active', isActive);
+          });
+
+          const targetSlide = slides[currentIndex];
+          if (targetSlide && scrollEl) {
+            const targetLeft = targetSlide.offsetLeft - (scrollEl.clientWidth - targetSlide.clientWidth) / 2;
+            if (typeof scrollEl.scrollTo === 'function') {
+              scrollEl.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' });
+            } else {
+              scrollEl.scrollLeft = Math.max(0, targetLeft);
+            }
+          }
+
+          tabLists.forEach(function(tabList) {
+            const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], button'));
+            dots.forEach(function(dot, idx) {
+              const isSelected = idx === currentIndex;
+              dot.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+              dot.classList.toggle('active', isSelected);
+              dot.classList.toggle('current', isSelected);
+              dot.classList.toggle('tds-tab--selected', isSelected);
+              if (dot.parentElement) {
+                dot.parentElement.classList.toggle('active', isSelected);
+                dot.parentElement.classList.toggle('current', isSelected);
+              }
+            });
+          });
+        }
+
+        scrollToSlide(currentIndex);
+
+        nextBtns.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollToSlide((currentIndex + 1) % slides.length);
+          });
+        });
+
+        prevBtns.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            scrollToSlide((currentIndex - 1 + slides.length) % slides.length);
+          });
+        });
+
+        tabLists.forEach(function(tabList) {
+          const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], button'));
+          dots.forEach(function(dot, idx) {
+            dot.addEventListener('click', function(e) {
+              e.preventDefault();
+              e.stopPropagation();
+              scrollToSlide(idx);
+            });
+          });
+        });
+
+        slides.forEach(function(slide, idx) {
+          slide.addEventListener('click', function() {
+            if (idx !== currentIndex) {
+              scrollToSlide(idx);
+            }
+          });
+        });
+
+        // Sync active slide and dots on manual user swipe/scroll
+        let scrollTimeout = null;
+        scrollEl.addEventListener('scroll', function() {
+          if (scrollTimeout) cancelAnimationFrame(scrollTimeout);
+          scrollTimeout = requestAnimationFrame(function() {
+            const containerCenter = scrollEl.scrollLeft + scrollEl.clientWidth / 2;
+            let closestIdx = currentIndex;
+            let minDiff = Infinity;
+
+            slides.forEach(function(slide, idx) {
+              const slideCenter = slide.offsetLeft + slide.clientWidth / 2;
+              const diff = Math.abs(containerCenter - slideCenter);
+              if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = idx;
+              }
+            });
+
+            if (closestIdx !== currentIndex) {
+              currentIndex = closestIdx;
+              slides.forEach(function(slide, idx) {
+                const isActive = idx === currentIndex;
+                slide.classList.toggle('tcl-freeflow-carousel-container__slide-container--active', isActive);
+                slide.classList.toggle('active', isActive);
+              });
+              tabLists.forEach(function(tabList) {
+                const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], button'));
+                dots.forEach(function(dot, idx) {
+                  const isSelected = idx === currentIndex;
+                  dot.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+                  dot.classList.toggle('active', isSelected);
+                  dot.classList.toggle('current', isSelected);
+                  dot.classList.toggle('tds-tab--selected', isSelected);
+                });
+              });
+            }
+          });
+        }, { passive: true });
+      });
     }
 
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initMediaGalleries);
+      document.addEventListener('DOMContentLoaded', initUniversalCarousels);
     } else {
-      initMediaGalleries();
+      initUniversalCarousels();
     }
   })();
   </script>`;

@@ -226,11 +226,11 @@ export class PageExtractor {
         ) {
           const scriptText = $(el).html();
           if (scriptText && scriptText.trim()) {
-            inlineScripts.push(scriptText);
+            inlineScripts.push(`(function() {\n  try {\n${scriptText}\n  } catch (e) {\n    // Protected inline script execution\n  }\n})();`);
           }
         }
       });
-      const combinedJs = inlineScripts.join('\n;\n');
+      const combinedJs = inlineScripts.join('\n\n');
 
       let combinedCss = resolvedStylesheets.join('\n\n');
 
