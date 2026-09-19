@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { CONFIG } from './config.js';
 import { PageExtractor } from './crawler/page-extractor.js';
 import { ZipPackager } from './packager/zip-packager.js';
+import { VisualQAService } from './validator/visual-qa.js';
 import { ExtractionOptions, JobState } from './types.js';
 import { MASTER_ARCHETYPES } from './classifier/archetypes.js';
 import { keyService } from './auth/key-service.js';
@@ -436,6 +437,43 @@ export function createServer(): express.Application {
     res.json(job);
   });
 
+  // 3.5. Get Visual QA report & breakdown
+  app.get('/api/jobs/:id/qa', (req: Request, res: Response): void => {
+    const job = jobs.get(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+    const reportPath = path.join(CONFIG.jobsDir, req.params.id, 'full-page', 'qa', 'report.json');
+    let report = job.visualQA;
+    if (!report && fs.existsSync(reportPath)) {
+      try { report = JSON.parse(fs.readFileSync(reportPath, 'utf8')); } catch {}
+    }
+    res.json({
+      jobId: job.id,
+      visualQA: report || null,
+      passed: report?.passed ?? false,
+      fidelityScore: report?.fidelityScore ?? 0,
+    });
+  });
+
+  // 3.6. Serve Visual QA diff images
+  app.get('/api/jobs/:id/qa/diff/:viewport', (req: Request, res: Response): void => {
+    const job = jobs.get(req.params.id);
+    if (!job) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+    const viewport = req.params.viewport; // 'desktop' | 'tablet' | 'mobile'
+    const diffPath = path.join(CONFIG.jobsDir, job.id, 'full-page', 'qa', `diff-${viewport}.png`);
+    if (!fs.existsSync(diffPath)) {
+      res.status(404).json({ error: `Diff image for viewport ${viewport} not found` });
+      return;
+    }
+    res.setHeader('Content-Type', 'image/png');
+    fs.createReadStream(diffPath).pipe(res);
+  });
+
   // 4. Preview full page offline (with universal dynamic assets and chunks fallback)
   app.use('/api/jobs/:id/preview', (req: Request, res: Response, next) => {
     const jobDir = path.join(CONFIG.jobsDir, req.params.id, 'full-page');
@@ -732,28 +770,55 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     job.currentStep = 'Packaging files and building archive...';
     job.progress = 90;
 
-    const { zipPath, sectionsMeta } = await packager.packageJob(job.id, job.url, job.options, result, job.apiKey);
+    const { jobDir, zipPath, sectionsMeta } = await packager.packageJob(job.id, job.url, job.options, result, job.apiKey);
 
     job.sections = sectionsMeta;
     job.packageZipPath = zipPath;
     job.fullPageScreenshot = `/api/jobs/${job.id}/screenshot`;
-    job.status = 'completed';
-    job.progress = 100;
-    job.currentStep = 'Extraction completed successfully';
-    job.completedAt = new Date().toISOString();
 
-    // Deduct 1 token upon successful extraction if an API key is associated
-    // STRICT ZERO-DEDUCTION GUARANTEE: Only deduct if zip archive exists and is non-empty (> 5000 bytes)
-    const isValidPackage = fs.existsSync(zipPath) && fs.statSync(zipPath).size > 5000 && sectionsMeta.length > 0;
-    if (job.apiKey && isValidPackage) {
-      try {
-        const remaining = keyService.deductToken(job.apiKey, job.id);
-        console.log(`[Token] Deducted 1 token for job ${job.id}. Remaining balance: ${remaining}`);
-      } catch (tokenErr: any) {
-        console.error(`[Token] Failed to deduct token for job ${job.id}:`, tokenErr.message);
+    // Multi-Viewport Visual QA & Self-Healing Loop
+    job.status = 'validating';
+    job.progress = 93;
+    job.currentStep = 'Running multi-viewport visual regression and menu QA...';
+
+    const qaService = new VisualQAService();
+    const qaResult = await qaService.evaluateAndHeal(
+      jobDir,
+      result.baselineScreenshots,
+      (qaStep) => {
+        job.currentStep = qaStep;
       }
-    } else if (job.apiKey) {
-      console.warn(`[Token] Skipping deduction for job ${job.id}: Output package was invalid or empty.`);
+    );
+    job.visualQA = qaResult;
+
+    // Quality-Gated Completion & Token Protection:
+    // STRICT ZERO-DEDUCTION GUARANTEE:
+    // Only mark completed and deduct token if fidelityScore >= 80% and output package is valid (> 5000 bytes)
+    const isValidPackage = fs.existsSync(zipPath) && fs.statSync(zipPath).size > 5000 && sectionsMeta.length > 0;
+
+    if (qaResult.passed && isValidPackage) {
+      job.status = 'completed';
+      job.progress = 100;
+      job.currentStep = `Extraction completed successfully (Fidelity: ${qaResult.fidelityScore}%)`;
+      job.completedAt = new Date().toISOString();
+
+      if (job.apiKey) {
+        try {
+          const remaining = keyService.deductToken(job.apiKey, job.id);
+          console.log(`[Token] Deducted 1 token for job ${job.id}. Remaining balance: ${remaining}`);
+        } catch (tokenErr: any) {
+          console.error(`[Token] Failed to deduct token for job ${job.id}:`, tokenErr.message);
+        }
+      }
+    } else {
+      job.status = 'failed';
+      job.completedAt = new Date().toISOString();
+      const failReason = !qaResult.passed
+        ? `Sorry, our engine is not able to accurately recreate the page to our quality standards (fidelity score: ${qaResult.fidelityScore}%). Your token has not been deducted.`
+        : 'Output package was invalid or empty. Your token has not been deducted.';
+      job.error = failReason;
+      job.currentStep = `Failed: ${failReason}`;
+      console.warn(`[Token Protection] Skipping deduction for job ${job.id}: ${failReason}`);
     }
     job.stats = {
       originalHtmlBytes: Buffer.byteLength(result.originalHtml, 'utf8'),

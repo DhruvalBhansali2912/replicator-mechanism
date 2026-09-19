@@ -298,6 +298,16 @@ document.addEventListener('DOMContentLoaded', async () => {
               window.scrollTo(0, y);
               await new Promise((r) => setTimeout(r, 60));
             }
+
+            // 1b. Specifically scroll dynamic maps, locators, and interactive widgets into view and wait for hydration
+            const mapWidgets = document.querySelectorAll(
+              '[data-component-status], [class*="map-component"], [id*="map"], [class*="charging-map"], [data-testid*="map"], [class*="store-locator"]'
+            );
+            for (const widget of Array.from(mapWidgets)) {
+              widget.scrollIntoView({ behavior: 'auto', block: 'center' });
+              await new Promise((r) => setTimeout(r, 600));
+            }
+
             window.scrollTo(0, 0);
             await new Promise((r) => setTimeout(r, 400));
 
@@ -373,6 +383,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (e) {}
               }
             }
+
+            // Convert HTML5 canvas elements (maps/charts/WebGL) to inline images so they survive snapshotting
+            document.querySelectorAll('canvas').forEach((canvas) => {
+              try {
+                const dataUrl = canvas.toDataURL('image/png');
+                if (dataUrl && dataUrl.length > 100) {
+                  const img = document.createElement('img');
+                  img.src = dataUrl;
+                  img.className = (canvas.className || '') + ' rep-canvas-replacement';
+                  img.style.cssText = canvas.style.cssText;
+                  img.setAttribute('width', String(canvas.width));
+                  img.setAttribute('height', String(canvas.height));
+                  canvas.parentNode?.replaceChild(img, canvas);
+                }
+              } catch {}
+            });
 
             return {
               html: document.documentElement.outerHTML,

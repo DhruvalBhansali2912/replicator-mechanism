@@ -12,8 +12,17 @@ import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
 
+export interface BaselineScreenshots {
+  desktop?: Buffer;
+  desktopMenu?: Buffer;
+  tablet?: Buffer;
+  mobile?: Buffer;
+  mobileMenu?: Buffer;
+}
+
 export interface ExtractionResult {
   fullPageScreenshot: Buffer;
+  baselineScreenshots?: BaselineScreenshots;
   originalHtml: string;
   transformedHtml: string;
   originalCss: string;
@@ -101,11 +110,73 @@ export class PageExtractor {
       await this.scrollAndSettlePage(page);
       await page.waitForTimeout(CONFIG.crawler.settleWaitMs);
 
+      // 2b. Capture multi-viewport baselines for Visual QA
+      onProgress?.('Capturing multi-viewport visual baselines...', 35);
+      const baselineScreenshots: BaselineScreenshots = {};
+      try {
+        // Desktop baseline (1440x900)
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.waitForTimeout(200);
+        baselineScreenshots.desktop = await page.screenshot({ fullPage: false, type: 'png' });
+
+        // Desktop menu hover baseline
+        const desktopNav = await page.$('header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a');
+        if (desktopNav) {
+          await desktopNav.hover({ timeout: 1500 }).catch(() => {});
+          await page.waitForTimeout(250);
+          baselineScreenshots.desktopMenu = await page.screenshot({ fullPage: false, type: 'png' });
+          await page.mouse.move(0, 0);
+          await page.waitForTimeout(100);
+        }
+
+        // Tablet baseline (768x1024)
+        await page.setViewportSize({ width: 768, height: 1024 });
+        await page.waitForTimeout(250);
+        baselineScreenshots.tablet = await page.screenshot({ fullPage: false, type: 'png' });
+
+        // Mobile baseline (390x844)
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.waitForTimeout(250);
+        baselineScreenshots.mobile = await page.screenshot({ fullPage: false, type: 'png' });
+
+        // Mobile menu toggle baseline
+        const mobileToggle = await page.$('.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i], [class*="menu-btn"]');
+        if (mobileToggle) {
+          await mobileToggle.click({ timeout: 1500 }).catch(() => {});
+          await page.waitForTimeout(300);
+          baselineScreenshots.mobileMenu = await page.screenshot({ fullPage: false, type: 'png' });
+        }
+
+        // Reset to desktop viewport for full page screenshot and DOM extraction
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.waitForTimeout(200);
+      } catch (baselineErr) {
+        console.warn('Baseline screenshot capture skipped:', baselineErr);
+      }
+
       // 3. Capture full page screenshot
       onProgress?.('Capturing full page screenshot...', 40);
       const fullPageScreenshot = await page.screenshot({
         fullPage: true,
         type: 'png',
+      });
+
+      // Convert HTML5 canvas elements (used by WebGL / dynamic maps / charts) into data URLs so they persist offline
+      await page.evaluate(() => {
+        document.querySelectorAll('canvas').forEach((canvas) => {
+          try {
+            const dataUrl = canvas.toDataURL('image/png');
+            if (dataUrl && dataUrl.length > 100) {
+              const img = document.createElement('img');
+              img.src = dataUrl;
+              img.className = (canvas.className || '') + ' rep-canvas-replacement';
+              img.style.cssText = canvas.style.cssText;
+              img.setAttribute('width', String(canvas.width));
+              img.setAttribute('height', String(canvas.height));
+              canvas.parentNode?.replaceChild(img, canvas);
+            }
+          } catch {}
+        });
       });
 
       // 4. Extract rendered DOM and all CSS/JS
@@ -340,6 +411,7 @@ export class PageExtractor {
 
       return {
         fullPageScreenshot,
+        baselineScreenshots,
         originalHtml: renderedHtml,
         transformedHtml: transformedFullHtml,
         originalCss: combinedCss,

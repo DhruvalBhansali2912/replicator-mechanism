@@ -60,7 +60,32 @@ export interface ExtractionOptions {
   timeoutMs?: number;
 }
 
-export type JobStatusType = 'queued' | 'crawling' | 'classifying' | 'transforming' | 'optimizing' | 'packaging' | 'completed' | 'failed';
+export interface VisualQAResult {
+  fidelityScore: number; // 0 to 100
+  passed: boolean; // >= 80%
+  viewportScores: {
+    desktop: number;
+    tablet: number;
+    mobile: number;
+  };
+  menuInteractivity: {
+    desktopHoverPassed: boolean;
+    mobileTogglePassed: boolean;
+  };
+  structuralChecks: {
+    noWhiteOutSections: boolean;
+    carouselsResponsive: boolean;
+    fallbacksVisible: boolean;
+  };
+  diffImageUrls?: {
+    desktop?: string;
+    tablet?: string;
+    mobile?: string;
+  };
+  attempts: number;
+}
+
+export type JobStatusType = 'queued' | 'crawling' | 'classifying' | 'transforming' | 'optimizing' | 'packaging' | 'validating' | 'completed' | 'failed';
 
 export interface JobState {
   id: string;
@@ -75,6 +100,7 @@ export interface JobState {
   apiKey?: string;
   fullPageScreenshot?: string;
   sections: SectionMetadata[];
+  visualQA?: VisualQAResult;
   stats?: {
     originalHtmlBytes: number;
     transformedHtmlBytes: number;
