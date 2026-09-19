@@ -59,7 +59,8 @@ export class ZipPackager {
     jobId: string,
     url: string,
     options: ExtractionOptions,
-    result: ExtractionResult
+    result: ExtractionResult,
+    apiKey?: string
   ): Promise<{ jobDir: string; zipPath: string; sectionsMeta: SectionMetadata[] }> {
     const jobDir = path.join(CONFIG.jobsDir, jobId);
     const fullPageDir = path.join(jobDir, 'full-page');
@@ -72,9 +73,23 @@ export class ZipPackager {
     fs.mkdirSync(assetsDir, { recursive: true });
 
     // Persist job metadata so url and options survive server restarts
+    const completedAt = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + CONFIG.jobRetentionHours * 60 * 60 * 1000).toISOString();
     fs.writeFileSync(
       path.join(jobDir, 'job.json'),
-      JSON.stringify({ id: jobId, url, options, completedAt: new Date().toISOString() }, null, 2),
+      JSON.stringify(
+        {
+          id: jobId,
+          url,
+          apiKey: apiKey || (options as any).apiKey,
+          options,
+          sectionCount: result.sections.length,
+          completedAt,
+          expiresAt,
+        },
+        null,
+        2
+      ),
       'utf8'
     );
 

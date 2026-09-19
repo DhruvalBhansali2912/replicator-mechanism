@@ -291,6 +291,103 @@ export function createServer(): express.Application {
     res.json({ jobs: jobList });
   });
 
+  // 2.5. Get recent completed jobs for a user's API key (e.g. last 3 replicated pages)
+  app.get('/api/jobs/recent', (req: Request, res: Response): void => {
+    const apiKey = (req.headers['x-api-key'] || req.query.apiKey) as string;
+    const limit = parseInt((req.query.limit as string) || '3', 10);
+
+    if (!apiKey) {
+      res.status(400).json({ success: false, error: 'MISSING_API_KEY', message: 'Header X-API-Key or query apiKey is required.' });
+      return;
+    }
+
+    const cleanKey = apiKey.trim();
+    const userJobsMap = new Map<string, any>();
+
+    // 1. Check in-memory jobs
+    for (const j of jobs.values()) {
+      if (j.apiKey === cleanKey && j.status === 'completed') {
+        const completedAtMs = j.completedAt ? new Date(j.completedAt).getTime() : new Date(j.createdAt).getTime();
+        const expiresAt = new Date(completedAtMs + CONFIG.jobRetentionHours * 60 * 60 * 1000).toISOString();
+        let domain = '';
+        try { domain = new URL(j.url).hostname; } catch {}
+
+        userJobsMap.set(j.id, {
+          id: j.id,
+          url: j.url,
+          domain,
+          status: j.status,
+          sectionCount: j.sections ? j.sections.length : (j.stats?.sectionCount || 0),
+          createdAt: j.createdAt,
+          completedAt: j.completedAt || j.createdAt,
+          expiresAt,
+          retentionDays: Math.round(CONFIG.jobRetentionHours / 24),
+          previewUrl: `/api/jobs/${j.id}/preview`,
+          downloadUrl: `/api/jobs/${j.id}/download`,
+          screenshotUrl: `/api/jobs/${j.id}/screenshot`,
+        });
+      }
+    }
+
+    // 2. Check on-disk jobs (storage/jobs/*/job.json)
+    if (fs.existsSync(CONFIG.jobsDir)) {
+      try {
+        const entries = fs.readdirSync(CONFIG.jobsDir, { withFileTypes: true });
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue;
+          const jobId = entry.name;
+          if (userJobsMap.has(jobId)) continue; // already found in memory
+
+          const jobJsonPath = path.join(CONFIG.jobsDir, jobId, 'job.json');
+          const zipPath = path.join(CONFIG.jobsDir, jobId, 'site-package.zip');
+          if (fs.existsSync(jobJsonPath) && fs.existsSync(zipPath)) {
+            try {
+              const meta = JSON.parse(fs.readFileSync(jobJsonPath, 'utf8'));
+              if (meta.apiKey === cleanKey) {
+                const completedAtMs = meta.completedAt ? new Date(meta.completedAt).getTime() : fs.statSync(zipPath).mtimeMs;
+                const completedAt = meta.completedAt || new Date(completedAtMs).toISOString();
+                const expiresAt = meta.expiresAt || new Date(completedAtMs + CONFIG.jobRetentionHours * 60 * 60 * 1000).toISOString();
+                let domain = '';
+                try { domain = new URL(meta.url || '').hostname; } catch {}
+
+                userJobsMap.set(jobId, {
+                  id: jobId,
+                  url: meta.url || '',
+                  domain,
+                  status: 'completed',
+                  sectionCount: meta.sectionCount || 0,
+                  createdAt: meta.completedAt || new Date(completedAtMs).toISOString(),
+                  completedAt,
+                  expiresAt,
+                  retentionDays: Math.round(CONFIG.jobRetentionHours / 24),
+                  previewUrl: `/api/jobs/${jobId}/preview`,
+                  downloadUrl: `/api/jobs/${jobId}/download`,
+                  screenshotUrl: `/api/jobs/${jobId}/screenshot`,
+                });
+              }
+            } catch {}
+          }
+        }
+      } catch (err: any) {
+        console.warn('Error reading on-disk jobs for recent list:', err.message);
+      }
+    }
+
+    // Filter out expired jobs (> 7 days) and sort by completedAt descending
+    const nowMs = Date.now();
+    const sortedJobs = Array.from(userJobsMap.values())
+      .filter((j) => new Date(j.expiresAt).getTime() > nowMs)
+      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+      .slice(0, limit);
+
+    res.json({
+      success: true,
+      retentionDays: Math.round(CONFIG.jobRetentionHours / 24),
+      retentionHours: CONFIG.jobRetentionHours,
+      jobs: sortedJobs,
+    });
+  });
+
   // Storage Stats (Admin) - Must precede /api/jobs/:id
   app.get('/api/jobs/storage-stats', requireMasterSecret, (_req: Request, res: Response): void => {
     const stats = getStorageStats(jobs);
@@ -588,7 +685,7 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     job.currentStep = 'Packaging files and building archive...';
     job.progress = 90;
 
-    const { zipPath, sectionsMeta } = await packager.packageJob(job.id, job.url, job.options, result);
+    const { zipPath, sectionsMeta } = await packager.packageJob(job.id, job.url, job.options, result, job.apiKey);
 
     job.sections = sectionsMeta;
     job.packageZipPath = zipPath;

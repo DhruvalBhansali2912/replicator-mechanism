@@ -141,9 +141,46 @@ curl -X POST http://localhost:3000/api/extract \
 
 ---
 
+### 2.1. Get User's Recent Replications (Last 3)
+**`GET /api/jobs/recent`**  
+Returns the user's completed replications for their API key (default: last 3), along with expiration timestamps (stored for 7 days).
+
+#### Headers:
+- `X-API-Key`: `rep_live_xxxxxxxxxxxxxxxx`
+
+#### Query Parameters:
+- `limit`: Optional integer (defaults to `3`)
+
+#### Response:
+```json
+{
+  "success": true,
+  "retentionDays": 7,
+  "retentionHours": 168,
+  "jobs": [
+    {
+      "id": "e4f8a1b2",
+      "url": "https://stripe.com",
+      "domain": "stripe.com",
+      "status": "completed",
+      "sectionCount": 6,
+      "createdAt": "2026-09-19T05:00:00.000Z",
+      "completedAt": "2026-09-19T05:01:10.000Z",
+      "expiresAt": "2026-09-26T05:01:10.000Z",
+      "retentionDays": 7,
+      "previewUrl": "/api/jobs/e4f8a1b2/preview",
+      "downloadUrl": "/api/jobs/e4f8a1b2/download",
+      "screenshotUrl": "/api/jobs/e4f8a1b2/screenshot"
+    }
+  ]
+}
+```
+
+---
+
 ### 3. Live Offline Preview
 **`GET /api/jobs/:id/preview`**
-Serves the rendered, localized, offline-ready page directly in your browser.
+Serves the rendered, localized, offline-ready page directly in your browser. Files and previews are preserved for 7 days.
 
 ---
 

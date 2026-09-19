@@ -317,6 +317,23 @@ async function pollJobStep(jobId, apiUrl) {
       chrome.action.setBadgeText({ text: 'DONE' });
       chrome.action.setBadgeBackgroundColor({ color: '#10B981' });
 
+      // Save to recent replications (stored locally for 7 days)
+      try {
+        const { recentReplications = [] } = await chrome.storage.local.get(['recentReplications']);
+        const updatedList = recentReplications.filter((j) => j.id !== jobId);
+        updatedList.unshift({
+          id: jobId,
+          url: jobData.url,
+          completedAt: jobData.completedAt || new Date().toISOString(),
+          previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
+          downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
+          sectionCount: jobData.sections ? jobData.sections.length : 0,
+        });
+        await chrome.storage.local.set({ recentReplications: updatedList.slice(0, 10) });
+      } catch (saveErr) {
+        console.warn('Could not save to recentReplications:', saveErr);
+      }
+
       // Trigger desktop system notification
       chrome.notifications.create(`job-complete-${jobId}`, {
         type: 'basic',

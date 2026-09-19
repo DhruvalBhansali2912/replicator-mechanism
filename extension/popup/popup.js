@@ -38,6 +38,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnDownloadZip = document.getElementById('btn-download-zip');
   const btnDismissCompleted = document.getElementById('btn-dismiss-completed');
 
+  const recentListEl = document.getElementById('recent-list');
+  const recentCountBadge = document.getElementById('recent-count-badge');
+
   let currentTabUrl = '';
 
   // 1. Detect Active Tab URL
@@ -121,6 +124,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       showView('ready');
     }
+
+    // Load Last 3 Replicated Pages
+    loadRecentReplications();
   }
 
   // 3. Listen to Storage Changes (Live background sync)
@@ -130,6 +136,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (changes.activeJob) {
       renderJobState(changes.activeJob.newValue);
+    }
+    if (changes.recentReplications) {
+      renderRecentList((changes.recentReplications.newValue || []).slice(0, 3));
     }
   });
 
@@ -425,6 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnDismissCompleted.addEventListener('click', () => {
     chrome.runtime.sendMessage({ action: 'DISMISS_JOB' }, () => {
       showView('ready');
+      loadRecentReplications();
     });
   });
 
@@ -532,5 +542,174 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function hideAlert() {
     alertBanner.classList.add('hidden');
+  }
+
+  // --- RECENT REPLICATIONS (LAST 3) ---
+
+  async function loadRecentReplications() {
+    if (!recentListEl) return;
+
+    try {
+      const { recentReplications = [], apiKey, apiUrl } = await chrome.storage.local.get([
+        'recentReplications',
+        'apiKey',
+        'apiUrl',
+      ]);
+
+      // 1. Render immediately from local storage for zero latency
+      renderRecentList(recentReplications.slice(0, 3));
+
+      // 2. Synchronize with server if API key is available
+      if (apiKey) {
+        const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+        const resp = await fetch(`${baseUrl}/api/jobs/recent?limit=3`, {
+          headers: {
+            'X-API-Key': apiKey,
+          },
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.success && Array.isArray(data.jobs)) {
+            // Merge server jobs with local cache
+            const serverJobs = data.jobs.map((j) => ({
+              id: j.id,
+              url: j.url,
+              completedAt: j.completedAt,
+              previewUrl: j.previewUrl.startsWith('http') ? j.previewUrl : `${baseUrl}${j.previewUrl}`,
+              downloadUrl: j.downloadUrl.startsWith('http') ? j.downloadUrl : `${baseUrl}${j.downloadUrl}`,
+              sectionCount: j.sectionCount || 0,
+            }));
+
+            // Merge avoiding duplicates
+            const jobMap = new Map();
+            for (const item of serverJobs) {
+              jobMap.set(item.id, item);
+            }
+            for (const item of recentReplications) {
+              if (!jobMap.has(item.id)) {
+                jobMap.set(item.id, item);
+              }
+            }
+
+            const merged = Array.from(jobMap.values())
+              .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+              .slice(0, 10);
+
+            await chrome.storage.local.set({ recentReplications: merged });
+            renderRecentList(merged.slice(0, 3));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Could not load recent replications:', err);
+    }
+  }
+
+  function renderRecentList(items) {
+    if (!recentListEl) return;
+
+    if (!items || items.length === 0) {
+      if (recentCountBadge) recentCountBadge.textContent = '0/3';
+      recentListEl.innerHTML = '<div class="recent-empty">No replicated pages yet. Click Replicate Page above to clone a website.</div>';
+      return;
+    }
+
+    const displayItems = items.slice(0, 3);
+    if (recentCountBadge) {
+      recentCountBadge.textContent = `${displayItems.length}/3`;
+    }
+
+    recentListEl.innerHTML = '';
+
+    displayItems.forEach((job) => {
+      let hostname = '';
+      let pathname = '';
+      try {
+        const u = new URL(job.url);
+        hostname = u.hostname.replace(/^www\./, '');
+        pathname = u.pathname !== '/' ? u.pathname : '';
+      } catch {
+        hostname = job.url || 'Unknown page';
+      }
+
+      const displayUrl = `${hostname}${pathname}`;
+      const timeAgo = formatRelativeTime(job.completedAt);
+      const sectionText = job.sectionCount ? `${job.sectionCount} sections` : 'Full Page';
+
+      const itemEl = document.createElement('div');
+      itemEl.className = 'recent-item';
+      itemEl.innerHTML = `
+        <div class="recent-item-top">
+          <div class="recent-url-wrap" title="${escapeHtml(job.url)}">
+            <span class="recent-url-icon">🌐</span>
+            <span class="recent-url-text">${escapeHtml(displayUrl)}</span>
+          </div>
+          <div class="recent-item-meta">
+            <span>${timeAgo}</span>
+            <span class="recent-meta-pill">${sectionText}</span>
+          </div>
+        </div>
+        <div class="recent-item-actions">
+          <button class="btn-recent-action btn-recent-preview" data-preview-url="${escapeHtml(job.previewUrl)}">
+            👁️ Live Preview
+          </button>
+          <button class="btn-recent-action btn-recent-download" data-download-url="${escapeHtml(job.downloadUrl)}" data-job-id="${escapeHtml(job.id)}">
+            📦 Download ZIP
+          </button>
+        </div>
+      `;
+
+      // Preview click
+      itemEl.querySelector('.btn-recent-preview')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = (e.currentTarget).getAttribute('data-preview-url');
+        if (url) {
+          chrome.tabs.create({ url });
+        }
+      });
+
+      // Download click
+      itemEl.querySelector('.btn-recent-download')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const url = (e.currentTarget).getAttribute('data-download-url');
+        const id = (e.currentTarget).getAttribute('data-job-id') || 'site';
+        if (url) {
+          chrome.downloads.download({
+            url,
+            filename: `cloned-site-${id}.zip`,
+            saveAs: true,
+          });
+        }
+      });
+
+      recentListEl.appendChild(itemEl);
+    });
+  }
+
+  function formatRelativeTime(dateString) {
+    if (!dateString) return 'Recently';
+    const past = new Date(dateString).getTime();
+    if (isNaN(past)) return 'Recently';
+    const now = Date.now();
+    const diffSec = Math.max(0, Math.floor((now - past) / 1000));
+
+    if (diffSec < 60) return 'Just now';
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHour = Math.floor(diffMin / 60);
+    if (diffHour < 24) return `${diffHour}h ago`;
+    const diffDay = Math.floor(diffHour / 24);
+    return `${diffDay}d ago`;
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 });
