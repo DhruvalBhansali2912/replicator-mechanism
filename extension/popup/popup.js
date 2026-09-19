@@ -379,11 +379,12 @@ document.addEventListener('DOMContentLoaded', async () => {
               window.scrollTo(0, 0);
               await new Promise((r) => setTimeout(r, 200));
 
-              // 2. Extract loaded CSS rules directly from document.styleSheets and <link rel="stylesheet">
+              // 2. Extract loaded CSS rules directly from document.styleSheets
               const stylesheets = [];
+              const fetchPromises = [];
               const fetchedHrefs = new Set();
 
-              for (let i = 0; i < Math.min(document.styleSheets.length, 30); i++) {
+              for (let i = 0; i < Math.min(document.styleSheets.length, 40); i++) {
                 const sheet = document.styleSheets[i];
                 let css = '';
                 try {
@@ -396,44 +397,46 @@ document.addEventListener('DOMContentLoaded', async () => {
                   // Cross-origin CSS rule security restriction
                 }
 
-                // If sheet could not be read via cssRules (cross-origin/CDN), fetch it directly inside the tab context!
-                if (!css.trim() && sheet.href && !sheet.href.startsWith('chrome-extension://')) {
-                  try {
-                    fetchedHrefs.add(sheet.href);
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 1500);
-                    const resp = await fetch(sheet.href, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (resp.ok) {
-                      css = await resp.text();
-                    }
-                  } catch (fetchErr) {}
-                }
-
                 if (css.trim()) {
                   stylesheets.push(css);
+                } else if (sheet.href && !sheet.href.startsWith('chrome-extension://') && !fetchedHrefs.has(sheet.href)) {
+                  fetchedHrefs.add(sheet.href);
+                  fetchPromises.push(
+                    fetch(sheet.href, { cache: 'force-cache' })
+                      .then((r) => (r.ok ? r.text() : ''))
+                      .catch(() => '')
+                  );
                 }
               }
 
-              // Also check all <link rel="stylesheet"> tags in the document to ensure no external CDN styles were missed
+              // Also check all <link rel="stylesheet"> tags in the document
               const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
               for (const link of links) {
                 const href = link.href;
                 if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
-                  try {
-                    fetchedHrefs.add(href);
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 1500);
-                    const resp = await fetch(href, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (resp.ok) {
-                      const text = await resp.text();
-                      if (text.trim()) {
-                        stylesheets.push(text);
+                  fetchedHrefs.add(href);
+                  fetchPromises.push(
+                    fetch(href, { cache: 'force-cache' })
+                      .then((r) => (r.ok ? r.text() : ''))
+                      .catch(() => '')
+                  );
+                }
+              }
+
+              // Fetch external stylesheets in parallel with a strict 800ms total race
+              if (fetchPromises.length > 0) {
+                try {
+                  const parallelFetch = Promise.allSettled(fetchPromises);
+                  const fetchTimeout = new Promise((r) => setTimeout(() => r([]), 800));
+                  const settled = await Promise.race([parallelFetch, fetchTimeout]);
+                  if (Array.isArray(settled)) {
+                    for (const s of settled) {
+                      if (s && s.status === 'fulfilled' && typeof s.value === 'string' && s.value.trim()) {
+                        stylesheets.push(s.value);
                       }
                     }
-                  } catch (e) {}
-                }
+                  }
+                } catch (e) {}
               }
 
               // Convert HTML5 canvas elements (maps/charts/WebGL) to inline images so they survive snapshotting
@@ -459,13 +462,29 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
           });
 
-          // Timeout script execution after 4.5 seconds max so popup NEVER hangs
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 4500));
+          // Timeout script execution after 8 seconds max so popup NEVER prematurely abandons snapshot
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
           const results = await Promise.race([scriptPromise, timeoutPromise]);
 
           if (results && results[0] && results[0].result) {
-            htmlSnapshot = results[0].result.html;
+            htmlSnapshot = results[0].result.html || '';
             clientStylesheets = results[0].result.stylesheets || [];
+          }
+
+          // Bulletproof Fallback: If active probing timed out or didn't return HTML,
+          // capture raw document.documentElement.outerHTML with an instant 1-line script
+          if (!htmlSnapshot || htmlSnapshot.length < 500) {
+            try {
+              const fallbackRes = await chrome.scripting.executeScript({
+                target: { tabId: tab.id },
+                func: () => document.documentElement.outerHTML,
+              });
+              if (fallbackRes && fallbackRes[0] && fallbackRes[0].result) {
+                htmlSnapshot = fallbackRes[0].result;
+              }
+            } catch (fbErr) {
+              console.warn('Fallback DOM capture failed:', fbErr);
+            }
           }
 
           // Capture active tab visible area screenshot directly via Chrome native API
@@ -482,12 +501,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.warn('Could not grab active tab DOM snapshot:', e);
       }
 
+      // If active tab could not be captured, abort and inform user immediately
+      if (!htmlSnapshot || htmlSnapshot.length < 500) {
+        btnStartExtract.disabled = false;
+        btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Start Replication</span>';
+        showAlert('Could not read page content from active tab. Please ensure page is fully loaded and try again.', 'error');
+        return;
+      }
+
       const options = {
         localizeAssets: document.getElementById('opt-localize').checked,
         mobile: document.getElementById('opt-mobile').checked,
         purgeCss: document.getElementById('opt-purge').checked,
         renameClasses: document.getElementById('opt-rename').checked,
-        htmlSnapshot: htmlSnapshot || undefined,
+        htmlSnapshot: htmlSnapshot,
         clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
         clientScreenshot: (typeof extractedClientScreenshot !== 'undefined' && extractedClientScreenshot) ? extractedClientScreenshot : undefined,
       };

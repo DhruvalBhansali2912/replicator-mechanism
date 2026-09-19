@@ -54,6 +54,7 @@ export class PageExtractor {
     try {
       // 1. Visit URL / Load Snapshot
       const hasSnapshot = !!(options.htmlSnapshot && options.htmlSnapshot.length > 500);
+      console.log(`[Crawler] Extraction start: ${url} | hasSnapshot: ${hasSnapshot} (${options.htmlSnapshot?.length || 0} bytes) | clientScreenshot: ${!!options.clientScreenshot} | stylesheets: ${options.clientStylesheets?.length || 0}`);
 
       if (hasSnapshot) {
         onProgress?.('Loading client-authenticated snapshot & styles...', 20);
