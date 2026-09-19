@@ -52,72 +52,84 @@ export class PageExtractor {
     });
 
     try {
-      // 1. Visit URL
-      onProgress?.('Navigating to target URL...', 20);
-      let response: any = null;
-      try {
-        response = await page.goto(url, {
-          waitUntil: 'networkidle',
-          timeout: options.timeoutMs || CONFIG.crawler.defaultTimeoutMs,
-        });
-      } catch {
-        // Fallback to load state
-        response = await page.goto(url, {
-          waitUntil: 'load',
-          timeout: options.timeoutMs || CONFIG.crawler.defaultTimeoutMs,
-        }).catch(() => null);
-      }
+      // 1. Visit URL / Load Snapshot
+      const hasSnapshot = !!(options.htmlSnapshot && options.htmlSnapshot.length > 500);
 
-      // Check if target website rejected datacenter crawler (Cloudflare / Akamai 403 / 429 / 503)
-      const isBlocked = !response || (response.status() === 403 || response.status() === 429 || response.status() === 503);
-      if (isBlocked) {
-        if (options.htmlSnapshot && options.htmlSnapshot.length > 500) {
-          onProgress?.('Target blocked crawler (403/CDN). Using active tab snapshot...', 25);
-          let snapshotHtml = options.htmlSnapshot;
-          if (!/<base\s/i.test(snapshotHtml)) {
-            if (/<head[^>]*>/i.test(snapshotHtml)) {
-              snapshotHtml = snapshotHtml.replace(/<head[^>]*>/i, (m) => `${m}\n<base href="${url}">`);
-            } else {
-              snapshotHtml = `<base href="${url}">\n` + snapshotHtml;
-            }
+      if (hasSnapshot) {
+        onProgress?.('Loading client-authenticated snapshot & styles...', 20);
+        let snapshotHtml = options.htmlSnapshot!;
+        if (!/<base\s/i.test(snapshotHtml)) {
+          if (/<head[^>]*>/i.test(snapshotHtml)) {
+            snapshotHtml = snapshotHtml.replace(/<head[^>]*>/i, (m) => `${m}\n<base href="${url}">`);
+          } else {
+            snapshotHtml = `<base href="${url}">\n` + snapshotHtml;
           }
-          if (options.clientStylesheets && options.clientStylesheets.length > 0) {
-            const clientStyles = options.clientStylesheets
-              .filter(Boolean)
-              .map((css) => `<style data-client-snapshot="true">${css}</style>`)
-              .join('\n');
-            if (/<head[^>]*>/i.test(snapshotHtml)) {
-              snapshotHtml = snapshotHtml.replace(/<head[^>]*>/i, (m) => `${m}\n${clientStyles}`);
-            } else {
-              snapshotHtml = clientStyles + '\n' + snapshotHtml;
-            }
+        }
+        if (options.clientStylesheets && options.clientStylesheets.length > 0) {
+          const clientStyles = options.clientStylesheets
+            .filter(Boolean)
+            .map((css) => `<style data-client-snapshot="true">${css}</style>`)
+            .join('\n');
+          if (/<head[^>]*>/i.test(snapshotHtml)) {
+            snapshotHtml = snapshotHtml.replace(/<head[^>]*>/i, (m) => `${m}\n${clientStyles}`);
+          } else {
+            snapshotHtml = clientStyles + '\n' + snapshotHtml;
           }
-          await page.setContent(snapshotHtml, { waitUntil: 'load' });
-        } else {
+        }
+        await page.setContent(snapshotHtml, { waitUntil: 'load' });
+      } else {
+        onProgress?.('Navigating to target URL...', 20);
+        let response: any = null;
+        try {
+          response = await page.goto(url, {
+            waitUntil: 'networkidle',
+            timeout: options.timeoutMs || CONFIG.crawler.defaultTimeoutMs,
+          });
+        } catch {
+          // Fallback to load state
+          response = await page.goto(url, {
+            waitUntil: 'load',
+            timeout: options.timeoutMs || CONFIG.crawler.defaultTimeoutMs,
+          }).catch(() => null);
+        }
+
+        const isBlocked = !response || (response.status() === 403 || response.status() === 429 || response.status() === 503);
+        if (isBlocked) {
           throw new Error(`Target website blocked server crawler with HTTP ${response ? response.status() : 'ERROR'}.`);
         }
-      }
 
-      if (options.waitForSelector) {
-        await page.waitForSelector(options.waitForSelector, { timeout: 10000 }).catch(() => {});
-      } else {
-        // Wait for SPA client containers (React / Next.js / Vue) to mount into DOM
-        await page.waitForSelector('#root > *, #app > *, #__next > *, main, [role="main"], body > div', { timeout: 8000 }).catch(() => {});
+        if (options.waitForSelector) {
+          await page.waitForSelector(options.waitForSelector, { timeout: 10000 }).catch(() => {});
+        } else {
+          // Wait for SPA client containers (React / Next.js / Vue) to mount into DOM
+          await page.waitForSelector('#root > *, #app > *, #__next > *, main, [role="main"], body > div', { timeout: 8000 }).catch(() => {});
+        }
       }
 
       // 2. Trigger lazy loading, dynamic hydration, and animations
       onProgress?.('Triggering animations & lazy-loaded assets...', 30);
-      await this.scrollAndSettlePage(page);
-      await page.waitForTimeout(CONFIG.crawler.settleWaitMs);
+      await this.scrollAndSettlePage(page, hasSnapshot);
+      await page.waitForTimeout(hasSnapshot ? 300 : CONFIG.crawler.settleWaitMs);
 
       // 2b. Capture multi-viewport baselines for Visual QA
       onProgress?.('Capturing multi-viewport visual baselines...', 35);
       const baselineScreenshots: BaselineScreenshots = {};
       try {
-        // Desktop baseline (1440x900)
-        await page.setViewportSize({ width: 1440, height: 900 });
-        await page.waitForTimeout(200);
-        baselineScreenshots.desktop = await page.screenshot({ fullPage: false, type: 'png' });
+        if (options.clientScreenshot) {
+          try {
+            const base64Data = options.clientScreenshot.replace(/^data:image\/\w+;base64,/, '');
+            baselineScreenshots.desktop = Buffer.from(base64Data, 'base64');
+          } catch (e) {
+            console.warn('Failed to parse clientScreenshot buffer:', e);
+          }
+        }
+
+        // Desktop baseline (1440x900) if not provided by client
+        if (!baselineScreenshots.desktop) {
+          await page.setViewportSize({ width: 1440, height: 900 });
+          await page.waitForTimeout(200);
+          baselineScreenshots.desktop = await page.screenshot({ fullPage: false, type: 'png' });
+        }
 
         // Desktop menu hover baseline
         const desktopNav = await page.$('header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a');
@@ -428,7 +440,16 @@ export class PageExtractor {
     }
   }
 
-  private async scrollAndSettlePage(page: any): Promise<void> {
+  private async scrollAndSettlePage(page: any, isSnapshot: boolean = false): Promise<void> {
+    if (isSnapshot) {
+      // For client-provided DOM snapshots, DOM is already fully hydrated and animated
+      await page.evaluate(() => {
+        window.scrollTo(0, 0);
+      });
+      await page.waitForTimeout(300);
+      return;
+    }
+
     // 1. Scroll through page smoothly in steps with pauses so IntersectionObservers fire
     await page.evaluate(async () => {
       const scrollStep = Math.max(350, Math.floor(window.innerHeight * 0.7));

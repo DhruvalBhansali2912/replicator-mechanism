@@ -48,6 +48,7 @@ export interface ExtractionOptions {
   url: string;
   htmlSnapshot?: string;
   clientStylesheets?: string[];
+  clientScreenshot?: string;
   renameClasses?: boolean;
   purgeCss?: boolean;
   deminify?: boolean;

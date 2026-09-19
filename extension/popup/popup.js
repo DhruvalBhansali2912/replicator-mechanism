@@ -338,12 +338,43 @@ document.addEventListener('DOMContentLoaded', async () => {
 
               // 1b. Specifically scroll dynamic maps, locators, and interactive widgets into view and wait for hydration
               const mapWidgets = document.querySelectorAll(
-                '#charging-map-component, [class*="charging-map"], [class*="map-component"], [data-testid*="map"], .store-locator'
+                '#charging-map-component, [class*="charging-map"], [class*="map-component"], [data-testid*="map"], .store-locator, canvas, iframe[src*="map"]'
               );
               for (const widget of Array.from(mapWidgets).slice(0, 2)) {
                 widget.scrollIntoView({ behavior: 'auto', block: 'center' });
-                await new Promise((r) => setTimeout(r, 300));
+                await new Promise((r) => setTimeout(r, 250));
               }
+
+              // 1c. Active Desktop Nav Hover Probing:
+              // Dispatch hover events on desktop nav items to mount React / Vue dynamic mega-menu portals into DOM
+              try {
+                const navItems = document.querySelectorAll(
+                  'header nav button, header nav a, [role="navigation"] button, [role="navigation"] a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [data-testid*="nav"] button'
+                );
+                for (let i = 0; i < Math.min(navItems.length, 8); i++) {
+                  const item = navItems[i];
+                  item.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
+                  item.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+                  await new Promise((r) => setTimeout(r, 50));
+                }
+                if (navItems.length > 0) {
+                  navItems[navItems.length - 1].dispatchEvent(new MouseEvent('mouseleave', { bubbles: true }));
+                }
+              } catch (e) {}
+
+              // 1d. Active Mobile Nav Drawer Probing:
+              // Find mobile menu toggle, click to mount mobile drawer into DOM, wait, and close
+              try {
+                const mobileToggle = document.querySelector(
+                  'button[aria-label*="menu" i], button[class*="hamburger" i], [class*="mobile-nav-toggle" i], [data-testid*="hamburger" i], [aria-controls*="menu" i], .tds-mobile-nav-toggle'
+                );
+                if (mobileToggle && typeof mobileToggle.click === 'function') {
+                  mobileToggle.click();
+                  await new Promise((r) => setTimeout(r, 150));
+                  mobileToggle.click();
+                  await new Promise((r) => setTimeout(r, 100));
+                }
+              } catch (e) {}
 
               window.scrollTo(0, 0);
               await new Promise((r) => setTimeout(r, 200));
@@ -428,14 +459,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             },
           });
 
-          // Timeout script execution after 4 seconds max so popup NEVER hangs
-          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+          // Timeout script execution after 4.5 seconds max so popup NEVER hangs
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 4500));
           const results = await Promise.race([scriptPromise, timeoutPromise]);
 
           if (results && results[0] && results[0].result) {
             htmlSnapshot = results[0].result.html;
             clientStylesheets = results[0].result.stylesheets || [];
           }
+
+          // Capture active tab visible area screenshot directly via Chrome native API
+          let clientScreenshot = '';
+          try {
+            clientScreenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+          } catch (shotErr) {
+            console.warn('captureVisibleTab failed or not permitted:', shotErr);
+          }
+
+          var extractedClientScreenshot = clientScreenshot;
         }
       } catch (e) {
         console.warn('Could not grab active tab DOM snapshot:', e);
@@ -448,6 +489,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renameClasses: document.getElementById('opt-rename').checked,
         htmlSnapshot: htmlSnapshot || undefined,
         clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
+        clientScreenshot: (typeof extractedClientScreenshot !== 'undefined' && extractedClientScreenshot) ? extractedClientScreenshot : undefined,
       };
 
       // Delegate execution to background.js so it continues if popup closes
