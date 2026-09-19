@@ -46,6 +46,23 @@ const REPLICATOR_NAV_PATCH_CSS = `
 `;
 
 const REPLICATOR_GLOBAL_PATCH_CSS = `
+/* Universal page scroll restoration across desktop and mobile */
+html, body {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  min-height: 100% !important;
+}
+
+body.tds-modal--is-open,
+body.tds-site-header-panel--is-open {
+  overflow-y: auto !important;
+}
+
+body.menu-open {
+  overflow: hidden !important;
+}
+
 /* Universal cleanup of obstructive cookie consent banners, geo/locale modals, and promotional overlays */
 .cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track,
 .dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"],
@@ -88,6 +105,9 @@ dialog.dx-mega-menu-panel.open {
   right: 0px !important;
   width: 100% !important;
   max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
   background-color: #ffffff !important;
   box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
 }
@@ -120,15 +140,16 @@ dialog.dx-mega-menu-panel.open {
   pointer-events: none !important;
 }
 
-/* Ensure mega-menu panel container fits content and scrolls when needed */
+/* Ensure mega-menu panel container fits content naturally without inner scrollbars */
 .dx-mega-menu .tds-site-header-panel-content,
 .tds-site-header-panel-content {
   height: auto !important;
   min-height: fit-content !important;
-  max-height: 85vh !important;
-  overflow-y: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
   transform: translateY(0px) !important;
-  padding-top: 60px !important;
+  padding-top: 64px !important;
+  padding-bottom: 24px !important;
 }
 
 .dx-mega-menu-panel-content {
@@ -230,6 +251,14 @@ dialog.dx-mega-menu-panel.open {
   }
 
   /* Dynamic Section and Flex Module Sizing Override on Mobile */
+  [style*="--tcl-dynamic-section--width"] {
+    --tcl-dynamic-section--width: 100% !important;
+  }
+
+  [style*="--tcl-flex-module__container--computed-max-inline-size"] {
+    --tcl-flex-module__container--computed-max-inline-size: 100% !important;
+  }
+
   .tcl-dynamic-section,
   [class*="dynamic-section"] {
     --tcl-dynamic-section--width: 100% !important;
@@ -635,8 +664,38 @@ export class ZipPackager {
       .cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track,
       .dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"],
       [class*="country-selector__container"], [class*="region-selector__container"], [class*="geo-selector"],
-      [id*="locale-selector"], [id*="country-selector"], [class*="country-picker-modal"], [class*="location-prompt"]
+      [id*="locale-selector"], [id*="country-selector"], [class*="country-picker-modal"], [class*="location-prompt"],
+      .tds-locale-selector-country, .tds-locale-selector-region, .tds-locale-selector-superregion
     `).remove();
+
+    // Universal DOM Sanitization: Remove modal classes, body scroll locks, open dialogs, and frozen inline panel heights
+    $cleanup('body').removeClass('tds-modal--is-open tds-site-header-panel--is-open overflow-hidden menu-open');
+    const bodyStyle = $cleanup('body').attr('style');
+    if (bodyStyle && bodyStyle.includes('overflow')) {
+      $cleanup('body').attr('style', bodyStyle.replace(/overflow[^;]+;?/gi, ''));
+    }
+
+    $cleanup('dialog[open]').removeAttr('open');
+    $cleanup('.open, .tds-modal--open, .mobile-open').removeClass('open tds-modal--open mobile-open');
+
+    // Remove frozen inline --active-panel-height from hover captures
+    $cleanup('[style*="--active-panel-height"]').each((_, el) => {
+      const $el = $cleanup(el);
+      const s = $el.attr('style') || '';
+      $el.attr('style', s.replace(/--active-panel-height:\s*[^;]+;?/gi, ''));
+    });
+
+    // Normalize fixed 1024px inline style variables to responsive equivalents
+    $cleanup('[style*="--tcl-dynamic-section--width"]').each((_, el) => {
+      const $el = $cleanup(el);
+      const s = $el.attr('style') || '';
+      $el.attr('style', s.replace(/--tcl-dynamic-section--width:\s*1024px;?/gi, '--tcl-dynamic-section--width: min(1024px, 100vw);'));
+    });
+    $cleanup('[style*="--tcl-flex-module__container--computed-max-inline-size"]').each((_, el) => {
+      const $el = $cleanup(el);
+      const s = $el.attr('style') || '';
+      $el.attr('style', s.replace(/--tcl-flex-module__container--computed-max-inline-size:\s*1024px;?/gi, '--tcl-flex-module__container--computed-max-inline-size: min(1024px, 100%);'));
+    });
     finalHtml = $cleanup.html();
 
     // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
@@ -925,9 +984,11 @@ function injectStylesAndScripts(html: string): string {
   if ($('head').length > 0) {
     $('head').prepend(requireShim);
     $('head').append('\n  <link rel="stylesheet" href="./style.css">\n');
+    $('head').append(`\n  <style id="replicator-universal-patches">\n${REPLICATOR_GLOBAL_PATCH_CSS}\n  </style>\n`);
   } else {
     $.root().prepend(requireShim);
     $.root().prepend('\n<link rel="stylesheet" href="./style.css">\n');
+    $.root().append(`\n<style id="replicator-universal-patches">\n${REPLICATOR_GLOBAL_PATCH_CSS}\n</style>\n`);
   }
 
   // Universal Header Navigation Controller (Desktop Hover Mega-Menu + Mobile Responsive Drawer)
@@ -961,31 +1022,41 @@ function injectStylesAndScripts(html: string): string {
           if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
           megaPanel.setAttribute('open', '');
           megaPanel.classList.add('open', 'tds-modal--open');
-          megaPanel.style.display = 'block';
-          megaPanel.style.opacity = '1';
-          megaPanel.style.visibility = 'visible';
-          megaPanel.style.pointerEvents = 'auto';
+          megaPanel.style.setProperty('display', 'block', 'important');
+          megaPanel.style.setProperty('opacity', '1', 'important');
+          megaPanel.style.setProperty('visibility', 'visible', 'important');
+          megaPanel.style.setProperty('pointer-events', 'auto', 'important');
+          megaPanel.style.setProperty('height', 'auto', 'important');
+          megaPanel.style.setProperty('max-height', 'none', 'important');
+          megaPanel.style.setProperty('overflow', 'visible', 'important');
 
           if (backdrop) {
-            backdrop.style.display = 'block';
-            backdrop.style.opacity = '1';
-            backdrop.style.pointerEvents = 'auto';
+            backdrop.style.setProperty('display', 'block', 'important');
+            backdrop.style.setProperty('opacity', '1', 'important');
+            backdrop.style.setProperty('pointer-events', 'auto', 'important');
           }
 
           categories.forEach(function(cat, idx) {
             const isActive = idx === index;
             cat.classList.toggle('active', isActive);
             if (isActive) {
-              cat.style.display = 'grid';
-              cat.style.opacity = '1';
-              cat.style.visibility = 'visible';
-              cat.style.pointerEvents = 'auto';
-              cat.style.marginTop = '0px';
+              cat.style.setProperty('display', 'grid', 'important');
+              cat.style.setProperty('opacity', '1', 'important');
+              cat.style.setProperty('visibility', 'visible', 'important');
+              cat.style.setProperty('pointer-events', 'auto', 'important');
+              cat.style.setProperty('margin-top', '0px', 'important');
+
+              const catH = cat.scrollHeight || cat.offsetHeight;
+              if (catH > 0) {
+                contentWrapper.style.setProperty('height', (catH + 40) + 'px', 'important');
+                contentWrapper.style.setProperty('max-height', 'none', 'important');
+                contentWrapper.style.setProperty('overflow', 'visible', 'important');
+              }
             } else {
-              cat.style.display = 'none';
-              cat.style.opacity = '0';
-              cat.style.visibility = 'hidden';
-              cat.style.pointerEvents = 'none';
+              cat.style.setProperty('display', 'none', 'important');
+              cat.style.setProperty('opacity', '0', 'important');
+              cat.style.setProperty('visibility', 'hidden', 'important');
+              cat.style.setProperty('pointer-events', 'none', 'important');
             }
           });
 
@@ -1001,15 +1072,15 @@ function injectStylesAndScripts(html: string): string {
               megaPanel.classList.remove('open', 'tds-modal--open');
               categories.forEach(function(cat) {
                 cat.classList.remove('active');
-                cat.style.display = 'none';
-                cat.style.opacity = '0';
-                cat.style.visibility = 'hidden';
-                cat.style.pointerEvents = 'none';
+                cat.style.setProperty('display', 'none', 'important');
+                cat.style.setProperty('opacity', '0', 'important');
+                cat.style.setProperty('visibility', 'hidden', 'important');
+                cat.style.setProperty('pointer-events', 'none', 'important');
               });
               if (backdrop) {
-                backdrop.style.display = 'none';
-                backdrop.style.opacity = '0';
-                backdrop.style.pointerEvents = 'none';
+                backdrop.style.setProperty('display', 'none', 'important');
+                backdrop.style.setProperty('opacity', '0', 'important');
+                backdrop.style.setProperty('pointer-events', 'none', 'important');
               }
               navItems.forEach(function(btn) {
                 btn.setAttribute('aria-expanded', 'false');

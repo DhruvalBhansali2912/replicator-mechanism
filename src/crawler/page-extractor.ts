@@ -407,6 +407,15 @@ export class PageExtractor {
         await page.waitForTimeout(150);
       }
       await page.mouse.move(0, 0);
+
+      // Reset any dialogs, backdrops, and body scroll locks triggered during hover
+      await page.evaluate(() => {
+        document.body.classList.remove('tds-modal--is-open', 'tds-site-header-panel--is-open', 'overflow-hidden');
+        document.body.style.overflow = '';
+        document.documentElement.style.overflow = '';
+        document.querySelectorAll('dialog[open]').forEach((d) => d.removeAttribute('open'));
+        document.querySelectorAll('.open, .tds-modal--open, .mobile-open').forEach((el) => el.classList.remove('open', 'tds-modal--open', 'mobile-open'));
+      });
     } catch {}
   }
 
