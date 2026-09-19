@@ -311,6 +311,18 @@ document.addEventListener('DOMContentLoaded', async () => {
               await new Promise((r) => setTimeout(r, 300));
             }
 
+            // 2b. Trigger hover events on header nav items to hydrate any SPA dropdowns/drawers
+            try {
+              const navItems = document.querySelectorAll(
+                'header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a'
+              );
+              for (const item of Array.from(navItems).slice(0, 8)) {
+                item.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
+                item.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
+                await new Promise((r) => setTimeout(r, 60));
+              }
+            } catch (e) {}
+
             // 3. Extract loaded CSS rules directly from document.styleSheets and <link rel="stylesheet">
             const stylesheets = [];
             const fetchedHrefs = new Set();

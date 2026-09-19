@@ -396,6 +396,18 @@ export class PageExtractor {
       if (!hasActiveSkeletons) break;
       await page.waitForTimeout(400);
     }
+
+    // 4. Pre-hover header navigation elements to trigger dynamic SPA hydration & render dropdown DOM
+    try {
+      const navHandles = await page.$$(
+        'header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a'
+      );
+      for (let i = 0; i < Math.min(navHandles.length, 8); i++) {
+        await navHandles[i].hover({ timeout: 1500 }).catch(() => {});
+        await page.waitForTimeout(150);
+      }
+      await page.mouse.move(0, 0);
+    } catch {}
   }
 
   private async detectSections(page: any): Promise<

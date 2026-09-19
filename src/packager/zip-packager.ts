@@ -55,13 +55,27 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   display: none !important;
 }
 
-/* Universal Desktop Mega-Menu & Dropdown Hover Styles */
-dialog.tds-site-header-panel,
-dialog.dx-mega-menu-panel,
-.tds-site-header-panel[open],
-.dx-mega-menu-panel[open],
-.tds-site-header-panel.open,
-.dx-mega-menu-panel.open {
+/* Ensure Header and Nav Items stay above any background dialogs */
+header, #tds-site-header, .tds-site-header, .tds-site-nav-items {
+  position: relative !important;
+  z-index: 600 !important;
+}
+
+/* Universal Desktop Mega-Menu: Hide completely when closed */
+dialog.tds-site-header-panel:not([open]):not(.open):not(.mobile-open),
+dialog.dx-mega-menu-panel:not([open]):not(.open):not(.mobile-open) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: -1 !important;
+}
+
+/* Universal Desktop Mega-Menu: Show ONLY when open */
+dialog.tds-site-header-panel[open],
+dialog.dx-mega-menu-panel[open],
+dialog.tds-site-header-panel.open,
+dialog.dx-mega-menu-panel.open {
   transform: translateY(0px) !important;
   display: block !important;
   opacity: 1 !important;
@@ -75,7 +89,16 @@ dialog.dx-mega-menu-panel,
   width: 100% !important;
   max-width: 100% !important;
   background-color: #ffffff !important;
-  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
+}
+
+/* Hide mobile-specific header/close elements on desktop */
+@media (min-width: 1024px) {
+  .tds-panel-mobile-header,
+  .tds-panel-mobile-close {
+    display: none !important;
+    pointer-events: none !important;
+  }
 }
 
 /* Neutralize the slide-out transform on the header wrapper when menu is active or hovered */
@@ -225,6 +248,36 @@ dialog.dx-mega-menu-panel,
     max-inline-size: 100% !important;
     inline-size: 100% !important;
     box-sizing: border-box !important;
+  }
+
+  /* Expand flex module grid items to full viewport width on mobile */
+  .tcl-flex-module__content,
+  [class*="flex-module__content"] {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+
+  .tcl-flex-module__container,
+  [class*="flex-module__container"] {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+    padding-inline: 16px !important;
+  }
+
+  .tcl-text-line {
+    word-break: normal !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+  }
+
+  /* Neutralize backdrop interception when drawer is closed on mobile */
+  .tds-modal-backdrop:not(.mobile-open):not(.open) {
+    display: none !important;
+    pointer-events: none !important;
   }
 
   /* Responsive Freeflow Carousel Slides on mobile */
@@ -889,18 +942,19 @@ function injectStylesAndScripts(html: string): string {
 
       // 1. Desktop Hover & Click Mega-Menu Controller
       if (header && megaPanel) {
-        // Accurately select only top-level navigation buttons in header
-        const navButtons = Array.from(
-          header.querySelectorAll('ol.tds-align--center > li > button, ol.tds-align--center button, button[id^="dx-nav-item--"]')
-        ).filter(function(b) {
-          return b.tagName === 'BUTTON' && !b.classList.contains('tds-mobile-nav-toggle');
-        });
+        const menuWrapper = header.closest('#mega-menu, .dx-mega-menu') || header;
 
-        // Accurately select only top-level category containers (exclude nested child divs)
+        // Target only the top-level nav items in center navigation
+        const navItems = Array.from(header.querySelectorAll(
+          'ol.tds-align--center > li > button, ol.tds-align--center > li > a, header nav > ul > li > a, header nav > ul > li > button, [role="navigation"] > ul > li > a, [role="navigation"] > ul > li > button'
+        ));
+
+        // Target top-level category containers (Vehicles, Energy, Charging, Discover, Shop)
         const contentWrapper = megaPanel.querySelector('.tds-site-header-panel-content') || megaPanel;
         const categories = Array.from(contentWrapper.children).filter(function(el) {
           return el.classList.contains('dx-mega-menu-panel-content') || el.hasAttribute('data-category');
-        });
+        }).slice(0, navItems.length);
+
         let closeTimer = null;
 
         function openMegaCategory(index) {
@@ -935,7 +989,7 @@ function injectStylesAndScripts(html: string): string {
             }
           });
 
-          navButtons.forEach(function(btn, idx) {
+          navItems.forEach(function(btn, idx) {
             btn.setAttribute('aria-expanded', idx === index ? 'true' : 'false');
           });
         }
@@ -957,25 +1011,33 @@ function injectStylesAndScripts(html: string): string {
                 backdrop.style.opacity = '0';
                 backdrop.style.pointerEvents = 'none';
               }
-              navButtons.forEach(function(btn) {
+              navItems.forEach(function(btn) {
                 btn.setAttribute('aria-expanded', 'false');
               });
             }
-          }, 150);
+          }, 350);
         }
 
-        navButtons.forEach(function(btn, idx) {
+        navItems.forEach(function(btn, idx) {
           btn.addEventListener('mouseenter', function() {
+            if (window.innerWidth >= 1024) {
+              openMegaCategory(idx);
+            }
+          });
+          btn.addEventListener('mouseover', function() {
             if (window.innerWidth >= 1024) {
               openMegaCategory(idx);
             }
           });
           btn.addEventListener('click', function(e) {
             if (window.innerWidth >= 1024) {
-              if (megaPanel.hasAttribute('open') && btn.getAttribute('aria-expanded') === 'true') {
-                closeMegaMenu();
-              } else {
-                openMegaCategory(idx);
+              if (btn.tagName === 'BUTTON') {
+                e.preventDefault();
+                if (megaPanel.hasAttribute('open') && btn.getAttribute('aria-expanded') === 'true') {
+                  closeMegaMenu();
+                } else {
+                  openMegaCategory(idx);
+                }
               }
             }
           });
@@ -984,14 +1046,16 @@ function injectStylesAndScripts(html: string): string {
         megaPanel.addEventListener('mouseenter', function() {
           if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
         });
-        megaPanel.addEventListener('mouseleave', function() {
+        megaPanel.addEventListener('mouseleave', function(e) {
           if (window.innerWidth >= 1024) {
+            if (e.relatedTarget && (header.contains(e.relatedTarget) || (menuWrapper && menuWrapper.contains(e.relatedTarget)))) return;
             closeMegaMenu();
           }
         });
 
-        header.addEventListener('mouseleave', function() {
+        header.addEventListener('mouseleave', function(e) {
           if (window.innerWidth >= 1024) {
+            if (e.relatedTarget && (megaPanel.contains(e.relatedTarget) || (menuWrapper && menuWrapper.contains(e.relatedTarget)))) return;
             closeMegaMenu();
           }
         });
