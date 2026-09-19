@@ -397,7 +397,18 @@ export class PageExtractor {
       await page.waitForTimeout(400);
     }
 
-    // 4. Pre-hover header navigation elements to trigger dynamic SPA hydration & render dropdown DOM
+    // 4. Ensure dynamic maps, webgl, and async widgets are triggered into view for hydration
+    await page.evaluate(async () => {
+      const widgets = document.querySelectorAll(
+        '[data-component-status], [class*="map-component"], [id*="map"], [class*="charging-map"], [data-testid*="map"], [class*="store-locator"]'
+      );
+      for (const w of Array.from(widgets)) {
+        w.scrollIntoView({ behavior: 'auto', block: 'center' });
+      }
+    });
+    await page.waitForTimeout(600);
+
+    // 5. Pre-hover header navigation elements to trigger dynamic SPA hydration & render dropdown DOM
     try {
       const navHandles = await page.$$(
         'header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a'

@@ -112,10 +112,15 @@ dialog.dx-mega-menu-panel.open {
   box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
 }
 
-/* Hide mobile-specific header/close elements on desktop */
+/* Universal Desktop (>= 1024px): Hide mobile navigation toggles and mobile header elements */
 @media (min-width: 1024px) {
   .tds-panel-mobile-header,
-  .tds-panel-mobile-close {
+  .tds-panel-mobile-close,
+  .tds-mobile-nav-toggle,
+  [class*="mobile-nav-toggle"],
+  [class*="mobile-menu-btn"],
+  [class*="hamburger"],
+  [class*="nav-toggle"] {
     display: none !important;
     pointer-events: none !important;
   }
@@ -217,6 +222,23 @@ dialog.dx-mega-menu-panel.open {
   visibility: visible !important;
 }
 
+/* Universal Map & Widget Fallback Container Display */
+.charging-map-component__fallback-container,
+[class*="map-component__fallback-container"] {
+  display: block !important;
+  width: 100% !important;
+  min-height: 400px !important;
+  position: relative !important;
+}
+
+.charging-map-component__fallback-image,
+[class*="map-component__fallback-image"] {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+}
+
 /* Universal Mobile Responsiveness (< 1024px and < 768px) */
 @media (max-width: 1024px) {
   /* Prevent horizontal overflow across page shell */
@@ -295,6 +317,25 @@ dialog.dx-mega-menu-panel.open {
     width: 100% !important;
     max-width: 100vw !important;
     padding-inline: 16px !important;
+  }
+
+  /* Universal Media / Content Ordering on Mobile (Media/Video appears above Text/CTA) */
+  .tcl-flex-module__container--media_container,
+  [class*="media_container"],
+  [class*="media-container"] {
+    order: -1 !important;
+    width: 100% !important;
+    max-width: 100vw !important;
+  }
+  .tcl-flex-module__container--content_container,
+  [class*="content_container"] {
+    order: 1 !important;
+    width: 100% !important;
+  }
+  .tcl-flex-module__container--cta_container,
+  [class*="cta_container"] {
+    order: 2 !important;
+    width: 100% !important;
   }
 
   .tcl-text-line {
@@ -394,6 +435,13 @@ dialog.dx-mega-menu-panel.open {
   /* Hide overflowing desktop center nav on mobile */
   #tds-site-header ol.tds-site-nav-items.tds-align--center,
   .tds-site-header .tds-align--center {
+    display: none !important;
+  }
+
+  /* Hide utility icon-only navigation buttons on mobile so mobile menu toggle is prominent & clean */
+  .tds-site-nav-item--icon-only,
+  [class*="nav-item--icon-only"],
+  .tds-align--end li:has(.tds-site-nav-item--icon-only) {
     display: none !important;
   }
 
@@ -675,6 +723,26 @@ export class ZipPackager {
         }
       });
     }
+
+    // Ensure all videos have muted and playsinline attributes so autoplay is universally supported
+    $cleanup('video').each((_, el) => {
+      const $el = $cleanup(el);
+      $el.attr('muted', '');
+      $el.attr('playsinline', '');
+      if ($el.attr('autoplay') !== undefined) {
+        $el.attr('loop', '');
+      }
+    });
+
+    // Populate fallback labels if dynamic map component has empty text nodes
+    const mapTitle = $cleanup('.charging-map-component__title, [class*="map-component__title"]');
+    if (mapTitle.length && !mapTitle.text().trim()) mapTitle.text('Find Us');
+    const mapSubtitle = $cleanup('.charging-map-component__subtitle, [class*="map-component__subtitle"]');
+    if (mapSubtitle.length && !mapSubtitle.text().trim()) mapSubtitle.text('Find Superchargers, Destination Chargers and Service Centers.');
+    const mapBtn1 = $cleanup('.charging-map-component__button-primary, [class*="map-component__button-primary"]');
+    if (mapBtn1.length && !mapBtn1.text().trim()) mapBtn1.text('Find a Supercharger');
+    const mapBtn2 = $cleanup('.charging-map-component__button-tertiary, [class*="map-component__button-tertiary"]');
+    if (mapBtn2.length && !mapBtn2.text().trim()) mapBtn2.text('Learn More');
 
     $cleanup('[data-component-list*="InlineMedia"] .inline-media-wrapper').addClass('loaded playing');
     $cleanup(`
@@ -1034,6 +1102,19 @@ function injectStylesAndScripts(html: string): string {
     hydrate: function() {}
   };
 
+  // Universal Google Maps & JSONP safety shim
+  window.google = window.google || {};
+  window.google.maps = window.google.maps || {
+    Map: function() { return { setCenter: function() {}, setZoom: function() {}, addListener: function() {} }; },
+    Marker: function() { return { setMap: function() {}, setPosition: function() {} }; },
+    LatLng: function(lat, lng) { return { lat: function() { return lat; }, lng: function() { return lng; } }; },
+    LatLngBounds: function() { return { extend: function() {}, getCenter: function() {} }; },
+    InfoWindow: function() { return { open: function() {}, close: function() {} }; },
+    OverlayView: function() {},
+    event: { addListener: function() {}, removeListener: function() {} }
+  };
+  window._xdc_ = window._xdc_ || {};
+
   // Universal Cookie Banner & Modal Dismiss Handler (Runs in capture phase before frameworks mount)
   document.addEventListener('click', function(e) {
     var btn = e.target && e.target.closest ? e.target.closest(
@@ -1221,6 +1302,7 @@ function injectStylesAndScripts(html: string): string {
       });
 
       // 3. Universal Mobile Menu Drawer & Toggle Handlers (Runs in capture phase)
+      var lastMobileToggleTime = 0;
       document.addEventListener('click', function(e) {
         var target = e.target;
         if (!target || !(target instanceof Element)) return;
@@ -1241,6 +1323,10 @@ function injectStylesAndScripts(html: string): string {
         if (toggleBtn) {
           e.preventDefault();
           e.stopPropagation();
+
+          var now = Date.now();
+          if (now - lastMobileToggleTime < 400) return;
+          lastMobileToggleTime = now;
 
           // Tesla specific panel
           if (megaPanel) {
