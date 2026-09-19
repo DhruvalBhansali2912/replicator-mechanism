@@ -782,12 +782,14 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     job.currentStep = 'Running multi-viewport visual regression and menu QA...';
 
     const qaService = new VisualQAService();
+    const rawSnapshotHtml = job.options.htmlSnapshot || result.originalHtml;
     const qaResult = await qaService.evaluateAndHeal(
       jobDir,
       result.baselineScreenshots,
       (qaStep) => {
         job.currentStep = qaStep;
-      }
+      },
+      rawSnapshotHtml
     );
     job.visualQA = qaResult;
 

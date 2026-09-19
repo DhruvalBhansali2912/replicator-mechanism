@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import * as cheerio from 'cheerio';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 import { BrowserManager } from '../crawler/browser.js';
@@ -15,7 +16,8 @@ export class VisualQAService {
   public async evaluateAndHeal(
     jobDir: string,
     baselines?: BaselineScreenshots,
-    onProgress?: (step: string) => void
+    onProgress?: (step: string) => void,
+    rawSnapshotHtml?: string
   ): Promise<VisualQAResult> {
     const fullPageDir = path.join(jobDir, 'full-page');
     const indexHtmlPath = path.join(fullPageDir, 'index.html');
@@ -69,9 +71,9 @@ export class VisualQAService {
         break;
       }
 
-      // Self-Healing Trigger: Apply targeted universal heuristics if score < 80%
+      // Self-Healing Trigger: Apply targeted universal heuristics & section re-harvesting if score < 80%
       onProgress?.(`Fidelity score ${result.fidelityScore}% < 80%. Applying self-healing heuristics (attempt ${attempt})...`);
-      this.applySelfHealingFixes(indexHtmlPath, styleCssPath, evalData);
+      this.applySelfHealingFixes(indexHtmlPath, styleCssPath, evalData, rawSnapshotHtml);
     }
 
     // Persist QA report
@@ -88,6 +90,7 @@ export class VisualQAService {
     menuInteractivity: { desktopHoverPassed: boolean; mobileTogglePassed: boolean };
     structuralChecks: { noWhiteOutSections: boolean; carouselsResponsive: boolean; fallbacksVisible: boolean };
     diffImageUrls: { desktop?: string; tablet?: string; mobile?: string };
+    defectiveSections: Array<{ selector: string; reason: string; type: string }>;
   }> {
     const { context, page } = await BrowserManager.createPage({
       viewportWidth: 1440,
@@ -102,6 +105,7 @@ export class VisualQAService {
     let carouselsResponsive = true;
     let fallbacksVisible = true;
     let noWhiteOutSections = true;
+    let defectiveSections: Array<{ selector: string; reason: string; type: string }> = [];
     const diffImageUrls: { desktop?: string; tablet?: string; mobile?: string } = {};
 
     try {
@@ -156,7 +160,7 @@ export class VisualQAService {
       await page.waitForTimeout(300);
       const mobileClone = await page.screenshot({ fullPage: false, type: 'png' });
 
-      // Structural Checks on Mobile
+      // Structural Checks on Mobile & Defect Detection
       const structural = await page.evaluate(() => {
         // Check carousel slide width
         const slides = document.querySelectorAll(
@@ -182,12 +186,52 @@ export class VisualQAService {
         const bodyH = document.body.scrollHeight;
         const noWhiteout = bodyH > 400;
 
-        return { carouselOk, fallbackOk, noWhiteout };
+        // Detect defective sections that can be re-harvested from snapshot
+        const defectiveSections: Array<{ selector: string; reason: string; type: string }> = [];
+
+        // 1. Check for empty or collapsed map/locator/canvas containers
+        const mapSelectors = [
+          '#charging-map-component',
+          '[class*="charging-map"]',
+          '[class*="map-component"]',
+          '[data-testid*="map"]',
+          '.store-locator',
+        ];
+        for (const sel of mapSelectors) {
+          const el = document.querySelector(sel);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const hasImgOrCanvas = el.querySelector('img, canvas, svg');
+            if (rect.height < 50 || !hasImgOrCanvas || el.innerHTML.trim().length < 30) {
+              defectiveSections.push({ selector: sel, reason: 'Map widget has collapsed height or missing media/canvas', type: 'empty_widget' });
+              break;
+            }
+          }
+        }
+
+        // 2. Check for collapsed main sections
+        document.querySelectorAll('section, main > div, [data-component]').forEach((el, idx) => {
+          const rect = el.getBoundingClientRect();
+          if (rect.height < 20 && el.childElementCount > 0) {
+            const className = typeof el.className === 'string' ? el.className.trim() : '';
+            const sel = el.id ? `#${el.id}` : (className ? `.${className.split(/\s+/)[0]}` : `section:nth-of-type(${idx + 1})`);
+            defectiveSections.push({ selector: sel, reason: 'Section has zero or near-zero rendered height', type: 'collapsed_section' });
+          }
+        });
+
+        // 3. Check for broken lazy images with unloaded data-src
+        const unloadedImgs = document.querySelectorAll('img[data-src]:not([src]), img[src=""], img[data-srcset]:not([srcset])');
+        if (unloadedImgs.length > 0) {
+          defectiveSections.push({ selector: 'img[data-src]', reason: `${unloadedImgs.length} lazy images missing src attribute`, type: 'unloaded_images' });
+        }
+
+        return { carouselOk, fallbackOk, noWhiteout, defectiveSections };
       });
 
       carouselsResponsive = structural.carouselOk;
       fallbacksVisible = structural.fallbackOk;
       noWhiteOutSections = structural.noWhiteout;
+      defectiveSections = structural.defectiveSections || [];
 
       // Check mobile menu toggle
       const mobileToggle = await page.$(
@@ -225,6 +269,7 @@ export class VisualQAService {
       menuInteractivity: { desktopHoverPassed, mobileTogglePassed },
       structuralChecks: { noWhiteOutSections, carouselsResponsive, fallbacksVisible },
       diffImageUrls,
+      defectiveSections,
     };
   }
 
@@ -265,15 +310,95 @@ export class VisualQAService {
     evalData: {
       menuInteractivity: { desktopHoverPassed: boolean; mobileTogglePassed: boolean };
       structuralChecks: { carouselsResponsive: boolean; fallbacksVisible: boolean };
-    }
+      defectiveSections?: Array<{ selector: string; reason: string; type: string }>;
+    },
+    rawSnapshotHtml?: string
   ): void {
+    // 1. Targeted Section-Level Re-Harvesting from client/crawler pristine snapshot
+    if (rawSnapshotHtml && fs.existsSync(indexHtmlPath)) {
+      try {
+        const $raw = cheerio.load(rawSnapshotHtml);
+        const cloneHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+        const $clone = cheerio.load(cloneHtml);
+        let mutated = false;
+
+        // 1a. Hydrate all lazy images (data-src / data-srcset / data-poster)
+        $clone('img[data-src]').each((_, el) => {
+          const dataSrc = $clone(el).attr('data-src');
+          if (dataSrc && !$clone(el).attr('src')) {
+            $clone(el).attr('src', dataSrc);
+            mutated = true;
+          }
+        });
+        $clone('img[data-srcset]').each((_, el) => {
+          const dataSrcset = $clone(el).attr('data-srcset');
+          if (dataSrcset && !$clone(el).attr('srcset')) {
+            $clone(el).attr('srcset', dataSrcset);
+            mutated = true;
+          }
+        });
+        $clone('source[data-srcset]').each((_, el) => {
+          const dataSrcset = $clone(el).attr('data-srcset');
+          if (dataSrcset && !$clone(el).attr('srcset')) {
+            $clone(el).attr('srcset', dataSrcset);
+            mutated = true;
+          }
+        });
+        $clone('video[data-poster]').each((_, el) => {
+          const poster = $clone(el).attr('data-poster');
+          if (poster && !$clone(el).attr('poster')) {
+            $clone(el).attr('poster', poster);
+            mutated = true;
+          }
+        });
+
+        // 1b. Targeted Re-Harvest of defective sections
+        if (evalData.defectiveSections && evalData.defectiveSections.length > 0) {
+          for (const defect of evalData.defectiveSections) {
+            if (defect.type === 'empty_widget' || defect.type === 'collapsed_section') {
+              try {
+                const rawTarget = $raw(defect.selector);
+                const cloneTarget = $clone(defect.selector);
+                if (rawTarget.length > 0 && cloneTarget.length > 0) {
+                  const rawHtml = rawTarget.html();
+                  if (rawHtml && rawHtml.length > (cloneTarget.html()?.length || 0)) {
+                    cloneTarget.html(rawHtml);
+                    // Copy non-conflicting attributes
+                    const rawAttrs = rawTarget.attr();
+                    if (rawAttrs) {
+                      for (const [k, v] of Object.entries(rawAttrs)) {
+                        if (k !== 'class' && k !== 'id') {
+                          cloneTarget.attr(k, v);
+                        }
+                      }
+                    }
+                    mutated = true;
+                  }
+                }
+              } catch (selErr) {
+                // Ignore non-standard selector syntax
+              }
+            }
+          }
+        }
+
+        if (mutated) {
+          fs.writeFileSync(indexHtmlPath, $clone.html(), 'utf8');
+        }
+      } catch (harvestErr) {
+        console.warn('[VisualQA] Targeted DOM re-harvesting notice:', harvestErr);
+      }
+    }
+
+    // 2. Scoped Universal Self-Healing CSS
     let healingCss = '\n/* [REPLICATOR AUTO-HEALING PATCHES] */\n';
 
     if (!evalData.structuralChecks.carouselsResponsive) {
       healingCss += `
 .tcl-freeflow-carousel-container__slide-container,
 [class*="carousel-container__slide-container"],
-[class*="freeflow-carousel"] [class*="slide"] {
+[class*="freeflow-carousel"] [class*="slide"],
+[class*="carousel-container"] > * {
   flex: 0 0 85vw !important;
   width: 85vw !important;
   min-width: 85vw !important;
@@ -286,12 +411,17 @@ export class VisualQAService {
       healingCss += `
 .charging-map-component__fallback-container,
 [class*="map-component__fallback-container"],
-[class*="fallback-container"] {
+[class*="fallback-container"],
+#charging-map-component {
   display: block !important;
   width: 100% !important;
   min-height: 450px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
-.charging-map-component__fallback-image {
+.charging-map-component__fallback-image,
+[class*="fallback-container"] img,
+#charging-map-component img {
   display: block !important;
   width: 100% !important;
   height: 100% !important;
@@ -316,13 +446,47 @@ ol.tds-align--center > li:hover ~ .tds-site-header-panel {
 
     if (!evalData.menuInteractivity.mobileTogglePassed) {
       healingCss += `
-.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"] {
+.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i] {
   pointer-events: auto !important;
   cursor: pointer !important;
   z-index: 9999 !important;
 }
 `;
     }
+
+    // 3. Scoped Universal Self-Healing JS (for menu interaction & lazy hydration fallbacks)
+    const healingJs = `
+<script id="replicator-self-heal-script">
+(function() {
+  function initHeal() {
+    var toggles = document.querySelectorAll('.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i]');
+    toggles.forEach(function(btn) {
+      btn.style.pointerEvents = 'auto';
+      btn.style.cursor = 'pointer';
+      btn.addEventListener('click', function(e) {
+        document.body.classList.toggle('menu-open');
+        var drawers = document.querySelectorAll('dialog, [class*="mobile-nav"], [class*="nav-drawer"]');
+        drawers.forEach(function(d) {
+          d.classList.toggle('open');
+          d.classList.toggle('mobile-open');
+          if (d.tagName === 'DIALOG' && typeof d.showModal === 'function') {
+            if (d.hasAttribute('open')) d.close(); else d.showModal();
+          }
+        });
+      });
+    });
+    document.querySelectorAll('img[data-src]').forEach(function(img) {
+      if (!img.src && img.dataset.src) img.src = img.dataset.src;
+    });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHeal);
+  } else {
+    initHeal();
+  }
+})();
+</script>
+`;
 
     try {
       if (fs.existsSync(styleCssPath)) {
@@ -332,8 +496,11 @@ ol.tds-align--center > li:hover ~ .tds-site-header-panel {
         let html = fs.readFileSync(indexHtmlPath, 'utf8');
         if (html.includes('</head>')) {
           html = html.replace('</head>', `<style id="replicator-self-heal">${healingCss}</style>\n</head>`);
-          fs.writeFileSync(indexHtmlPath, html, 'utf8');
         }
+        if (html.includes('</body>') && !html.includes('replicator-self-heal-script')) {
+          html = html.replace('</body>', `${healingJs}\n</body>`);
+        }
+        fs.writeFileSync(indexHtmlPath, html, 'utf8');
       }
     } catch (patchErr) {
       console.warn('[VisualQA] Could not write self-healing patch:', patchErr);

@@ -283,6 +283,9 @@ async function pollJobStep(jobId, apiUrl) {
       sectionCount: jobData.sections ? jobData.sections.length : 0,
       error: jobData.error,
       completedAt: jobData.completedAt,
+      fidelityScore: jobData.visualQA?.fidelityScore,
+      viewportScores: jobData.visualQA?.viewportScores,
+      menuInteractivity: jobData.visualQA?.menuInteractivity,
     };
 
     await chrome.storage.local.set({ activeJob: updatedJob });

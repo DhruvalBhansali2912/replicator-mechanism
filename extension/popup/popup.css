@@ -764,3 +764,155 @@ body {
 .retention-notice strong {
   color: #fbbf24;
 }
+
+/* Persistent Result / Quality Card */
+.result-card {
+  background: #181c2e;
+  border: 1px solid #3730a3;
+  border-radius: 10px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: fadeIn 0.2s ease;
+}
+
+.result-card.failed {
+  background: #23151b;
+  border-color: #dc2626;
+}
+
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.result-status-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.result-icon {
+  font-size: 16px;
+}
+
+.result-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fca5a5;
+}
+
+.result-card.failed .result-title {
+  color: #f87171;
+}
+
+.btn-icon-dismiss {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+
+.btn-icon-dismiss:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.result-message {
+  font-size: 12px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.result-qa-details {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qa-score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.qa-score-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.qa-score-badge {
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+.qa-score-badge.passing {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.qa-breakdown-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.qa-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid #334155;
+}
+
+.qa-tag.pass {
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.qa-tag.fail {
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.zero-token-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #86efac;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  padding: 6px 8px;
+  border-radius: 6px;
+}
+
+.btn-retry-action {
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+

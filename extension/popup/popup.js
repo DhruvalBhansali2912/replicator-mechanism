@@ -41,6 +41,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   const recentListEl = document.getElementById('recent-list');
   const recentCountBadge = document.getElementById('recent-count-badge');
 
+  // Last Result & Quality Card DOM Elements
+  const cardLastResult = document.getElementById('card-last-result');
+  const resultStatusIcon = document.getElementById('result-status-icon');
+  const resultTitle = document.getElementById('result-title');
+  const resultMessage = document.getElementById('result-message');
+  const resultScoreBadge = document.getElementById('result-score-badge');
+  const resultBreakdownTags = document.getElementById('result-breakdown-tags');
+  const resultZeroTokenBanner = document.getElementById('result-zero-token-banner');
+  const btnDismissResult = document.getElementById('btn-dismiss-result');
+  const btnRetryReplication = document.getElementById('btn-retry-replication');
+
   let currentTabUrl = '';
 
   // 1. Detect Active Tab URL
@@ -125,6 +136,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       showView('ready');
     }
 
+    // Check if there is a saved lastJobResult to display
+    const { lastJobResult } = await chrome.storage.local.get(['lastJobResult']);
+    if (lastJobResult) {
+      renderLastResultCard(lastJobResult);
+    }
+
     // Load Last 3 Replicated Pages
     loadRecentReplications();
   }
@@ -136,6 +153,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (changes.activeJob) {
       renderJobState(changes.activeJob.newValue);
+    }
+    if (changes.lastJobResult) {
+      renderLastResultCard(changes.lastJobResult.newValue);
     }
     if (changes.recentReplications) {
       renderRecentList((changes.recentReplications.newValue || []).slice(0, 3));
@@ -265,6 +285,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnCopyKey?.addEventListener('click', copyApiKeyToClipboard);
   displayApiKey?.addEventListener('click', copyApiKeyToClipboard);
 
+  // Result & Quality Card Action Handlers
+  btnDismissResult?.addEventListener('click', () => {
+    cardLastResult?.classList.add('hidden');
+    chrome.storage.local.remove(['lastJobResult']);
+  });
+
+  btnRetryReplication?.addEventListener('click', () => {
+    cardLastResult?.classList.add('hidden');
+    chrome.storage.local.remove(['lastJobResult']);
+    btnStartExtract?.click();
+  });
+
   // Start Replication Button
   btnStartExtract.addEventListener('click', async () => {
     if (!currentTabUrl || currentTabUrl.startsWith('chrome://') || currentTabUrl.startsWith('edge://')) {
@@ -277,6 +309,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       showAlert('You have 0 tokens remaining. Please purchase more tokens on inventkid.com to continue.', 'error');
       return;
     }
+
+    // Hide any previous result card and clear stored failure state
+    cardLastResult?.classList.add('hidden');
+    await chrome.storage.local.remove(['lastJobResult']);
 
     btnStartExtract.disabled = true;
     btnStartExtract.innerHTML = '<span class="btn-icon">⏳</span> <span class="btn-text">Preparing Page...</span>';
@@ -557,9 +593,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (job.status === 'failed') {
       showView('ready');
       resetExtractButton();
-      showAlert(`Extraction failed: ${job.error || 'Unknown error'}`, 'error');
+      const failInfo = {
+        status: 'failed',
+        error: job.error || 'Replication failed',
+        fidelityScore: job.fidelityScore,
+        viewportScores: job.viewportScores,
+        menuInteractivity: job.menuInteractivity,
+        url: job.url,
+        timestamp: Date.now(),
+      };
+      chrome.storage.local.set({ lastJobResult: failInfo });
+      renderLastResultCard(failInfo);
+      showAlert(`Replication stopped: ${job.error || 'Quality score below standard'}`, 'error');
       chrome.storage.local.remove(['activeJob']);
-      setTimeout(() => hideAlert(), 6000);
+      setTimeout(() => hideAlert(), 8000);
       return;
     }
 
@@ -569,6 +616,65 @@ document.addEventListener('DOMContentLoaded', async () => {
     progressFill.style.width = `${pct}%`;
     progressPercentText.textContent = `${pct}%`;
     progressStepText.textContent = job.currentStep || 'Processing...';
+  }
+
+  function renderLastResultCard(result) {
+    if (!cardLastResult) return;
+    if (!result) {
+      cardLastResult.classList.add('hidden');
+      return;
+    }
+
+    cardLastResult.classList.remove('hidden');
+    const isFailed = result.status === 'failed' || (result.fidelityScore !== undefined && result.fidelityScore < 80);
+
+    if (isFailed) {
+      cardLastResult.className = 'card result-card failed';
+      if (resultStatusIcon) resultStatusIcon.textContent = '❌';
+      if (resultTitle) resultTitle.textContent = 'Replication Halted — Quality Standard Not Met';
+      if (resultZeroTokenBanner) resultZeroTokenBanner.classList.remove('hidden');
+    } else {
+      cardLastResult.className = 'card result-card';
+      if (resultStatusIcon) resultStatusIcon.textContent = '✅';
+      if (resultTitle) resultTitle.textContent = 'Replication Complete';
+      if (resultZeroTokenBanner) resultZeroTokenBanner.classList.add('hidden');
+    }
+
+    if (resultMessage) {
+      resultMessage.textContent = result.error || result.message || (isFailed ? 'Page fidelity did not meet the 80% threshold.' : 'Page successfully replicated.');
+    }
+
+    if (resultScoreBadge) {
+      if (result.fidelityScore !== undefined) {
+        resultScoreBadge.parentElement?.classList.remove('hidden');
+        resultScoreBadge.textContent = `${result.fidelityScore}% / 80%`;
+        resultScoreBadge.className = `qa-score-badge ${result.fidelityScore >= 80 ? 'passing' : ''}`;
+      } else {
+        resultScoreBadge.parentElement?.classList.add('hidden');
+      }
+    }
+
+    if (resultBreakdownTags) {
+      resultBreakdownTags.innerHTML = '';
+      if (result.viewportScores) {
+        const vp = result.viewportScores;
+        if (vp.desktop !== undefined) addTag(`Desktop: ${vp.desktop}%`, vp.desktop >= 75);
+        if (vp.tablet !== undefined) addTag(`Tablet: ${vp.tablet}%`, vp.tablet >= 75);
+        if (vp.mobile !== undefined) addTag(`Mobile: ${vp.mobile}%`, vp.mobile >= 75);
+      }
+      if (result.menuInteractivity) {
+        const mi = result.menuInteractivity;
+        if (mi.desktopHoverPassed !== undefined) addTag(`Desktop Nav: ${mi.desktopHoverPassed ? 'Pass' : 'Fail'}`, mi.desktopHoverPassed);
+        if (mi.mobileTogglePassed !== undefined) addTag(`Mobile Menu: ${mi.mobileTogglePassed ? 'Pass' : 'Fail'}`, mi.mobileTogglePassed);
+      }
+    }
+
+    function addTag(label, passed) {
+      const span = document.createElement('span');
+      span.className = `qa-tag ${passed ? 'pass' : 'fail'}`;
+      span.textContent = label;
+      resultBreakdownTags.appendChild(span);
+    }
   }
 
   function updateBalanceDisplay(count) {

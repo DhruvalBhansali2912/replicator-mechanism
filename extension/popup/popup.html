@@ -102,6 +102,32 @@
         </a>
       </div>
 
+      <!-- Persistent Last Replication Result / Quality Card -->
+      <div id="card-last-result" class="card result-card hidden">
+        <div class="result-header">
+          <div class="result-status-wrap">
+            <span id="result-status-icon" class="result-icon">⚠️</span>
+            <span id="result-title" class="result-title">Replication Quality Result</span>
+          </div>
+          <button id="btn-dismiss-result" class="btn-icon-dismiss" title="Dismiss result">✕</button>
+        </div>
+        <p id="result-message" class="result-message"></p>
+        <div id="result-qa-details" class="result-qa-details">
+          <div class="qa-score-row">
+            <span class="qa-score-label">Fidelity Score:</span>
+            <span id="result-score-badge" class="qa-score-badge">0% / 80%</span>
+          </div>
+          <div id="result-breakdown-tags" class="qa-breakdown-tags"></div>
+        </div>
+        <div id="result-zero-token-banner" class="zero-token-banner">
+          <span class="shield-icon">🛡️</span>
+          <span><strong>0 Tokens Deducted</strong> — Balance protected.</span>
+        </div>
+        <button id="btn-retry-replication" class="btn btn-secondary full-width btn-retry-action">
+          <span>🔄 Retry Replication</span>
+        </button>
+      </div>
+
       <!-- Extraction Options Accordion -->
       <details class="options-details">
         <summary>Advanced Extraction Options</summary>
