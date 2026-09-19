@@ -66,18 +66,57 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   z-index: 500 !important;
 }
 
-.tds-site-header-panel[open] .tds-site-header-panel-content,
-.dx-mega-menu-panel[open] .tds-site-header-panel-content {
+/* Remove blocking white pseudo-element overlay on mega-menu */
+.dx-mega-menu::after,
+.dx-mega-menu.dx-mega-menu__slide-in::after,
+.dx-mega-menu.dx-mega-menu__slide-out::after,
+.tds-menu-header-sticky .dx-mega-menu::after {
+  display: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Ensure mega-menu panel container fits content and scrolls when needed */
+.dx-mega-menu .tds-site-header-panel-content,
+.tds-site-header-panel-content {
+  height: auto !important;
+  min-height: fit-content !important;
+  max-height: 85vh !important;
+  overflow-y: auto !important;
   transform: translateY(0px) !important;
 }
 
 .dx-mega-menu-panel-content.active {
   margin-top: 0px !important;
   opacity: 1 !important;
+  visibility: visible !important;
   pointer-events: auto !important;
   position: relative !important;
   display: grid !important;
   z-index: 10 !important;
+}
+
+/* Ensure product links, cards, titles and thumbnails in mega-menu are crisp, visible, and interactive */
+.dx-mega-menu-product,
+.tds-site-header-panel[open] .dx-mega-menu-product {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+}
+
+.dx-mega-menu-product-title,
+.dx-mega-menu .dx-mega-menu-link-group-title,
+.dx-mega-menu-products a,
+.dx-mega-menu-product-links a,
+.dx-mega-menu-secondary-links a,
+.dx-mega-menu-link-groups a {
+  color: #171a20 !important;
+  visibility: visible !important;
+}
+
+.dx-mega-menu-product-asset img {
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .tds-site-header-panel[open] + .tds-modal-backdrop,
@@ -87,13 +126,60 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   z-index: 480 !important;
 }
 
+/* Hero & Carousel Image/Animation Fallback Fix */
+.tcl-react-media-slide-in-animation,
+[class*="slide-in-animation"] {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
+
+.tcl-flex-module-carousel__slide--active,
+.tcl-flex-module-carousel__slide--active picture,
+.tcl-flex-module-carousel__slide--active img {
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
 /* Universal Mobile Responsiveness (< 1024px and < 768px) */
 @media (max-width: 1024px) {
   /* Prevent horizontal overflow across page shell */
-  html, body, .tds-shell, .tcl-page__shell, main, #main-content {
+  html, body, .tds-shell, .tcl-page__shell, main, #main-content, .layout-content {
     max-width: 100vw !important;
     width: 100% !important;
     overflow-x: hidden !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Universal Section and Dynamic Container Constraints */
+  section,
+  .tcl-section,
+  .tcl-section--constrained,
+  .tds-layout-item,
+  .tcl-layout__main,
+  .tcl-layout__child {
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Responsive Multi-column Grids (collapse gracefully to single column) */
+  .tds-layout-2col.tds-layout-2col,
+  .tds-layout-2col-has_main,
+  .tds-layout-2col-spacious,
+  [class*="tds-layout-2col"] {
+    grid-template: 1fr / 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Dynamic Section Sizing Override on Mobile */
+  .tcl-dynamic-section,
+  [class*="dynamic-section"] {
+    --tcl-dynamic-section--width: 100% !important;
+    max-width: 100vw !important;
+    inline-size: 100% !important;
     box-sizing: border-box !important;
   }
 
@@ -108,11 +194,12 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   .tcl-freeflow-carousel-container__slides {
     padding-inline: 16px !important;
     gap: 16px !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
   }
 
   .tcl-freeflow-carousel-container__slide-container,
-  .tcl-dynamic-section,
-  [class*="slide-container"] {
+  .tcl-freeflow-carousel-container__slide-container .tcl-dynamic-section {
     --tcl-dynamic-section--width: 85vw !important;
     max-width: 85vw !important;
     inline-size: 85vw !important;
@@ -126,6 +213,31 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
     overflow-x: auto !important;
     -webkit-overflow-scrolling: touch !important;
     scroll-snap-type: x mandatory !important;
+  }
+
+  /* Sticky Bar Mobile Containment */
+  .tcl-sticky-bar,
+  [class*="sticky-bar"] {
+    max-width: 100vw !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+  }
+
+  .tcl-sticky-bar .chat-container,
+  .tcl-sticky-bar__drive-cta {
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  /* Footer Links Wrap on Mobile */
+  .tds-list--horizontal,
+  .tcl-site-footer,
+  footer ul {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    max-width: 100vw !important;
+    box-sizing: border-box !important;
   }
 
   /* Mobile Header Layout */
@@ -192,6 +304,8 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
     gap: 20px !important;
     transform: none !important;
     overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
   }
 
   .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content,
@@ -201,12 +315,22 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
     transform: none !important;
     margin: 0 !important;
     opacity: 1 !important;
+    visibility: visible !important;
     pointer-events: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .tds-site-header-panel.mobile-open .dx-mega-menu-products {
     display: grid !important;
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 12px !important;
     width: 100% !important;
     max-width: 100% !important;
+    padding: 0 !important;
   }
 
   .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content:nth-child(n+5) {
@@ -844,11 +968,21 @@ function injectStylesAndScripts(html: string): string {
             if (willOpenMega) {
               megaPanel.setAttribute('open', '');
               const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content'));
-              categories.slice(0, 4).forEach(function(cat) {
+              const catNames = ['Vehicles', 'Energy', 'Charging', 'Discover'];
+              categories.slice(0, 4).forEach(function(cat, idx) {
                 cat.classList.add('active');
                 cat.style.opacity = '1';
+                cat.style.visibility = 'visible';
                 cat.style.pointerEvents = 'auto';
                 cat.style.marginTop = '0px';
+
+                if (!cat.querySelector('.rep-mobile-cat-header')) {
+                  const hdr = document.createElement('div');
+                  hdr.className = 'rep-mobile-cat-header';
+                  hdr.style.cssText = 'grid-column: 1 / -1; font-weight: 700; font-size: 18px; margin: 16px 0 8px 0; color: #171a20; text-transform: uppercase; letter-spacing: 0.5px;';
+                  hdr.textContent = catNames[idx] || ('Section ' + (idx + 1));
+                  cat.prepend(hdr);
+                }
               });
             } else {
               megaPanel.removeAttribute('open');
@@ -945,7 +1079,13 @@ function injectStylesAndScripts(html: string): string {
         const slides = Array.from(
           carousel.querySelectorAll('.tcl-flex-module-carousel__slide, .media-gallery-item, [role="tabpanel"], [class*="__slide"]')
         ).filter(function(el) {
-          return !el.closest('.tcl-freeflow-carousel') && !el.closest('[class*="freeflow"]');
+          const cls = el.className || '';
+          return !el.classList.contains('tcl-flex-module-carousel__slides') &&
+                 !cls.includes('__slides') &&
+                 !cls.includes('__track') &&
+                 !cls.includes('carousel-container') &&
+                 !el.closest('.tcl-freeflow-carousel') &&
+                 !el.closest('[class*="freeflow"]');
         });
 
         if (slides.length <= 1) return;
