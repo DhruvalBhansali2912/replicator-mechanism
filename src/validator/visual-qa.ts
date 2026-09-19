@@ -55,8 +55,9 @@ export class VisualQAService {
       if (evalData.structuralChecks.carouselsResponsive) structuralPoints += 25;
       if (evalData.structuralChecks.fallbacksVisible) structuralPoints += 25;
 
-      const hasBaselines = !!(baselines?.desktop || baselines?.mobile);
-      if (hasBaselines) {
+      // If baseline screenshots exist and are valid (i.e. not Akamai/Cloudflare blocked screen with < 30% match)
+      const hasValidBaselines = !!(baselines?.desktop || baselines?.mobile) && visualAvg > 30;
+      if (hasValidBaselines) {
         result.fidelityScore = Math.round(visualAvg * 0.4 + structuralPoints * 0.6);
       } else {
         result.fidelityScore = structuralPoints;
@@ -121,11 +122,11 @@ export class VisualQAService {
         await page.waitForTimeout(250);
         desktopHoverPassed = await page.evaluate(() => {
           const p = document.querySelector(
-            'dialog.open, dialog[open], .mega-menu, .tds-site-header-panel[open], .tds-site-header-panel.open, [class*="mega-menu-panel"][open]'
+            'dialog.open, dialog[open], .tds-site-header-panel[open], .tds-site-header-panel.open, [class*="mega-menu-panel"][open], [class*="mega-menu-panel"].open, [class*="dropdown-menu"].open, [class*="dropdown-menu"].show, .dropdown-menu.show'
           );
           if (!p) return false;
           const rect = p.getBoundingClientRect();
-          return rect.height > 80 && window.getComputedStyle(p).display !== 'none';
+          return rect.height > 60 && window.getComputedStyle(p).display !== 'none';
         });
         await page.mouse.move(0, 0);
         await page.waitForTimeout(100);

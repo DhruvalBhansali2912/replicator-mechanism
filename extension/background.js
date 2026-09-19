@@ -357,6 +357,9 @@ async function pollJobStep(jobId, apiUrl) {
         message: jobData.error || 'An error occurred during replication.',
         priority: 2,
       });
+
+      // Refresh token balance to reflect zero deduction / refund
+      await refreshAccountBalance();
     }
   } catch (e) {
     console.warn('Background polling check failed:', e.message);

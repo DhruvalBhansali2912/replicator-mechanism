@@ -279,168 +279,169 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     btnStartExtract.disabled = true;
-    btnStartExtract.textContent = 'Preparing Page...';
+    btnStartExtract.innerHTML = '<span class="btn-icon">⏳</span> <span class="btn-text">Preparing Page...</span>';
     hideAlert();
 
-    // Capture client DOM snapshot and stylesheets as anti-bot / Cloudflare bypass fallback
-    let htmlSnapshot = '';
-    let clientStylesheets = [];
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab && tab.id && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
-        const results = await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          func: async () => {
-            // 1. Scroll page smoothly to trigger any lazy loaders & intersection observers in tab
-            const scrollHeight = document.body.scrollHeight;
-            const vh = window.innerHeight;
-            for (let y = 0; y < scrollHeight; y += vh) {
-              window.scrollTo(0, y);
-              await new Promise((r) => setTimeout(r, 60));
-            }
+      // Capture client DOM snapshot and stylesheets as anti-bot / Cloudflare bypass fallback
+      let htmlSnapshot = '';
+      let clientStylesheets = [];
+      try {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab && tab.id && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+          const scriptPromise = chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: async () => {
+              // 1. Scroll page smoothly to trigger any lazy loaders & intersection observers in tab
+              const scrollHeight = Math.min(document.body.scrollHeight, 12000);
+              const vh = window.innerHeight || 800;
+              for (let y = 0; y < scrollHeight; y += vh) {
+                window.scrollTo(0, y);
+                await new Promise((r) => setTimeout(r, 40));
+              }
 
-            // 1b. Specifically scroll dynamic maps, locators, and interactive widgets into view and wait for hydration
-            const mapWidgets = document.querySelectorAll(
-              '[data-component-status], [class*="map-component"], [id*="map"], [class*="charging-map"], [data-testid*="map"], [class*="store-locator"]'
-            );
-            for (const widget of Array.from(mapWidgets)) {
-              widget.scrollIntoView({ behavior: 'auto', block: 'center' });
-              await new Promise((r) => setTimeout(r, 600));
-            }
-
-            window.scrollTo(0, 0);
-            await new Promise((r) => setTimeout(r, 400));
-
-            // 2. Wait up to 2.5s for skeletons if present
-            const start = Date.now();
-            while (Date.now() - start < 2500) {
-              const skeletons = document.querySelectorAll(
-                '.animate-pulse, [class*="skeleton"], .exclusive-offers-empty, [class*="loading-placeholder"]'
+              // 1b. Specifically scroll dynamic maps, locators, and interactive widgets into view and wait for hydration
+              const mapWidgets = document.querySelectorAll(
+                '#charging-map-component, [class*="charging-map"], [class*="map-component"], [data-testid*="map"], .store-locator'
               );
-              if (skeletons.length === 0) break;
-              await new Promise((r) => setTimeout(r, 300));
-            }
-
-            // 2b. Trigger hover events on header nav items to hydrate any SPA dropdowns/drawers
-            try {
-              const navItems = document.querySelectorAll(
-                'header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a'
-              );
-              for (const item of Array.from(navItems).slice(0, 8)) {
-                item.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true }));
-                item.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true }));
-                await new Promise((r) => setTimeout(r, 60));
-              }
-            } catch (e) {}
-
-            // 3. Extract loaded CSS rules directly from document.styleSheets and <link rel="stylesheet">
-            const stylesheets = [];
-            const fetchedHrefs = new Set();
-
-            for (let i = 0; i < document.styleSheets.length; i++) {
-              const sheet = document.styleSheets[i];
-              let css = '';
-              try {
-                if (sheet.cssRules && sheet.cssRules.length > 0) {
-                  for (let j = 0; j < sheet.cssRules.length; j++) {
-                    css += sheet.cssRules[j].cssText + '\n';
-                  }
-                }
-              } catch (e) {
-                // Cross-origin CSS rule security restriction
+              for (const widget of Array.from(mapWidgets).slice(0, 2)) {
+                widget.scrollIntoView({ behavior: 'auto', block: 'center' });
+                await new Promise((r) => setTimeout(r, 300));
               }
 
-              // If sheet could not be read via cssRules (cross-origin/CDN), fetch it directly inside the tab context!
-              if (!css.trim() && sheet.href && !sheet.href.startsWith('chrome-extension://')) {
+              window.scrollTo(0, 0);
+              await new Promise((r) => setTimeout(r, 200));
+
+              // 2. Extract loaded CSS rules directly from document.styleSheets and <link rel="stylesheet">
+              const stylesheets = [];
+              const fetchedHrefs = new Set();
+
+              for (let i = 0; i < Math.min(document.styleSheets.length, 30); i++) {
+                const sheet = document.styleSheets[i];
+                let css = '';
                 try {
-                  fetchedHrefs.add(sheet.href);
-                  const resp = await fetch(sheet.href);
-                  if (resp.ok) {
-                    css = await resp.text();
-                  }
-                } catch (fetchErr) {}
-              }
-
-              if (css.trim()) {
-                stylesheets.push(css);
-              }
-            }
-
-            // Also check all <link rel="stylesheet"> tags in the document to ensure no external CDN styles were missed
-            const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-            for (const link of links) {
-              const href = link.href;
-              if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
-                try {
-                  fetchedHrefs.add(href);
-                  const resp = await fetch(href);
-                  if (resp.ok) {
-                    const text = await resp.text();
-                    if (text.trim()) {
-                      stylesheets.push(text);
+                  if (sheet.cssRules && sheet.cssRules.length > 0) {
+                    for (let j = 0; j < sheet.cssRules.length; j++) {
+                      css += sheet.cssRules[j].cssText + '\n';
                     }
                   }
-                } catch (e) {}
-              }
-            }
-
-            // Convert HTML5 canvas elements (maps/charts/WebGL) to inline images so they survive snapshotting
-            document.querySelectorAll('canvas').forEach((canvas) => {
-              try {
-                const dataUrl = canvas.toDataURL('image/png');
-                if (dataUrl && dataUrl.length > 100) {
-                  const img = document.createElement('img');
-                  img.src = dataUrl;
-                  img.className = (canvas.className || '') + ' rep-canvas-replacement';
-                  img.style.cssText = canvas.style.cssText;
-                  img.setAttribute('width', String(canvas.width));
-                  img.setAttribute('height', String(canvas.height));
-                  canvas.parentNode?.replaceChild(img, canvas);
+                } catch (e) {
+                  // Cross-origin CSS rule security restriction
                 }
-              } catch {}
-            });
 
-            return {
-              html: document.documentElement.outerHTML,
-              stylesheets: stylesheets,
-            };
+                // If sheet could not be read via cssRules (cross-origin/CDN), fetch it directly inside the tab context!
+                if (!css.trim() && sheet.href && !sheet.href.startsWith('chrome-extension://')) {
+                  try {
+                    fetchedHrefs.add(sheet.href);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1500);
+                    const resp = await fetch(sheet.href, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (resp.ok) {
+                      css = await resp.text();
+                    }
+                  } catch (fetchErr) {}
+                }
+
+                if (css.trim()) {
+                  stylesheets.push(css);
+                }
+              }
+
+              // Also check all <link rel="stylesheet"> tags in the document to ensure no external CDN styles were missed
+              const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+              for (const link of links) {
+                const href = link.href;
+                if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
+                  try {
+                    fetchedHrefs.add(href);
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 1500);
+                    const resp = await fetch(href, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (resp.ok) {
+                      const text = await resp.text();
+                      if (text.trim()) {
+                        stylesheets.push(text);
+                      }
+                    }
+                  } catch (e) {}
+                }
+              }
+
+              // Convert HTML5 canvas elements (maps/charts/WebGL) to inline images so they survive snapshotting
+              document.querySelectorAll('canvas').forEach((canvas) => {
+                try {
+                  const dataUrl = canvas.toDataURL('image/png');
+                  if (dataUrl && dataUrl.length > 100) {
+                    const img = document.createElement('img');
+                    img.src = dataUrl;
+                    img.className = (canvas.className || '') + ' rep-canvas-replacement';
+                    img.style.cssText = canvas.style.cssText;
+                    img.setAttribute('width', String(canvas.width));
+                    img.setAttribute('height', String(canvas.height));
+                    canvas.parentNode?.replaceChild(img, canvas);
+                  }
+                } catch {}
+              });
+
+              return {
+                html: document.documentElement.outerHTML,
+                stylesheets: stylesheets,
+              };
+            },
+          });
+
+          // Timeout script execution after 4 seconds max so popup NEVER hangs
+          const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 4000));
+          const results = await Promise.race([scriptPromise, timeoutPromise]);
+
+          if (results && results[0] && results[0].result) {
+            htmlSnapshot = results[0].result.html;
+            clientStylesheets = results[0].result.stylesheets || [];
+          }
+        }
+      } catch (e) {
+        console.warn('Could not grab active tab DOM snapshot:', e);
+      }
+
+      const options = {
+        localizeAssets: document.getElementById('opt-localize').checked,
+        mobile: document.getElementById('opt-mobile').checked,
+        purgeCss: document.getElementById('opt-purge').checked,
+        renameClasses: document.getElementById('opt-rename').checked,
+        htmlSnapshot: htmlSnapshot || undefined,
+        clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
+      };
+
+      // Delegate execution to background.js so it continues if popup closes
+      const res = await new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          {
+            action: 'START_EXTRACTION',
+            payload: { url: currentTabUrl, options },
           },
-        });
+          (response) => {
+            if (chrome.runtime.lastError) {
+              resolve({ success: false, error: chrome.runtime.lastError.message });
+            } else {
+              resolve(response);
+            }
+          }
+        );
+      });
 
-        if (results && results[0] && results[0].result) {
-          htmlSnapshot = results[0].result.html;
-          clientStylesheets = results[0].result.stylesheets || [];
-        }
+      if (res && res.success) {
+        renderJobState(res.activeJob);
+      } else {
+        showAlert(res ? res.error : 'Failed to start replication', 'error');
+        resetExtractButton();
       }
-    } catch (e) {
-      console.warn('Could not grab active tab DOM snapshot:', e);
+    } catch (err) {
+      console.error('Extraction launch error:', err);
+      showAlert(`Launch error: ${err.message}`, 'error');
+      resetExtractButton();
     }
-
-    const options = {
-      localizeAssets: document.getElementById('opt-localize').checked,
-      mobile: document.getElementById('opt-mobile').checked,
-      purgeCss: document.getElementById('opt-purge').checked,
-      renameClasses: document.getElementById('opt-rename').checked,
-      htmlSnapshot: htmlSnapshot || undefined,
-      clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
-    };
-
-    // Delegate execution to background.js so it continues if popup closes
-    chrome.runtime.sendMessage(
-      {
-        action: 'START_EXTRACTION',
-        payload: { url: currentTabUrl, options },
-      },
-      (res) => {
-        btnStartExtract.disabled = false;
-        btnStartExtract.textContent = 'Replicate Current Page';
-        if (res && res.success) {
-          renderJobState(res.activeJob);
-        } else {
-          showAlert(res ? res.error : 'Failed to start replication', 'error');
-        }
-      }
-    );
   });
 
   // Open Options Page
@@ -518,6 +519,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- HELPER FUNCTIONS ---
 
+  function resetExtractButton() {
+    chrome.storage.local.get(['balance']).then(({ balance }) => {
+      updateBalanceDisplay(balance);
+    }).catch(() => {
+      btnStartExtract.disabled = false;
+      btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate Page (-1 Token)</span>';
+    });
+  }
+
   function showView(name) {
     viewLicense.classList.add('hidden');
     viewReady.classList.add('hidden');
@@ -525,7 +535,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     viewCompleted.classList.add('hidden');
 
     if (name === 'license') viewLicense.classList.remove('hidden');
-    if (name === 'ready') viewReady.classList.remove('hidden');
+    if (name === 'ready') {
+      viewReady.classList.remove('hidden');
+      resetExtractButton();
+    }
     if (name === 'progress') viewProgress.classList.remove('hidden');
     if (name === 'completed') viewCompleted.classList.remove('hidden');
   }
@@ -543,9 +556,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (job.status === 'failed') {
       showView('ready');
+      resetExtractButton();
       showAlert(`Extraction failed: ${job.error || 'Unknown error'}`, 'error');
       chrome.storage.local.remove(['activeJob']);
-      setTimeout(() => hideAlert(), 5000);
+      setTimeout(() => hideAlert(), 6000);
       return;
     }
 
