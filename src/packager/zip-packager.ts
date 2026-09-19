@@ -56,21 +56,42 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
 }
 
 /* Universal Desktop Mega-Menu & Dropdown Hover Styles */
+dialog.tds-site-header-panel,
+dialog.dx-mega-menu-panel,
 .tds-site-header-panel[open],
-.dx-mega-menu-panel[open] {
+.dx-mega-menu-panel[open],
+.tds-site-header-panel.open,
+.dx-mega-menu-panel.open {
   transform: translateY(0px) !important;
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
   pointer-events: auto !important;
   z-index: 500 !important;
+  position: absolute !important;
+  top: 0px !important;
+  left: 0px !important;
+  right: 0px !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  background-color: #ffffff !important;
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
+
+/* Neutralize the slide-out transform on the header wrapper when menu is active or hovered */
+.dx-mega-menu,
+.dx-mega-menu.dx-mega-menu__slide-out,
+.dx-mega-menu.dx-mega-menu__slide-top {
+  top: 0px !important;
 }
 
 /* Remove blocking white pseudo-element overlay on mega-menu */
 .dx-mega-menu::after,
 .dx-mega-menu.dx-mega-menu__slide-in::after,
 .dx-mega-menu.dx-mega-menu__slide-out::after,
-.tds-menu-header-sticky .dx-mega-menu::after {
+.tds-menu-header-sticky .dx-mega-menu::after,
+.tds-theme--replicant .tds-modal::after,
+.tds-theme--replicant .tds-modal::before {
   display: none !important;
   opacity: 0 !important;
   pointer-events: none !important;
@@ -84,6 +105,14 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   max-height: 85vh !important;
   overflow-y: auto !important;
   transform: translateY(0px) !important;
+  padding-top: 60px !important;
+}
+
+.dx-mega-menu-panel-content {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .dx-mega-menu-panel-content.active {
@@ -98,7 +127,8 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
 
 /* Ensure product links, cards, titles and thumbnails in mega-menu are crisp, visible, and interactive */
 .dx-mega-menu-product,
-.tds-site-header-panel[open] .dx-mega-menu-product {
+.tds-site-header-panel[open] .dx-mega-menu-product,
+.tds-site-header-panel.open .dx-mega-menu-product {
   opacity: 1 !important;
   visibility: visible !important;
   transform: none !important;
@@ -109,7 +139,9 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
 .dx-mega-menu-products a,
 .dx-mega-menu-product-links a,
 .dx-mega-menu-secondary-links a,
-.dx-mega-menu-link-groups a {
+.dx-mega-menu-link-groups a,
+.dx-mega-menu a,
+.dx-mega-menu button {
   color: #171a20 !important;
   visibility: visible !important;
 }
@@ -174,11 +206,23 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
     box-sizing: border-box !important;
   }
 
-  /* Dynamic Section Sizing Override on Mobile */
+  /* Dynamic Section and Flex Module Sizing Override on Mobile */
   .tcl-dynamic-section,
   [class*="dynamic-section"] {
     --tcl-dynamic-section--width: 100% !important;
+    --tcl-dynamic-section--max-width: 100% !important;
     max-width: 100vw !important;
+    inline-size: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .tcl-flex-module,
+  .tcl-flex-module .tcl-flex-module__container,
+  .tcl-flex-module__content {
+    --tcl-flex-module__container--computed-max-inline-size: 100% !important;
+    --tcl-flex-module__container--max-inline-size: 100% !important;
+    max-width: 100vw !important;
+    max-inline-size: 100% !important;
     inline-size: 100% !important;
     box-sizing: border-box !important;
   }
@@ -187,7 +231,9 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   .tcl-freeflow-carousel__container,
   [class*="freeflow-carousel__container"] {
     --tcl-freeflow-carousel-container__slide--max-inline-size: 85vw !important;
+    --tcl-freeflow-carousel-container__slide--inline-size: 85vw !important;
     max-width: 100vw !important;
+    inline-size: 100vw !important;
     box-sizing: border-box !important;
   }
 
@@ -201,6 +247,7 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
   .tcl-freeflow-carousel-container__slide-container,
   .tcl-freeflow-carousel-container__slide-container .tcl-dynamic-section {
     --tcl-dynamic-section--width: 85vw !important;
+    --tcl-freeflow-carousel-container__slide--inline-size: 85vw !important;
     max-width: 85vw !important;
     inline-size: 85vw !important;
     box-sizing: border-box !important;
@@ -306,6 +353,7 @@ const REPLICATOR_GLOBAL_PATCH_CSS = `
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
+    padding-top: 0 !important;
   }
 
   .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content,
@@ -841,14 +889,28 @@ function injectStylesAndScripts(html: string): string {
 
       // 1. Desktop Hover & Click Mega-Menu Controller
       if (header && megaPanel) {
-        const navButtons = Array.from(header.querySelectorAll('ol.tds-align--center button, button[id*="dx-nav-item"], [class*="site-nav-item"]'));
-        const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content, [class*="panel-content"] > div'));
+        // Accurately select only top-level navigation buttons in header
+        const navButtons = Array.from(
+          header.querySelectorAll('ol.tds-align--center > li > button, ol.tds-align--center button, button[id^="dx-nav-item--"]')
+        ).filter(function(b) {
+          return b.tagName === 'BUTTON' && !b.classList.contains('tds-mobile-nav-toggle');
+        });
+
+        // Accurately select only top-level category containers (exclude nested child divs)
+        const contentWrapper = megaPanel.querySelector('.tds-site-header-panel-content') || megaPanel;
+        const categories = Array.from(contentWrapper.children).filter(function(el) {
+          return el.classList.contains('dx-mega-menu-panel-content') || el.hasAttribute('data-category');
+        });
         let closeTimer = null;
 
         function openMegaCategory(index) {
           if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
           megaPanel.setAttribute('open', '');
           megaPanel.classList.add('open', 'tds-modal--open');
+          megaPanel.style.display = 'block';
+          megaPanel.style.opacity = '1';
+          megaPanel.style.visibility = 'visible';
+          megaPanel.style.pointerEvents = 'auto';
 
           if (backdrop) {
             backdrop.style.display = 'block';
@@ -860,11 +922,15 @@ function injectStylesAndScripts(html: string): string {
             const isActive = idx === index;
             cat.classList.toggle('active', isActive);
             if (isActive) {
+              cat.style.display = 'grid';
               cat.style.opacity = '1';
+              cat.style.visibility = 'visible';
               cat.style.pointerEvents = 'auto';
               cat.style.marginTop = '0px';
             } else {
+              cat.style.display = 'none';
               cat.style.opacity = '0';
+              cat.style.visibility = 'hidden';
               cat.style.pointerEvents = 'none';
             }
           });
@@ -881,7 +947,9 @@ function injectStylesAndScripts(html: string): string {
               megaPanel.classList.remove('open', 'tds-modal--open');
               categories.forEach(function(cat) {
                 cat.classList.remove('active');
+                cat.style.display = 'none';
                 cat.style.opacity = '0';
+                cat.style.visibility = 'hidden';
                 cat.style.pointerEvents = 'none';
               });
               if (backdrop) {
@@ -967,10 +1035,14 @@ function injectStylesAndScripts(html: string): string {
             megaPanel.classList.toggle('mobile-open', willOpenMega);
             if (willOpenMega) {
               megaPanel.setAttribute('open', '');
+              megaPanel.style.display = 'flex';
+              megaPanel.style.visibility = 'visible';
+              megaPanel.style.opacity = '1';
               const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content'));
               const catNames = ['Vehicles', 'Energy', 'Charging', 'Discover'];
               categories.slice(0, 4).forEach(function(cat, idx) {
                 cat.classList.add('active');
+                cat.style.display = 'flex';
                 cat.style.opacity = '1';
                 cat.style.visibility = 'visible';
                 cat.style.pointerEvents = 'auto';
@@ -986,6 +1058,7 @@ function injectStylesAndScripts(html: string): string {
               });
             } else {
               megaPanel.removeAttribute('open');
+              megaPanel.style.display = 'none';
             }
           }
 
@@ -1018,6 +1091,7 @@ function injectStylesAndScripts(html: string): string {
           if (megaPanel) {
             megaPanel.classList.remove('mobile-open', 'open', 'tds-modal--open');
             megaPanel.removeAttribute('open');
+            megaPanel.style.display = 'none';
           }
           getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]').forEach(function(el) {
             el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
