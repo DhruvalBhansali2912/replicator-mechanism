@@ -309,30 +309,41 @@ dialog.dx-mega-menu-panel.open {
     pointer-events: none !important;
   }
 
-  /* Responsive Freeflow Carousel Slides on mobile */
-  .tcl-freeflow-carousel__container,
-  [class*="freeflow-carousel__container"] {
-    --tcl-freeflow-carousel-container__slide--max-inline-size: 85vw !important;
-    --tcl-freeflow-carousel-container__slide--inline-size: 85vw !important;
-    max-width: 100vw !important;
-    inline-size: 100vw !important;
-    box-sizing: border-box !important;
-  }
-
+  /* Freeflow Horizontal Carousel on Mobile: Slides must NEVER shrink */
   .tcl-freeflow-carousel-container__slides {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scroll-snap-type: x mandatory !important;
     padding-inline: 16px !important;
     gap: 16px !important;
+    width: 100% !important;
     max-width: 100vw !important;
     box-sizing: border-box !important;
   }
 
   .tcl-freeflow-carousel-container__slide-container,
-  .tcl-freeflow-carousel-container__slide-container .tcl-dynamic-section {
-    --tcl-dynamic-section--width: 85vw !important;
-    --tcl-freeflow-carousel-container__slide--inline-size: 85vw !important;
+  [class*="carousel-container__slide-container"],
+  [class*="freeflow-carousel"] [class*="slide"],
+  .tcl-freeflow-carousel-container__slides > * {
+    flex: 0 0 85vw !important;
+    width: 85vw !important;
+    min-width: 85vw !important;
     max-width: 85vw !important;
     inline-size: 85vw !important;
+    min-inline-size: 85vw !important;
+    max-inline-size: 85vw !important;
+    flex-shrink: 0 !important;
+    scroll-snap-align: start !important;
     box-sizing: border-box !important;
+  }
+
+  .tcl-freeflow-carousel-container__slide-container .tcl-dynamic-section {
+    --tcl-dynamic-section--width: 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .tcl-freeflow-carousel,
@@ -404,11 +415,17 @@ dialog.dx-mega-menu-panel.open {
   }
 
   /* Mobile Navigation Drawer Sheet */
+  dialog.tds-site-header-panel.mobile-open,
+  dialog.dx-mega-menu-panel.mobile-open,
+  dialog.tds-modal.mobile-open,
   .tds-site-header-panel.mobile-open,
-  .dx-mega-menu-panel.mobile-open,
-  dialog.tds-modal.mobile-open {
+  .dx-mega-menu-panel.mobile-open {
     position: fixed !important;
     inset: 0 !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
     width: 100vw !important;
     height: 100dvh !important;
     max-height: 100dvh !important;
@@ -951,6 +968,58 @@ function injectStylesAndScripts(html: string): string {
 
   // Universal Framework & React Safety Stub
   window.React = window.React || {};
+  if (typeof window.React.createContext !== 'function') {
+    window.React.createContext = function(def) {
+      return {
+        Provider: function() {},
+        Consumer: function() {},
+        _currentValue: def,
+        _currentValue2: def,
+        displayName: ''
+      };
+    };
+  }
+  if (typeof window.React.createElement !== 'function') {
+    window.React.createElement = function(type, props) {
+      return { $$typeof: Symbol.for('react.element'), type: type, props: props || {}, children: Array.prototype.slice.call(arguments, 2) };
+    };
+  }
+  if (typeof window.React.forwardRef !== 'function') {
+    window.React.forwardRef = function(render) { return render; };
+  }
+  if (typeof window.React.memo !== 'function') {
+    window.React.memo = function(c) { return c; };
+  }
+  if (typeof window.React.useRef !== 'function') {
+    window.React.useRef = function(init) { return { current: init }; };
+  }
+  if (typeof window.React.useState !== 'function') {
+    window.React.useState = function(init) { return [typeof init === 'function' ? init() : init, function() {}]; };
+  }
+  if (typeof window.React.useEffect !== 'function') {
+    window.React.useEffect = function() {};
+  }
+  if (typeof window.React.useLayoutEffect !== 'function') {
+    window.React.useLayoutEffect = function() {};
+  }
+  if (typeof window.React.useMemo !== 'function') {
+    window.React.useMemo = function(fn) { return fn(); };
+  }
+  if (typeof window.React.useCallback !== 'function') {
+    window.React.useCallback = function(fn) { return fn; };
+  }
+  if (typeof window.React.useContext !== 'function') {
+    window.React.useContext = function() { return {}; };
+  }
+  if (typeof window.React.Component !== 'function') {
+    window.React.Component = function() {};
+  }
+  if (typeof window.React.PureComponent !== 'function') {
+    window.React.PureComponent = function() {};
+  }
+  if (!window.React.Fragment) {
+    window.React.Fragment = Symbol.for('react.fragment');
+  }
   if (!window.React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED) {
     window.React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED = {
       ReactCurrentDispatcher: { current: null },
@@ -1151,15 +1220,24 @@ function injectStylesAndScripts(html: string): string {
         });
       });
 
-      // 3. Universal Mobile Menu Drawer & Toggle Handlers
+      // 3. Universal Mobile Menu Drawer & Toggle Handlers (Runs in capture phase)
       document.addEventListener('click', function(e) {
         var target = e.target;
         if (!target || !(target instanceof Element)) return;
 
         // A. Mobile Toggle Click (Tesla & Universal)
         var toggleBtn = target.closest(
-          '.tds-mobile-nav-toggle, .mobile-menu-btn, button[class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"]'
+          '.tds-mobile-nav-toggle, .mobile-menu-btn, button[class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"], [id*="menu-toggle"], [id*="nav-toggle"], [id*="mobile-menu"]'
         );
+        if (!toggleBtn && target.closest('header, nav, [class*="site-header"]')) {
+          var candidate = target.closest('button, a');
+          if (candidate) {
+            var txt = (candidate.textContent || '').trim().toLowerCase();
+            if (txt === 'menu') {
+              toggleBtn = candidate;
+            }
+          }
+        }
         if (toggleBtn) {
           e.preventDefault();
           e.stopPropagation();
@@ -1170,18 +1248,25 @@ function injectStylesAndScripts(html: string): string {
             megaPanel.classList.toggle('mobile-open', willOpenMega);
             if (willOpenMega) {
               megaPanel.setAttribute('open', '');
-              megaPanel.style.display = 'flex';
-              megaPanel.style.visibility = 'visible';
-              megaPanel.style.opacity = '1';
+              megaPanel.style.setProperty('position', 'fixed', 'important');
+              megaPanel.style.setProperty('inset', '0', 'important');
+              megaPanel.style.setProperty('top', '0', 'important');
+              megaPanel.style.setProperty('z-index', '99999', 'important');
+              megaPanel.style.setProperty('display', 'flex', 'important');
+              megaPanel.style.setProperty('visibility', 'visible', 'important');
+              megaPanel.style.setProperty('opacity', '1', 'important');
+              megaPanel.style.setProperty('pointer-events', 'auto', 'important');
+              document.body.classList.add('menu-open');
+              document.body.style.setProperty('overflow', 'hidden', 'important');
               const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content'));
               const catNames = ['Vehicles', 'Energy', 'Charging', 'Discover'];
               categories.slice(0, 4).forEach(function(cat, idx) {
                 cat.classList.add('active');
-                cat.style.display = 'flex';
-                cat.style.opacity = '1';
-                cat.style.visibility = 'visible';
-                cat.style.pointerEvents = 'auto';
-                cat.style.marginTop = '0px';
+                cat.style.setProperty('display', 'flex', 'important');
+                cat.style.setProperty('opacity', '1', 'important');
+                cat.style.setProperty('visibility', 'visible', 'important');
+                cat.style.setProperty('pointer-events', 'auto', 'important');
+                cat.style.setProperty('margin-top', '0px', 'important');
 
                 if (!cat.querySelector('.rep-mobile-cat-header')) {
                   const hdr = document.createElement('div');
@@ -1193,7 +1278,13 @@ function injectStylesAndScripts(html: string): string {
               });
             } else {
               megaPanel.removeAttribute('open');
-              megaPanel.style.display = 'none';
+              megaPanel.style.removeProperty('position');
+              megaPanel.style.removeProperty('inset');
+              megaPanel.style.removeProperty('top');
+              megaPanel.style.removeProperty('z-index');
+              megaPanel.style.setProperty('display', 'none', 'important');
+              document.body.classList.remove('menu-open');
+              document.body.style.removeProperty('overflow');
             }
           }
 
@@ -1226,7 +1317,11 @@ function injectStylesAndScripts(html: string): string {
           if (megaPanel) {
             megaPanel.classList.remove('mobile-open', 'open', 'tds-modal--open');
             megaPanel.removeAttribute('open');
-            megaPanel.style.display = 'none';
+            megaPanel.style.removeProperty('position');
+            megaPanel.style.removeProperty('inset');
+            megaPanel.style.removeProperty('top');
+            megaPanel.style.removeProperty('z-index');
+            megaPanel.style.setProperty('display', 'none', 'important');
           }
           getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]').forEach(function(el) {
             el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
@@ -1235,6 +1330,7 @@ function injectStylesAndScripts(html: string): string {
             el.classList.remove('show', 'open', 'active');
           });
           document.body.classList.remove('menu-open', 'mobile-menu-open', 'overflow-hidden');
+          document.body.style.removeProperty('overflow');
           return;
         }
 
@@ -1260,7 +1356,7 @@ function injectStylesAndScripts(html: string): string {
           }
           return;
         }
-      });
+      }, true);
     }
 
     if (document.readyState === 'loading') {
@@ -1421,9 +1517,10 @@ function injectStylesAndScripts(html: string): string {
         if (container.hasAttribute('data-rep-ff-init')) return;
         container.setAttribute('data-rep-ff-init', 'true');
 
-        const scrollEl = container.classList.contains('tcl-freeflow-carousel')
-          ? container
-          : (container.querySelector('.tcl-freeflow-carousel, [class*="freeflow-carousel"]:not([class*="__container"])') || container);
+        const scrollEl = container.querySelector('.tcl-freeflow-carousel-container__slides') ||
+          (container.classList.contains('tcl-freeflow-carousel')
+            ? container
+            : (container.querySelector('.tcl-freeflow-carousel, [class*="freeflow-carousel"]:not([class*="__container"])') || container));
 
         const slides = Array.from(
           container.querySelectorAll('.tcl-freeflow-carousel-container__slide-container, [class*="slide-container"], [class*="carousel-card"]')
