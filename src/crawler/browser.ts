@@ -6,10 +6,20 @@ import { CONFIG } from '../config.js';
 
 export class BrowserManager {
   private static browserInstance: Browser | null = null;
+  private static launchDisabled: boolean = false;
+  private static disabledReason: string = '';
+
+  public static isAvailable(): boolean {
+    return !this.launchDisabled;
+  }
 
   public static async getBrowser(): Promise<Browser> {
     if (this.browserInstance && this.browserInstance.isConnected()) {
       return this.browserInstance;
+    }
+
+    if (this.launchDisabled) {
+      throw new Error(`Headless Chromium is unavailable on this environment: ${this.disabledReason}`);
     }
 
     const launchOptions: any = {
@@ -30,8 +40,21 @@ export class BrowserManager {
       launchOptions.executablePath = customExecutable;
     }
 
-    this.browserInstance = await chromium.launch(launchOptions);
-    return this.browserInstance;
+    try {
+      this.browserInstance = await chromium.launch(launchOptions);
+      return this.browserInstance;
+    } catch (err: any) {
+      if (
+        err.message?.includes('Permission denied') ||
+        err.message?.includes('MachPortRendezvousServer') ||
+        err.message?.includes('Target page, context or browser has been closed')
+      ) {
+        this.launchDisabled = true;
+        this.disabledReason = err.message.slice(0, 100);
+        console.warn(`[BrowserManager] Headless browser launch restricted (${this.disabledReason}). Using fast deterministic fallback for all remaining operations.`);
+      }
+      throw err;
+    }
   }
 
   public static async createPage(options: {

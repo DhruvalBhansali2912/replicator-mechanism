@@ -34,7 +34,7 @@
 
         <div class="input-group">
           <label for="input-api-key">License Key</label>
-          <input type="password" id="input-api-key" placeholder="rep_live_xxxxxxxxxxxxxxxx" autocomplete="off" />
+          <input type="password" id="input-api-key" placeholder="rep_sec_xxxxxxxxxxxxxxxx" autocomplete="off" />
         </div>
 
         <button id="btn-activate-key" class="btn btn-primary full-width">
@@ -42,7 +42,7 @@
         </button>
 
         <button id="btn-auto-provision-fallback" class="btn btn-secondary full-width" style="margin-top: 8px;">
-          ⚡ Get 3 Free Trial Tokens (Instant)
+          ⚡ Get 10 Free Tokens (Instant)
         </button>
 
         <div class="license-footer">
@@ -67,7 +67,7 @@
       <div class="card api-key-card">
         <div class="api-key-header">
           <span class="card-label">YOUR EXTENSION API KEY</span>
-          <span id="trial-badge" class="key-badge">3 Free Tokens</span>
+          <span id="trial-badge" class="key-badge">Active</span>
         </div>
         <div class="api-key-row">
           <div class="key-field-container">
@@ -90,7 +90,7 @@
           <h4>Need More Replications?</h4>
         </div>
         <p class="exhausted-desc">
-          You have used your 3 free trial tokens. Purchase tokens on <strong>inventkid.com</strong> to continue cloning pages:
+          You have used your free credits. Purchase tokens or top up to continue cloning:
         </p>
         <div class="exhausted-steps">
           <div class="step-item"><span class="step-num">1</span> <span>Click <strong>Copy</strong> above to copy your API key</span></div>
@@ -115,7 +115,7 @@
         <div id="result-qa-details" class="result-qa-details">
           <div class="qa-score-row">
             <span class="qa-score-label">Fidelity Score:</span>
-            <span id="result-score-badge" class="qa-score-badge">0% / 80%</span>
+            <span id="result-score-badge" class="qa-score-badge">0% / 90%</span>
           </div>
           <div id="result-breakdown-tags" class="qa-breakdown-tags"></div>
         </div>
@@ -123,9 +123,53 @@
           <span class="shield-icon">🛡️</span>
           <span><strong>0 Tokens Deducted</strong> — Balance protected.</span>
         </div>
+        <div id="result-success-actions" class="action-buttons hidden" style="margin-top: 8px; display: flex; gap: 8px;">
+          <button id="btn-result-preview" class="btn btn-secondary full-width" type="button">
+            👁️ Live Preview
+          </button>
+          <button id="btn-result-download" class="btn btn-success full-width" type="button">
+            📦 Download ZIP
+          </button>
+        </div>
         <button id="btn-retry-replication" class="btn btn-secondary full-width btn-retry-action">
           <span>🔄 Retry Replication</span>
         </button>
+      </div>
+
+      <!-- Mode Selector & Section Selection Card -->
+      <div class="card section-picker-card">
+        <div class="mode-selector-tabs">
+          <button type="button" id="tab-mode-section" class="mode-tab active" title="Replicate a specific component/section">
+            <span>🎯 Replicate Section</span>
+          </button>
+          <button type="button" id="tab-mode-page" class="mode-tab" title="Replicate entire page">
+            <span>🌐 Full Page</span>
+          </button>
+        </div>
+
+        <div id="selected-section-info" class="selected-section-box hidden">
+          <div class="selected-section-header">
+            <span id="selected-archetype-icon" style="font-size:18px;">🧭</span>
+            <div class="selected-section-meta">
+              <strong id="selected-archetype-title">Navbar Section</strong>
+              <code id="selected-selector-tag">header</code>
+            </div>
+            <button id="btn-clear-section" class="btn-clear-pill" title="Clear selection & pick another">✕</button>
+          </div>
+          <div id="selected-section-stats" class="selected-stats">
+            <span id="stat-elements">0 interactive elements</span> &bull; <span id="stat-dimensions">1200×44px</span>
+          </div>
+          <button id="btn-reselect-section" class="btn btn-secondary full-width" style="margin-top: 4px; padding: 6px 12px; font-size: 12px;" type="button">
+            <span>🎯 Reselect Section on Page</span>
+          </button>
+        </div>
+
+        <div id="no-section-box" class="no-section-box">
+          <span style="font-size:12px;color:#94a3b8;">Select any section on the active page (Navbar, Hero, Features, Pricing, etc.):</span>
+          <button id="btn-pick-section" class="btn btn-secondary full-width" type="button" style="margin-top: 4px;">
+            <span>🎯 Select Section from Page</span>
+          </button>
+        </div>
       </div>
 
       <!-- Extraction Options Accordion -->
@@ -153,7 +197,7 @@
 
       <button id="btn-start-extract" class="btn btn-primary btn-replicate full-width">
         <span class="btn-icon">⚡</span>
-        <span class="btn-text">Replicate Page (-1 Token)</span>
+        <span class="btn-text">Replicate (-1 Token)</span>
       </button>
 
       <button id="btn-recharge-tokens" class="btn btn-secondary full-width hidden" style="margin-top: 8px; font-size: 13px;">
@@ -162,7 +206,7 @@
 
       <div class="server-status">
         <span class="status-dot online"></span>
-        <span id="server-url-display">Connected to replicator.inventkid.com</span>
+        <span id="server-url-display">Connected to backend</span>
       </div>
 
       <!-- Recent Replications Card (Last 3) -->
@@ -176,7 +220,7 @@
         </div>
 
         <div id="recent-list" class="recent-list">
-          <div class="recent-empty">No replicated pages yet. Click Replicate Page above to clone a website.</div>
+          <div class="recent-empty">No replicated pages yet. Click Replicate above to clone a website.</div>
         </div>
 
         <div class="retention-notice">

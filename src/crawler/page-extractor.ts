@@ -5,7 +5,7 @@ import { CssTransformer } from '../transformer/css-transformer.js';
 import { JsTransformer } from '../transformer/js-transformer.js';
 import { CssPurger } from '../optimizer/css-purger.js';
 import { AssetLocalizer } from '../localizer/asset-localizer.js';
-import { ExtractionOptions, ExtractedSection, JobState } from '../types.js';
+import { ExtractionOptions, ExtractedSection, JobState, RecordedInteraction } from '../types.js';
 import { CONFIG } from '../config.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
@@ -32,6 +32,7 @@ export interface ExtractionResult {
   transformedJs: string;
   sections: ExtractedSection[];
   assetCount: number;
+  recordedInteractions?: RecordedInteraction[];
 }
 
 export class PageExtractor {
@@ -39,18 +40,137 @@ export class PageExtractor {
   private htmlTransformer = new HtmlTransformer();
   private cssPurger = new CssPurger();
 
+  public extractFromSnapshotPure(
+    url: string,
+    options: ExtractionOptions,
+    onProgress?: (step: string, progress: number) => void
+  ): ExtractionResult {
+    onProgress?.('Extracting from client snapshot in-memory...', 30);
+    const rawHtml = options.htmlSnapshot || '';
+    const $ = cheerio.load(rawHtml);
+
+    const baselineScreenshots: BaselineScreenshots = {};
+    if (options.clientScreenshot) {
+      try {
+        const base64Data = options.clientScreenshot.replace(/^data:image\/\w+;base64,/, '');
+        baselineScreenshots.desktop = Buffer.from(base64Data, 'base64');
+      } catch {}
+    }
+
+    let combinedCss = (options.clientStylesheets || []).join('\n');
+    $('style').each((_i, el) => {
+      combinedCss += '\n' + $(el).text();
+    });
+
+    // Normalize inline SVGs in snapshot
+    $('svg').each((_, el) => {
+      const $svg = $(el);
+      const vb = $svg.attr('viewBox');
+      const w = $svg.attr('width');
+      const h = $svg.attr('height');
+      if (!w || !h || w === '100%' || h === '100%') {
+        if (vb) {
+          const parts = vb.trim().split(/[\s,]+/).map(Number);
+          if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+            const isIcon = $svg.closest('a, button, li, [class*="icon"], [class*="item"]').length > 0;
+            const targetW = isIcon ? Math.min(parts[2], 24) : parts[2];
+            const targetH = isIcon ? Math.min(parts[3], 24) : parts[3];
+            $svg.attr('width', String(targetW));
+            $svg.attr('height', String(targetH));
+            $svg.css('width', `${targetW}px`);
+            $svg.css('height', `${targetH}px`);
+          }
+        } else {
+          $svg.attr('width', '24');
+          $svg.attr('height', '24');
+          $svg.css('width', '24px');
+          $svg.css('height', '24px');
+        }
+      }
+    });
+
+    const isNavbarTarget = options.targetArchetype === 'navbar';
+    const candidateElements = isNavbarTarget
+      ? $('header, nav, [role="banner"], [role="navigation"]')
+      : $('header, nav, main > section, main > div, body > section, body > div, footer');
+    const sections: ExtractedSection[] = [];
+    const totalCandidates = candidateElements.length;
+
+    candidateElements.each((i, el) => {
+      const secHtml = $.html(el);
+      if (secHtml && secHtml.length > 80) {
+        const tag = (el as any).tagName ? (el as any).tagName.toLowerCase() : 'section';
+        const meta = this.classifier.classify({
+          id: `s${i + 1}`,
+          index: i,
+          totalSections: totalCandidates,
+          selector: `${tag}:nth-of-type(${i + 1})`,
+          tagName: tag,
+          rect: { x: 0, y: i * 400, width: 1440, height: 400 },
+          html: secHtml,
+        });
+
+        sections.push({
+          meta,
+          rawHtml: secHtml,
+          cleanedHtml: secHtml,
+          purgedCss: combinedCss,
+          minifiedCss: combinedCss,
+          scopedJs: '',
+          classMapping: {},
+          idMapping: {},
+        });
+      }
+    });
+
+    onProgress?.('Snapshot extraction completed', 100);
+
+    return {
+      fullPageScreenshot: baselineScreenshots.desktop || Buffer.alloc(0),
+      baselineScreenshots,
+      originalHtml: rawHtml,
+      transformedHtml: rawHtml,
+      originalCss: combinedCss,
+      transformedCss: combinedCss,
+      minifiedCss: combinedCss,
+      originalJs: '',
+      transformedJs: '',
+      sections,
+      assetCount: $('img, svg, picture, video').length,
+      recordedInteractions: options.recordedInteractions,
+    };
+  }
+
   public async extract(
     url: string,
     options: ExtractionOptions,
     onProgress?: (step: string, progress: number) => void
   ): Promise<ExtractionResult> {
-    onProgress?.('Launching browser and opening page...', 10);
-    const { context, page } = await BrowserManager.createPage({
-      mobile: options.mobile,
-      viewportWidth: options.viewportWidth,
-      viewportHeight: options.viewportHeight,
-    });
+    const hasSnapshot = !!(options.htmlSnapshot && options.htmlSnapshot.length > 200);
+    if (hasSnapshot) {
+      return this.extractFromSnapshotPure(url, options, onProgress);
+    }
 
+    let pageObj: { context: any; page: any } | null = null;
+    try {
+      onProgress?.('Launching browser and opening page...', 10);
+      pageObj = await BrowserManager.createPage({
+        mobile: options.mobile,
+        viewportWidth: options.viewportWidth,
+        viewportHeight: options.viewportHeight,
+      }).catch((err) => {
+        console.warn(`[PageExtractor] Browser launch failed (${err.message}). Using pure snapshot parser fallback.`);
+        return null;
+      });
+    } catch (launchErr: any) {
+      console.warn(`[PageExtractor] Browser launch exception: ${launchErr.message}`);
+    }
+
+    if (!pageObj) {
+      return this.extractFromSnapshotPure(url, options, onProgress);
+    }
+
+    const { context, page } = pageObj;
     try {
       // 1. Visit URL / Load Snapshot
       const hasSnapshot = !!(options.htmlSnapshot && options.htmlSnapshot.length > 500);
@@ -133,7 +253,7 @@ export class PageExtractor {
         }
 
         // Desktop menu hover baseline
-        const desktopNav = await page.$('header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a');
+        const desktopNav = await page.$('header nav li button, header nav li a, [class*="nav-items"] > li > button, [class*="nav-items"] > li > a, [role="navigation"] button, [role="navigation"] a');
         if (desktopNav) {
           await desktopNav.hover({ timeout: 1500 }).catch(() => {});
           await page.waitForTimeout(250);
@@ -153,7 +273,7 @@ export class PageExtractor {
         baselineScreenshots.mobile = await page.screenshot({ fullPage: false, type: 'png' });
 
         // Mobile menu toggle baseline
-        const mobileToggle = await page.$('.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i], [class*="menu-btn"]');
+        const mobileToggle = await page.$('[class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i], [class*="menu-btn"]');
         if (mobileToggle) {
           await mobileToggle.click({ timeout: 1500 }).catch(() => {});
           await page.waitForTimeout(300);
@@ -166,6 +286,9 @@ export class PageExtractor {
       } catch (baselineErr) {
         console.warn('Baseline screenshot capture skipped:', baselineErr);
       }
+
+      // 2c. Reveal dynamic/hidden sections & sub-panels via interaction pass
+      await this.revealDynamicSections(page);
 
       // 3. Capture full page screenshot
       onProgress?.('Capturing full page screenshot...', 40);
@@ -187,6 +310,32 @@ export class PageExtractor {
               img.setAttribute('width', String(canvas.width));
               img.setAttribute('height', String(canvas.height));
               canvas.parentNode?.replaceChild(img, canvas);
+            }
+          } catch {}
+        });
+
+        // Normalize inline SVGs by stamping real computed dimensions
+        document.querySelectorAll('svg').forEach((svg) => {
+          try {
+            const rect = svg.getBoundingClientRect();
+            const comp = window.getComputedStyle(svg);
+            const w = rect.width || parseFloat(comp.width) || parseFloat(svg.getAttribute('width') || '0');
+            const h = rect.height || parseFloat(comp.height) || parseFloat(svg.getAttribute('height') || '0');
+            const curW = svg.getAttribute('width');
+            const curH = svg.getAttribute('height');
+
+            if (w > 0 && h > 0 && (!curW || !curH || curW === '100%' || curH === '100%' || isNaN(Number(curW)))) {
+              const roundedW = Math.round(w);
+              const roundedH = Math.round(h);
+              svg.setAttribute('width', String(roundedW));
+              svg.setAttribute('height', String(roundedH));
+              svg.style.width = `${roundedW}px`;
+              svg.style.height = `${roundedH}px`;
+              svg.style.maxWidth = '100%';
+              svg.style.flexShrink = '0';
+              if (!svg.getAttribute('viewBox')) {
+                svg.setAttribute('viewBox', `0 0 ${roundedW} ${roundedH}`);
+              }
             }
           } catch {}
         });
@@ -320,7 +469,14 @@ export class PageExtractor {
 
       // 5. Discover top-level sections
       onProgress?.('Detecting and analyzing page sections...', 60);
-      const rawSections = await this.detectSections(page);
+      let rawSections = await this.detectSections(page, options.targetArchetype);
+
+      if (options.targetArchetype === 'navbar') {
+        const navSection = rawSections.find((s) => s.tagName === 'header' || s.tagName === 'nav' || s.selector.includes('header') || s.selector.includes('nav'));
+        if (navSection) {
+          rawSections = [navSection];
+        }
+      }
 
       // 6. Process each section: screenshot, classify, transform, purge
       onProgress?.('Classifying sections and transforming code...', 70);
@@ -434,10 +590,11 @@ export class PageExtractor {
         transformedJs: beautifiedGlobalJs,
         sections: extractedSections,
         assetCount: $('img, svg, picture, video').length,
+        recordedInteractions: options.recordedInteractions,
       };
     } finally {
-      await page.close();
-      await context.close();
+      if (page) await page.close().catch(() => {});
+      if (context) await context.close().catch(() => {});
     }
   }
 
@@ -502,10 +659,68 @@ export class PageExtractor {
     });
     await page.waitForTimeout(600);
 
-    // 5. Pre-hover header navigation elements to trigger dynamic SPA hydration & render dropdown DOM
+    // 5. Expand catalog / products "View More" if present to capture full product catalog
+    try {
+      await page.evaluate(async () => {
+        const isCatalogViewMore = (el: Element) => {
+          if (!el || el.closest('[class*="filter"]') || el.closest('[class*="sidebar"]') || el.closest('[class*="selector-item"]')) return false;
+          const txt = (el.textContent || '').trim().toLowerCase();
+          const cls = (el.className || '').toLowerCase();
+          const anLa = (el.getAttribute('an-la') || '').toLowerCase();
+          return (txt.includes('view more') || txt.includes('load more') || txt.includes('show more') ||
+                 cls.includes('view-more') || cls.includes('load-more') ||
+                 anLa.includes('view more') || anLa.includes('load more')) &&
+                 !cls.includes('close') && !cls.includes('cancel');
+        };
+
+        const cardCandidates = Array.from(document.querySelectorAll(
+          'article, [role="listitem"], [class*="product-card"], [class*="product-item"], [class*="catalog-item"], [class*="card"]'
+        )).filter(el => {
+          const cls = (el.className || '').toLowerCase();
+          return !cls.includes('filter') && !cls.includes('nav') && !cls.includes('header') && !el.closest('[class*="filter"]');
+        });
+
+        if (cardCandidates.length > 0) {
+          cardCandidates.forEach((c, idx) => {
+            c.setAttribute('data-card-index', String(idx));
+            c.setAttribute('data-initial-batch', 'true');
+          });
+
+          let clicks = 0;
+          let lastCount = cardCandidates.length;
+          while (clicks < 6) {
+            const btn = Array.from(document.querySelectorAll('button, a, [role="button"]')).find(isCatalogViewMore);
+            if (!btn || (btn as HTMLElement).offsetParent === null || (btn as HTMLButtonElement).disabled) break;
+            (btn as HTMLElement).click();
+            await new Promise(r => setTimeout(r, 800));
+
+            const currentCards = Array.from(document.querySelectorAll(
+              'article, [role="listitem"], [class*="product-card"], [class*="product-item"], [class*="catalog-item"], [class*="card"]'
+            )).filter(el => {
+              const cls = (el.className || '').toLowerCase();
+              return !cls.includes('filter') && !cls.includes('nav') && !cls.includes('header') && !el.closest('[class*="filter"]');
+            });
+
+            if (currentCards.length > lastCount) {
+              for (let i = lastCount; i < currentCards.length; i++) {
+                currentCards[i].setAttribute('data-card-index', String(i));
+                currentCards[i].setAttribute('data-dynamic-batch', 'true');
+                currentCards[i].setAttribute('data-batch-page', String(clicks + 2));
+              }
+              lastCount = currentCards.length;
+              clicks++;
+            } else {
+              break;
+            }
+          }
+        }
+      });
+    } catch {}
+
+    // 6. Pre-hover header navigation elements to trigger dynamic SPA hydration & render dropdown DOM
     try {
       const navHandles = await page.$$(
-        'header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a'
+        'header nav li button, header nav li a, [class*="nav-items"] > li > button, [class*="nav-items"] > li > a, [role="navigation"] button, [role="navigation"] a'
       );
       for (let i = 0; i < Math.min(navHandles.length, 8); i++) {
         await navHandles[i].hover({ timeout: 1500 }).catch(() => {});
@@ -515,16 +730,16 @@ export class PageExtractor {
 
       // Reset any dialogs, backdrops, and body scroll locks triggered during hover
       await page.evaluate(() => {
-        document.body.classList.remove('tds-modal--is-open', 'tds-site-header-panel--is-open', 'overflow-hidden');
+        document.body.classList.remove('overflow-hidden', 'menu-open');
         document.body.style.overflow = '';
         document.documentElement.style.overflow = '';
         document.querySelectorAll('dialog[open]').forEach((d) => d.removeAttribute('open'));
-        document.querySelectorAll('.open, .tds-modal--open, .mobile-open').forEach((el) => el.classList.remove('open', 'tds-modal--open', 'mobile-open'));
+        document.querySelectorAll('.open, .mobile-open, [class*="modal--open"]').forEach((el) => el.classList.remove('open', 'mobile-open'));
       });
     } catch {}
   }
 
-  private async detectSections(page: any): Promise<
+  private async detectSections(page: any, targetArchetype?: string): Promise<
     Array<{
       selector: string;
       tagName: string;
@@ -532,7 +747,7 @@ export class PageExtractor {
       html: string;
     }>
   > {
-    return await page.evaluate(() => {
+    return await page.evaluate((targetArch: string | undefined) => {
       const results: Array<{
         selector: string;
         tagName: string;
@@ -547,9 +762,16 @@ export class PageExtractor {
       const header = document.querySelector('header, nav, [role="banner"], [role="navigation"]');
       if (header) candidateElements.push(header);
 
-      // Check main wrapper children or direct body children
-      const main = document.querySelector('main, #__next, #app, #root, #main, .main-content');
-      const rootContainer = main || document.body;
+      if (targetArch === 'navbar') {
+        // If navbar is requested, only check navigation containers
+        const otherNavs = document.querySelectorAll('header, nav, [role="banner"], [role="navigation"]');
+        otherNavs.forEach((n) => {
+          if (!candidateElements.includes(n)) candidateElements.push(n);
+        });
+      } else {
+        // Check main wrapper children or direct body children
+        const main = document.querySelector('main, #__next, #app, #root, #main, .main-content');
+        const rootContainer = main || document.body;
 
       Array.from(rootContainer.children).forEach((child) => {
         const tag = child.tagName.toLowerCase();
@@ -573,10 +795,11 @@ export class PageExtractor {
         }
       });
 
-      // Footer
-      const footer = document.querySelector('footer, [role="contentinfo"]');
-      if (footer && !candidateElements.includes(footer)) {
-        candidateElements.push(footer);
+        // Footer
+        const footer = document.querySelector('footer, [role="contentinfo"]');
+        if (footer && !candidateElements.includes(footer)) {
+          candidateElements.push(footer);
+        }
       }
 
       // De-duplicate
@@ -620,7 +843,34 @@ export class PageExtractor {
       });
 
       return results;
-    });
+    }, targetArchetype);
+  }
+
+  /**
+   * Universally hovers and focuses interactive triggers to reveal dynamic submenus and portals.
+   */
+  private async revealDynamicSections(page: any): Promise<void> {
+    try {
+      await page.evaluate(async () => {
+        const triggers = Array.from(document.querySelectorAll(
+          'header button, header a, nav button, nav a, [role="navigation"] button, [role="navigation"] a, [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [class*="nav-item"] button, [class*="nav-item"] a'
+        )).slice(0, 25);
+
+        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+        for (const el of triggers) {
+          try {
+            el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, view: window }));
+            (el as HTMLElement).focus?.({ preventScroll: true });
+          } catch {}
+          await sleep(40);
+        }
+      });
+      await page.waitForTimeout(200);
+    } catch (e) {
+      console.warn('[PageExtractor] Dynamic section reveal pass skipped:', e);
+    }
   }
 }
 

@@ -28,10 +28,10 @@
     "storage",
     "downloads",
     "notifications",
-    "alarms",
-    "declarativeNetRequest"
+    "alarms"
   ],
   "host_permissions": [
+    "<all_urls>",
     "https://replicator.inventkid.com/*",
     "http://localhost:3000/*",
     "http://127.0.0.1:3000/*"

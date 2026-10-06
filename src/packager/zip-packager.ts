@@ -648,7 +648,8 @@ export class ZipPackager {
         const $el = $(el);
         const srcset = $el.attr('srcset');
         if (srcset && srcset.includes('/')) {
-          const updated = srcset.split(',').map(part => {
+          const candidateRegex = /,\s+(?=[^\s]+)|,(?=https?:\/\/|\/)/;
+          const updated = srcset.split(candidateRegex).map(part => {
             const trimmed = part.trim();
             if (trimmed.startsWith('/') && !trimmed.startsWith('//')) {
               return `${origin}${trimmed}`;
@@ -1768,6 +1769,7 @@ function generateStandaloneSectionHtml(title: string, html: string, css: string,
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
   <title>${title} - Standalone Section Preview</title>
   <style>
     /* Reset & Base */

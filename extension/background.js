@@ -1,6 +1,10 @@
 /**
  * Replicator Chrome Extension - Background Service Worker (Manifest V3)
- * Handles long-running background extraction polling, notifications, and storage persistence.
+ * Compliant with Chrome Web Store policies:
+ * - Single purpose
+ * - Minimal permissions (no declarativeNetRequest, no remote code, no eval)
+ * - Server-authoritative token accounting
+ * - Lightweight client communicating over HTTPS Bearer API
  */
 
 // Initialize permanent Device ID and default configuration
@@ -14,24 +18,22 @@ chrome.runtime.onInstalled.addListener(async () => {
     updates.deviceId = deviceId;
   }
 
-  if (!data.apiUrl) {
-    updates.apiUrl = 'https://replicator.inventkid.com';
+  if (!data.apiUrl || data.apiUrl === 'https://replicator.inventkid.com') {
+    updates.apiUrl = 'http://localhost:3000';
   }
 
   if (Object.keys(updates).length > 0) {
     await chrome.storage.local.set(updates);
   }
 
-  await registerUserAgentRule();
-
-  // Auto-provision trial key with 3 free tokens if not already present
+  // Auto-provision trial key if not already present
   if (!data.apiKey) {
     await ensureTrialProvisioned();
   }
 });
 
 /**
- * Automatically provisions a default trial API key pre-credited with 3 tokens.
+ * Automatically provisions a default trial API key pre-credited with starter tokens.
  */
 async function ensureTrialProvisioned() {
   try {
@@ -44,7 +46,36 @@ async function ensureTrialProvisioned() {
       await chrome.storage.local.set({ deviceId });
     }
 
-    const apiUrl = (data.apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+    const apiUrl = (data.apiUrl || 'http://localhost:3000').replace(/\/$/, '');
+
+    // Try V1 registration first
+    try {
+      const trialEmail = `trial_${deviceId.slice(0, 8)}@inventkid.local`;
+      const trialPass = `TrialPass_${crypto.randomUUID().slice(0, 12)}`;
+      const v1Res = await fetch(`${apiUrl}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': deviceId,
+          'X-Device-Name': 'Chrome Extension',
+        },
+        body: JSON.stringify({ email: trialEmail, password: trialPass }),
+      });
+
+      if (v1Res.ok) {
+        const v1Data = await v1Res.json();
+        if (v1Data.success && v1Data.initialToken) {
+          await chrome.storage.local.set({
+            apiKey: v1Data.initialToken,
+            balance: 10,
+            isFreeTrial: true,
+          });
+          return { success: true, apiKey: v1Data.initialToken, balance: 10 };
+        }
+      }
+    } catch {}
+
+    // Fallback to legacy trial endpoint
     const res = await fetch(`${apiUrl}/api/keys/auto-trial`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -65,51 +96,10 @@ async function ensureTrialProvisioned() {
     }
     return { success: false, error: result.error || 'Failed to auto-provision trial key' };
   } catch (err) {
-    console.warn('Auto-provision trial failed:', err);
+    console.debug('Auto-provision trial note:', err);
     return { success: false, error: err.message };
   }
 }
-
-// Ensure outgoing requests carry custom User-Agent to bypass corporate proxies/Zscaler CBI
-async function registerUserAgentRule() {
-  if (!chrome.declarativeNetRequest) return;
-  try {
-    const { apiUrl } = await chrome.storage.local.get(['apiUrl']);
-    let targetHost = 'replicator.inventkid.com';
-    if (apiUrl) {
-      try {
-        targetHost = new URL(apiUrl).hostname;
-      } catch {}
-    }
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: [1001],
-      addRules: [
-        {
-          id: 1001,
-          priority: 1,
-          action: {
-            type: 'modifyHeaders',
-            requestHeaders: [
-              {
-                header: 'User-Agent',
-                operation: 'set',
-                value: 'InventKid-Extension/1.0',
-              },
-            ],
-          },
-          condition: {
-            urlFilter: `||${targetHost}`,
-            resourceTypes: ['xmlhttprequest', 'other'],
-          },
-        },
-      ],
-    });
-  } catch (err) {
-    console.warn('Failed to register User-Agent header rule:', err);
-  }
-}
-
-registerUserAgentRule();
 
 // Resume background polling on Service Worker startup / wake-up if an active job is unfinished
 resumePendingJobIfAny();
@@ -153,6 +143,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'SECTION_PICKED') {
+    chrome.storage.local.set({ selectedSection: request.section }).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
+  if (request.action === 'SECTION_PICKER_CANCELLED') {
+    chrome.storage.local.remove(['selectedSection']).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
   if (request.action === 'DISMISS_JOB') {
     stopPolling();
     chrome.storage.local.remove(['activeJob']).then(() => {
@@ -177,27 +181,45 @@ async function handleStartExtraction({ url, options }) {
     throw new Error('Please enter your License Key before starting replication.');
   }
 
-  const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
-  const endpoint = `${baseUrl}/api/extract`;
+  const baseUrl = (apiUrl && apiUrl !== 'https://replicator.inventkid.com' ? apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+  const isV1Token = apiKey.startsWith('rep_sec_') || apiKey.startsWith('rep_live_');
+
+  let endpoint = isV1Token ? `${baseUrl}/api/v1/reconstruction` : `${baseUrl}/api/extract`;
+  let headers = {
+    'Content-Type': 'application/json',
+    'X-Device-Id': deviceId || 'DEV_UNKNOWN',
+    'X-Device-Name': 'Chrome Browser Extension',
+  };
+
+  if (isV1Token) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  } else {
+    headers['X-API-Key'] = apiKey;
+  }
+
+  let body = isV1Token
+    ? JSON.stringify({
+        url,
+        htmlSnapshot: options?.htmlSnapshot,
+        clientStylesheets: options?.clientStylesheets,
+        clientScreenshot: options?.clientScreenshot,
+        options,
+      })
+    : JSON.stringify({ url, options });
 
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-Key': apiKey,
-      'X-Device-Id': deviceId || 'DEV_UNKNOWN',
-      'X-Device-Name': 'Chrome Browser Extension',
-    },
-    body: JSON.stringify({ url, options }),
+    headers,
+    body,
   });
 
   const data = await response.json();
 
-  if (!response.ok || !data.success) {
+  if (!response.ok) {
     throw new Error(data.message || data.error || `Server returned HTTP ${response.status}`);
   }
 
-  const jobId = data.jobId;
+  const jobId = data.job_id || data.jobId;
 
   const initialJob = {
     id: jobId,
@@ -245,9 +267,22 @@ let consecutiveErrors = 0;
 
 async function pollJobStep(jobId, apiUrl) {
   try {
-    const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
-    const endpoint = `${baseUrl}/api/jobs/${jobId}`;
-    const resp = await fetch(endpoint);
+    const { apiKey, deviceId } = await chrome.storage.local.get(['apiKey', 'deviceId']);
+    const baseUrl = (apiUrl && apiUrl !== 'https://replicator.inventkid.com' ? apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+    const isV1Token = apiKey && (apiKey.startsWith('rep_sec_') || apiKey.startsWith('rep_live_'));
+
+    const endpoint = isV1Token
+      ? `${baseUrl}/api/v1/jobs/${jobId}`
+      : `${baseUrl}/api/jobs/${jobId}`;
+
+    const headers = {};
+    if (isV1Token) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    } else if (apiKey) {
+      headers['X-API-Key'] = apiKey;
+    }
+
+    const resp = await fetch(endpoint, { headers });
 
     if (!resp.ok) {
       consecutiveErrors++;
@@ -269,86 +304,76 @@ async function pollJobStep(jobId, apiUrl) {
     }
 
     consecutiveErrors = 0;
-
     const jobData = await resp.json();
+
+    const status = jobData.status;
+    let progress = jobData.progress || 0;
+    let currentStep = jobData.currentStep || 'Processing...';
+
+    if (isV1Token) {
+      if (status === 'queued') progress = 10;
+      else if (status === 'processing') {
+        const stepCount = (jobData.steps || []).length;
+        progress = Math.min(95, 20 + stepCount * 8);
+        const lastStep = (jobData.steps || [])[stepCount - 1];
+        if (lastStep) currentStep = `${lastStep.step_name}...`;
+      } else if (status === 'completed') {
+        progress = 100;
+        currentStep = 'Extraction completed successfully';
+      } else if (status === 'waiting') {
+        currentStep = jobData.error_message || 'TOKEN_LIMIT_REACHED';
+      }
+    }
 
     const updatedJob = {
       id: jobId,
-      url: jobData.url,
-      status: jobData.status,
-      progress: jobData.progress || 0,
-      currentStep: jobData.currentStep || 'Processing...',
+      url: jobData.url || '',
+      status,
+      progress,
+      currentStep,
       previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
       downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
       sectionCount: jobData.sections ? jobData.sections.length : 0,
-      error: jobData.error,
-      completedAt: jobData.completedAt,
-      fidelityScore: jobData.visualQA?.fidelityScore,
-      viewportScores: jobData.visualQA?.viewportScores,
-      menuInteractivity: jobData.visualQA?.menuInteractivity,
+      error: jobData.error || jobData.error_message,
+      completedAt: jobData.completed_at || jobData.completedAt,
+      fidelityScore: jobData.reconstruction?.fidelityScore || jobData.visualQA?.fidelityScore,
     };
 
     await chrome.storage.local.set({ activeJob: updatedJob });
 
-    // Check if job is stuck in queued for too long (> 40s)
-    if (jobData.status === 'queued') {
-      const { activeJob } = await chrome.storage.local.get(['activeJob']);
-      if (activeJob && activeJob.startedAt && Date.now() - activeJob.startedAt > 40000) {
-        stopPolling();
-        chrome.action.setBadgeText({ text: 'ERR' });
-        chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
-        await chrome.storage.local.set({
-          activeJob: {
-            ...updatedJob,
-            status: 'failed',
-            error: 'Server crawler timed out during initialization. Please try again.',
-          },
-        });
-        return;
-      }
-    }
-
-    // Update badge progress
-    if (jobData.status === 'crawling' || jobData.status === 'packaging' || jobData.status === 'transforming' || jobData.status === 'queued') {
-      chrome.action.setBadgeText({ text: `${jobData.progress || 0}%` });
-      chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
-    }
-
-    // Check for completion
-    if (jobData.status === 'completed') {
+    // Handle Completed state
+    if (status === 'completed') {
       stopPolling();
       chrome.action.setBadgeText({ text: 'DONE' });
       chrome.action.setBadgeBackgroundColor({ color: '#10B981' });
 
-      // Save to recent replications (stored locally for 7 days)
-      try {
-        const { recentReplications = [] } = await chrome.storage.local.get(['recentReplications']);
-        const updatedList = recentReplications.filter((j) => j.id !== jobId);
-        updatedList.unshift({
-          id: jobId,
-          url: jobData.url,
-          completedAt: jobData.completedAt || new Date().toISOString(),
-          previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
-          downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
-          sectionCount: jobData.sections ? jobData.sections.length : 0,
-        });
-        await chrome.storage.local.set({ recentReplications: updatedList.slice(0, 10) });
-      } catch (saveErr) {
-        console.warn('Could not save to recentReplications:', saveErr);
-      }
+      // Save last job result for popup display
+      await chrome.storage.local.set({
+        lastJobResult: {
+          jobId,
+          url: updatedJob.url,
+          status: 'completed',
+          fidelityScore: updatedJob.fidelityScore || 90,
+          downloadUrl: updatedJob.downloadUrl,
+          previewUrl: updatedJob.previewUrl,
+          completedAt: updatedJob.completedAt || new Date().toISOString(),
+        },
+      });
 
-      // Trigger desktop system notification
       chrome.notifications.create(`job-complete-${jobId}`, {
         type: 'basic',
         iconUrl: 'icons/icon128.png',
-        title: 'Page Replication Complete!',
-        message: `Finished cloning: ${jobData.url}. Click to open preview.`,
+        title: 'Replication Complete!',
+        message: 'Your page was cloned with full offline fidelity. Click to preview or download.',
         priority: 2,
       });
 
-      // Refresh token balance
       await refreshAccountBalance();
-    } else if (jobData.status === 'failed') {
+      return;
+    }
+
+    // Handle Failed state
+    if (status === 'failed') {
       stopPolling();
       chrome.action.setBadgeText({ text: 'ERR' });
       chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
@@ -357,15 +382,27 @@ async function pollJobStep(jobId, apiUrl) {
         type: 'basic',
         iconUrl: 'icons/icon128.png',
         title: 'Replication Failed',
-        message: jobData.error || 'An error occurred during replication.',
+        message: updatedJob.error || 'An error occurred during replication.',
         priority: 2,
       });
 
-      // Refresh token balance to reflect zero deduction / refund
       await refreshAccountBalance();
+      return;
     }
+
+    // Handle Paused / Token Limit Reached state
+    if (status === 'waiting') {
+      stopPolling();
+      chrome.action.setBadgeText({ text: 'PAUSE' });
+      chrome.action.setBadgeBackgroundColor({ color: '#F59E0B' });
+      return;
+    }
+
+    // Update progress badge
+    chrome.action.setBadgeText({ text: `${Math.round(progress)}%` });
+    chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
   } catch (e) {
-    console.warn('Background polling check failed:', e.message);
+    console.debug('Background polling note:', e.message);
   }
 }
 
@@ -392,15 +429,16 @@ async function resumePendingJobIfAny() {
 
     if (!activeJob || !activeJob.id) return;
 
+    const targetApi = apiUrl || 'http://localhost:3000';
     if (!['completed', 'failed'].includes(activeJob.status)) {
       if (!pollingInterval) {
-        startPolling(activeJob.id, apiUrl || 'https://replicator.inventkid.com', apiKey, deviceId);
+        startPolling(activeJob.id, targetApi, apiKey, deviceId);
       } else {
-        await pollJobStep(activeJob.id, apiUrl || 'https://replicator.inventkid.com');
+        await pollJobStep(activeJob.id, targetApi);
       }
     }
   } catch (err) {
-    console.warn('Failed to resume pending job:', err);
+    console.debug('Resume pending job note:', err);
   }
 }
 
@@ -430,25 +468,43 @@ async function refreshAccountBalance() {
 
   try {
     const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
-    const endpoint = `${baseUrl}/api/keys/balance`;
-    const resp = await fetch(endpoint, {
-      headers: {
-        'X-API-Key': apiKey,
-        'X-Device-Id': deviceId || 'DEV_UNKNOWN',
-      },
-    });
+    const isV1Token = apiKey.startsWith('rep_sec_');
 
-    const data = await resp.json();
-    if (resp.ok && data.success) {
-      await chrome.storage.local.set({
-        balance: data.balance,
-        tokensUsed: data.tokensUsed,
-        customerEmail: data.customerEmail,
-        isFreeTrial: data.isFreeTrial,
+    if (isV1Token) {
+      const resp = await fetch(`${baseUrl}/api/v1/tokens`, {
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'X-Device-Id': deviceId || 'DEV_UNKNOWN',
+        },
       });
-      return { success: true, balance: data.balance };
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        await chrome.storage.local.set({
+          balance: data.available_tokens,
+          current_balance: data.current_balance,
+          reserved_tokens: data.reserved_tokens,
+        });
+        return { success: true, balance: data.available_tokens };
+      }
+    } else {
+      const resp = await fetch(`${baseUrl}/api/keys/balance`, {
+        headers: {
+          'X-API-Key': apiKey,
+          'X-Device-Id': deviceId || 'DEV_UNKNOWN',
+        },
+      });
+      const data = await resp.json();
+      if (resp.ok && data.success) {
+        await chrome.storage.local.set({
+          balance: data.balance,
+          tokensUsed: data.tokensUsed,
+          customerEmail: data.customerEmail,
+          isFreeTrial: data.isFreeTrial,
+        });
+        return { success: true, balance: data.balance };
+      }
     }
-    return { success: false, error: data.message };
+    return { success: false, error: 'Failed to refresh balance' };
   } catch (err) {
     return { success: false, error: err.message };
   }

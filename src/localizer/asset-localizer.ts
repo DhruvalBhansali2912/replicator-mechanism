@@ -62,7 +62,8 @@ export class AssetLocalizer {
       if (poster && isValidAssetUrl(poster)) assetUrlsToDownload.add(resolveUrl(poster, baseUrl));
 
       if (srcset) {
-        const parts = srcset.split(',').map((s) => s.trim());
+        const candidateRegex = /,\s+(?=[^\s]+)|,(?=https?:\/\/|\/)/;
+        const parts = srcset.split(candidateRegex).map((s) => s.trim());
         for (const part of parts) {
           const urlPart = part.split(/\s+/)[0];
           if (isValidAssetUrl(urlPart)) {
@@ -89,7 +90,8 @@ export class AssetLocalizer {
         if (poster && isValidAssetUrl(poster)) assetUrlsToDownload.add(resolveUrl(poster, baseUrl));
 
         if (srcset) {
-          const parts = srcset.split(',').map((s) => s.trim());
+          const candidateRegex = /,\s+(?=[^\s]+)|,(?=https?:\/\/|\/)/;
+          const parts = srcset.split(candidateRegex).map((s) => s.trim());
           for (const part of parts) {
             const urlPart = part.split(/\s+/)[0];
             if (isValidAssetUrl(urlPart)) {
@@ -163,8 +165,9 @@ export class AssetLocalizer {
 
       const srcset = $el.attr('srcset');
       if (srcset) {
+        const candidateRegex = /,\s+(?=[^\s]+)|,(?=https?:\/\/|\/)/;
         const updatedParts = srcset
-          .split(',')
+          .split(candidateRegex)
           .map((item) => {
             const trimmed = item.trim();
             const [u, descriptor] = trimmed.split(/\s+/, 2);
@@ -188,8 +191,9 @@ export class AssetLocalizer {
       }
       const srcset = $el.attr('srcset');
       if (srcset) {
+        const candidateRegex = /,\s+(?=[^\s]+)|,(?=https?:\/\/|\/)/;
         const updatedParts = srcset
-          .split(',')
+          .split(candidateRegex)
           .map((item) => {
             const trimmed = item.trim();
             const [u, descriptor] = trimmed.split(/\s+/, 2);
@@ -274,7 +278,7 @@ export class AssetLocalizer {
     const headers: Record<string, string> = {
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Accept': '*/*',
+      'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
     };
     if (baseUrl) {
       headers['Referer'] = baseUrl;
@@ -307,11 +311,13 @@ export class AssetLocalizer {
       else if (lowerPath.endsWith('.otf')) ext = '.otf';
       else if (lowerPath.endsWith('.eot')) ext = '.eot';
       else if (lowerPath.endsWith('.svg')) ext = '.svg';
+      else if (lowerPath.endsWith('.avif')) ext = '.avif';
       else if (lowerPath.endsWith('.js')) ext = '.js';
       else if (lowerPath.endsWith('.css')) ext = '.css';
       else if (!ext || ext.length > 5) {
         const contentType = String(response.headers['content-type'] || '');
         if (contentType.includes('image/svg')) ext = '.svg';
+        else if (contentType.includes('image/avif')) ext = '.avif';
         else if (contentType.includes('image/webp')) ext = '.webp';
         else if (contentType.includes('image/png')) ext = '.png';
         else if (contentType.includes('image/jpeg')) ext = '.jpg';

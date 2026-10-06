@@ -3,6 +3,7 @@ dist
 storage/jobs/*
 !storage/jobs/.gitkeep
 storage/auth.json
+storage/*.db*
 .DS_Store
 *.log
 npm-debug.log*
@@ -10,3 +11,6 @@ yarn-debug.log*
 yarn-error.log*
 .env
 .env.local
+scratch/
+typescript
+run-playwright-suite.*

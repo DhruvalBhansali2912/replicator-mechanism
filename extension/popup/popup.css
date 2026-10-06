@@ -916,3 +916,136 @@ body {
   font-weight: 600;
 }
 
+/* Section Picker Card Styles */
+.section-picker-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mode-selector-tabs {
+  display: flex;
+  background: rgba(15, 23, 42, 0.7);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+  gap: 4px;
+}
+
+.mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-tab:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.mode-tab.active {
+  background: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+.no-section-box {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px dashed rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: center;
+}
+
+.section-picker-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.target-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #334155;
+  color: #94a3b8;
+}
+
+.target-badge.section-active {
+  background: rgba(37, 99, 235, 0.2);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.4);
+}
+
+.selected-section-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.selected-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selected-section-meta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.selected-section-meta strong {
+  font-size: 13px;
+  color: #f1f5f9;
+}
+
+.selected-section-meta code {
+  font-size: 11px;
+  color: #60a5fa;
+  font-family: monospace;
+}
+
+.btn-clear-pill {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.btn-clear-pill:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.selected-stats {
+  font-size: 11px;
+  color: #94a3b8;
+}
+

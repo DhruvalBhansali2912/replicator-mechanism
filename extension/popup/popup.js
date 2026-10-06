@@ -52,6 +52,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnDismissResult = document.getElementById('btn-dismiss-result');
   const btnRetryReplication = document.getElementById('btn-retry-replication');
 
+  // Section Selection DOM Elements
+  const tabModeSection = document.getElementById('tab-mode-section');
+  const tabModePage = document.getElementById('tab-mode-page');
+  const selectedSectionInfo = document.getElementById('selected-section-info');
+  const noSectionBox = document.getElementById('no-section-box');
+  const selectedArchetypeIcon = document.getElementById('selected-archetype-icon');
+  const selectedArchetypeTitle = document.getElementById('selected-archetype-title');
+  const selectedSelectorTag = document.getElementById('selected-selector-tag');
+  const statElements = document.getElementById('stat-elements');
+  const statDimensions = document.getElementById('stat-dimensions');
+  const btnClearSection = document.getElementById('btn-clear-section');
+  const btnPickSection = document.getElementById('btn-pick-section');
+  const btnReselectSection = document.getElementById('btn-reselect-section');
+
+  let currentMode = 'section'; // Default to Section mode
+  let activeSelectedSection = null;
+
   let currentTabUrl = '';
 
   // 1. Detect Active Tab URL
@@ -74,9 +91,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     'apiUrl',
     'activeJob',
     'isFreeTrial',
+    'selectedSection',
   ]);
 
-  const apiUrl = store.apiUrl || 'https://replicator.inventkid.com';
+  activeSelectedSection = store.selectedSection || null;
+
+  const apiUrl = (store.apiUrl && store.apiUrl !== 'https://replicator.inventkid.com' ? store.apiUrl : 'http://localhost:3000').replace(/\/$/, '');
   serverUrlDisplay.textContent = `Server: ${apiUrl.replace(/^https?:\/\//, '')}`;
 
   // If no API key is present, auto-provision default 3-token trial key immediately
@@ -87,11 +107,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       });
       if (provRes && provRes.success && provRes.apiKey) {
         store.apiKey = provRes.apiKey;
-        store.balance = provRes.balance !== undefined ? provRes.balance : 3;
+        store.balance = provRes.balance !== undefined ? provRes.balance : 10;
         store.isFreeTrial = provRes.isFreeTrial !== undefined ? provRes.isFreeTrial : true;
       }
     } catch (e) {
-      console.warn('Auto-provision during popup load failed:', e);
+      console.debug('Auto-provision during popup load fallback:', e);
     }
   }
 
@@ -109,24 +129,42 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // Direct live balance fetch to ensure badge is always 100% up-to-date
-    fetch(`${apiUrl.replace(/\/$/, '')}/api/keys/balance`, {
-      headers: {
-        'X-API-Key': store.apiKey,
-        'X-Device-Id': store.deviceId || 'DEV_UNKNOWN',
-      },
-    })
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.success && data.balance !== undefined) {
-          chrome.storage.local.set({ balance: data.balance });
-          updateBalanceDisplay(data.balance);
-        }
+    if (store.apiKey.startsWith('rep_sec_')) {
+      fetch(`${apiUrl}/api/v1/tokens`, {
+        headers: {
+          'Authorization': `Bearer ${store.apiKey}`,
+          'X-Device-Id': store.deviceId || 'DEV_UNKNOWN',
+        },
       })
-      .catch(() => {});
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.available_tokens !== undefined) {
+            chrome.storage.local.set({ balance: data.available_tokens });
+            updateBalanceDisplay(data.available_tokens);
+          }
+        })
+        .catch(() => {});
+    } else {
+      fetch(`${apiUrl}/api/keys/balance`, {
+        headers: {
+          'X-API-Key': store.apiKey,
+          'X-Device-Id': store.deviceId || 'DEV_UNKNOWN',
+        },
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.success && data.balance !== undefined) {
+            chrome.storage.local.set({ balance: data.balance });
+            updateBalanceDisplay(data.balance);
+          }
+        })
+        .catch(() => {});
+    }
 
     // Check if there is an active or recently completed job
     if (store.activeJob) {
-      if (store.activeJob.status === 'failed') {
+      const isStuck = Date.now() - (store.activeJob.startedAt || 0) > 5 * 60 * 1000;
+      if (store.activeJob.status === 'failed' || isStuck) {
         await chrome.storage.local.remove(['activeJob']);
         showView('ready');
       } else {
@@ -141,6 +179,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (lastJobResult) {
       renderLastResultCard(lastJobResult);
     }
+
+    // Render selected section if previously chosen
+    renderSectionSelection(store.selectedSection);
 
     // Load Last 3 Replicated Pages
     loadRecentReplications();
@@ -160,9 +201,93 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (changes.recentReplications) {
       renderRecentList((changes.recentReplications.newValue || []).slice(0, 3));
     }
+    if (changes.selectedSection) {
+      renderSectionSelection(changes.selectedSection.newValue);
+    }
+  });
+
+  // --- MODE & SECTION DISPLAY HELPERS ---
+  function updateModeDisplay() {
+    if (currentMode === 'section') {
+      tabModeSection?.classList.add('active');
+      tabModePage?.classList.remove('active');
+
+      if (activeSelectedSection) {
+        selectedSectionInfo?.classList.remove('hidden');
+        noSectionBox?.classList.add('hidden');
+        if (selectedArchetypeIcon) selectedArchetypeIcon.textContent = activeSelectedSection.icon || '🧭';
+        if (selectedArchetypeTitle) selectedArchetypeTitle.textContent = `${activeSelectedSection.archetypeName || activeSelectedSection.archetype || 'Selected'} Section`;
+        if (selectedSelectorTag) selectedSelectorTag.textContent = activeSelectedSection.selector || 'section';
+        if (statElements) statElements.textContent = `${activeSelectedSection.interactiveCount || 0} interactive elements`;
+        if (statDimensions) {
+          statDimensions.textContent = `${activeSelectedSection.dimensions?.width || 0}×${activeSelectedSection.dimensions?.height || 0}px`;
+        }
+      } else {
+        selectedSectionInfo?.classList.add('hidden');
+        noSectionBox?.classList.remove('hidden');
+      }
+
+      const btnText = btnStartExtract?.querySelector('.btn-text');
+      if (btnText) btnText.textContent = 'Replicate (-1 Token)';
+    } else {
+      tabModePage?.classList.add('active');
+      tabModeSection?.classList.remove('active');
+      selectedSectionInfo?.classList.add('hidden');
+      noSectionBox?.classList.add('hidden');
+
+      const btnText = btnStartExtract?.querySelector('.btn-text');
+      if (btnText) btnText.textContent = 'Replicate (-1 Token)';
+    }
+  }
+
+  function renderSectionSelection(sec) {
+    activeSelectedSection = sec;
+    if (sec) {
+      currentMode = 'section';
+    }
+    updateModeDisplay();
+  }
+
+  // Tab mode switcher clicks
+  tabModeSection?.addEventListener('click', () => {
+    currentMode = 'section';
+    updateModeDisplay();
+  });
+
+  tabModePage?.addEventListener('click', () => {
+    currentMode = 'page';
+    updateModeDisplay();
   });
 
   // --- EVENT HANDLERS ---
+
+  // Pick Section from Page
+  async function triggerSectionPicker() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (!tab || !tab.id || tab.url.startsWith('chrome://') || tab.url.startsWith('edge://')) {
+        showAlert('Cannot select sections on internal browser pages.', 'error');
+        return;
+      }
+      await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        files: ['content/picker.js'],
+      });
+      window.close();
+    } catch (err) {
+      showAlert(`Could not activate section picker: ${err.message}`, 'error');
+    }
+  }
+
+  btnPickSection?.addEventListener('click', triggerSectionPicker);
+  btnReselectSection?.addEventListener('click', triggerSectionPicker);
+
+  // Clear Selected Section
+  btnClearSection?.addEventListener('click', async () => {
+    await chrome.storage.local.remove(['selectedSection']);
+    activeSelectedSection = null;
+    updateModeDisplay();
+  });
 
   // Activate Key Button
   btnActivateKey.addEventListener('click', async () => {
@@ -178,29 +303,40 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     try {
       const { deviceId } = await chrome.storage.local.get(['deviceId']);
-      const verifyEndpoint = `${apiUrl.replace(/\/$/, '')}/api/keys/verify`;
+      const isV1 = key.startsWith('rep_sec_');
 
-      const resp = await fetch(verifyEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          apiKey: key,
-          deviceId: deviceId || 'DEV_UNKNOWN',
-          deviceName: 'Chrome Browser Extension',
-        }),
-      });
+      let resp;
+      if (isV1) {
+        resp = await fetch(`${apiUrl.replace(/\/$/, '')}/api/v1/tokens`, {
+          headers: {
+            'Authorization': `Bearer ${key}`,
+            'X-Device-Id': deviceId || 'DEV_UNKNOWN',
+          },
+        });
+      } else {
+        resp = await fetch(`${apiUrl.replace(/\/$/, '')}/api/keys/verify`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            apiKey: key,
+            deviceId: deviceId || 'DEV_UNKNOWN',
+            deviceName: 'Chrome Browser Extension',
+          }),
+        });
+      }
 
       const data = await resp.json();
 
-      if (resp.ok && data.success) {
+      if (resp.ok && (data.success || data.available_tokens !== undefined)) {
+        const bal = data.available_tokens !== undefined ? data.available_tokens : data.balance;
         await chrome.storage.local.set({
           apiKey: key,
-          balance: data.balance,
-          customerEmail: data.email,
-          isFreeTrial: data.isFreeTrial,
+          balance: bal,
+          customerEmail: data.email || 'user@v1.api',
+          isFreeTrial: data.isFreeTrial ?? false,
         });
 
-        updateBalanceDisplay(data.balance);
+        updateBalanceDisplay(bal);
         if (displayApiKey) {
           displayApiKey.value = key;
         }
@@ -310,12 +446,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    // If in section mode and no section is picked yet, activate the section picker on the page immediately
+    const { selectedSection } = await chrome.storage.local.get(['selectedSection']);
+    if (currentMode === 'section' && !selectedSection) {
+      await triggerSectionPicker();
+      return;
+    }
+
     // Hide any previous result card and clear stored failure state
     cardLastResult?.classList.add('hidden');
     await chrome.storage.local.remove(['lastJobResult']);
 
     btnStartExtract.disabled = true;
-    btnStartExtract.innerHTML = '<span class="btn-icon">⏳</span> <span class="btn-text">Preparing Page...</span>';
+    btnStartExtract.innerHTML = '<span class="btn-icon">⏳</span> <span class="btn-text">Replicating...</span>';
     hideAlert();
 
     try {
@@ -423,11 +566,19 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
               }
 
-              // Fetch external stylesheets in parallel with a strict 800ms total race
+              // Also collect all inline <style> tags directly
+              document.querySelectorAll('style').forEach((st) => {
+                const text = st.textContent || '';
+                if (text.trim().length > 0) {
+                  stylesheets.push(text);
+                }
+              });
+
+              // Fetch external stylesheets in parallel with a generous 5000ms total race
               if (fetchPromises.length > 0) {
                 try {
                   const parallelFetch = Promise.allSettled(fetchPromises);
-                  const fetchTimeout = new Promise((r) => setTimeout(() => r([]), 800));
+                  const fetchTimeout = new Promise((r) => setTimeout(() => r([]), 5000));
                   const settled = await Promise.race([parallelFetch, fetchTimeout]);
                   if (Array.isArray(settled)) {
                     for (const s of settled) {
@@ -483,7 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 htmlSnapshot = fallbackRes[0].result;
               }
             } catch (fbErr) {
-              console.warn('Fallback DOM capture failed:', fbErr);
+              console.debug('Fallback DOM capture error:', fbErr);
             }
           }
 
@@ -492,23 +643,26 @@ document.addEventListener('DOMContentLoaded', async () => {
           try {
             clientScreenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
           } catch (shotErr) {
-            console.warn('captureVisibleTab failed or not permitted:', shotErr);
+            console.debug('captureVisibleTab not available:', shotErr);
           }
 
           var extractedClientScreenshot = clientScreenshot;
         }
       } catch (e) {
-        console.warn('Could not grab active tab DOM snapshot:', e);
+        console.debug('Could not grab active tab DOM snapshot:', e);
       }
 
+      const { selectedSection } = await chrome.storage.local.get(['selectedSection']);
+
       // If active tab could not be captured, abort and inform user immediately
-      if (!htmlSnapshot || htmlSnapshot.length < 500) {
+      if (!selectedSection && (!htmlSnapshot || htmlSnapshot.length < 500)) {
         btnStartExtract.disabled = false;
-        btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Start Replication</span>';
+        btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate (-1 Token)</span>';
         showAlert('Could not read page content from active tab. Please ensure page is fully loaded and try again.', 'error');
         return;
       }
 
+      const isSectionMode = currentMode === 'section' && !!selectedSection;
       const options = {
         localizeAssets: document.getElementById('opt-localize').checked,
         mobile: document.getElementById('opt-mobile').checked,
@@ -517,6 +671,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         htmlSnapshot: htmlSnapshot,
         clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
         clientScreenshot: (typeof extractedClientScreenshot !== 'undefined' && extractedClientScreenshot) ? extractedClientScreenshot : undefined,
+        sectionSelector: isSectionMode ? selectedSection.selector : undefined,
+        sectionHtml: isSectionMode ? selectedSection.sectionHtml : undefined,
+        targetArchetype: isSectionMode ? selectedSection.archetype : undefined,
       };
 
       // Delegate execution to background.js so it continues if popup closes
@@ -629,7 +786,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateBalanceDisplay(balance);
     }).catch(() => {
       btnStartExtract.disabled = false;
-      btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate Page (-1 Token)</span>';
+      btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate (-1 Token)</span>';
     });
   }
 
@@ -702,22 +859,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (resultStatusIcon) resultStatusIcon.textContent = '❌';
       if (resultTitle) resultTitle.textContent = 'Replication Halted — Quality Standard Not Met';
       if (resultZeroTokenBanner) resultZeroTokenBanner.classList.remove('hidden');
+      document.getElementById('result-success-actions')?.classList.add('hidden');
+      btnRetryReplication?.classList.remove('hidden');
     } else {
       cardLastResult.className = 'card result-card';
       if (resultStatusIcon) resultStatusIcon.textContent = '✅';
       if (resultTitle) resultTitle.textContent = 'Replication Complete';
       if (resultZeroTokenBanner) resultZeroTokenBanner.classList.add('hidden');
+      document.getElementById('result-success-actions')?.classList.remove('hidden');
+      btnRetryReplication?.classList.add('hidden');
+
+      const btnResultPreview = document.getElementById('btn-result-preview');
+      const btnResultDownload = document.getElementById('btn-result-download');
+      if (btnResultPreview && result.previewUrl) {
+        btnResultPreview.onclick = () => chrome.tabs.create({ url: result.previewUrl });
+      }
+      if (btnResultDownload && result.downloadUrl) {
+        btnResultDownload.onclick = () => chrome.downloads.download({
+          url: result.downloadUrl,
+          filename: `replicated-${result.jobId || 'site'}.zip`,
+        });
+      }
     }
 
     if (resultMessage) {
-      resultMessage.textContent = result.error || result.message || (isFailed ? 'Page fidelity did not meet the 80% threshold.' : 'Page successfully replicated.');
+      resultMessage.textContent = result.error || result.message || (isFailed ? 'Quality fidelity did not meet the 90% threshold. Zero tokens deducted.' : 'Successfully synthesized with fidelity >= 90%.');
     }
 
     if (resultScoreBadge) {
       if (result.fidelityScore !== undefined) {
         resultScoreBadge.parentElement?.classList.remove('hidden');
-        resultScoreBadge.textContent = `${result.fidelityScore}% / 80%`;
-        resultScoreBadge.className = `qa-score-badge ${result.fidelityScore >= 80 ? 'passing' : ''}`;
+        resultScoreBadge.textContent = `${result.fidelityScore}% (>= 90% Required)`;
+        resultScoreBadge.className = `qa-score-badge ${result.fidelityScore >= 90 ? 'passing' : ''}`;
       } else {
         resultScoreBadge.parentElement?.classList.add('hidden');
       }
@@ -756,7 +929,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       exhaustedCard?.classList.add('hidden');
       btnStartExtract.disabled = false;
-      btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate Page (-1 Token)</span>';
+      btnStartExtract.innerHTML = '<span class="btn-icon">⚡</span> <span class="btn-text">Replicate (-1 Token)</span>';
       btnRechargeTokens?.classList.add('hidden');
     }
   }
@@ -788,48 +961,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // 2. Synchronize with server if API key is available
       if (apiKey) {
-        const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
-        const resp = await fetch(`${baseUrl}/api/jobs/recent?limit=3`, {
-          headers: {
-            'X-API-Key': apiKey,
-          },
-        });
+        const baseUrl = (apiUrl && apiUrl !== 'https://replicator.inventkid.com' ? apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+        try {
+          const resp = await fetch(`${baseUrl}/api/jobs/recent?limit=3`, {
+            headers: {
+              'X-API-Key': apiKey,
+            },
+          });
 
-        if (resp.ok) {
-          const data = await resp.json();
-          if (data && data.success && Array.isArray(data.jobs)) {
-            // Merge server jobs with local cache
-            const serverJobs = data.jobs.map((j) => ({
-              id: j.id,
-              url: j.url,
-              completedAt: j.completedAt,
-              previewUrl: j.previewUrl.startsWith('http') ? j.previewUrl : `${baseUrl}${j.previewUrl}`,
-              downloadUrl: j.downloadUrl.startsWith('http') ? j.downloadUrl : `${baseUrl}${j.downloadUrl}`,
-              sectionCount: j.sectionCount || 0,
-            }));
+          if (resp.ok) {
+            const data = await resp.json();
+            if (data && data.success && Array.isArray(data.jobs)) {
+              // Merge server jobs with local cache
+              const serverJobs = data.jobs.map((j) => ({
+                id: j.id,
+                url: j.url,
+                completedAt: j.completedAt,
+                previewUrl: j.previewUrl.startsWith('http') ? j.previewUrl : `${baseUrl}${j.previewUrl}`,
+                downloadUrl: j.downloadUrl.startsWith('http') ? j.downloadUrl : `${baseUrl}${j.downloadUrl}`,
+                sectionCount: j.sectionCount || 0,
+              }));
 
-            // Merge avoiding duplicates
-            const jobMap = new Map();
-            for (const item of serverJobs) {
-              jobMap.set(item.id, item);
-            }
-            for (const item of recentReplications) {
-              if (!jobMap.has(item.id)) {
+              // Merge avoiding duplicates
+              const jobMap = new Map();
+              for (const item of serverJobs) {
                 jobMap.set(item.id, item);
               }
+              for (const item of recentReplications) {
+                if (!jobMap.has(item.id)) {
+                  jobMap.set(item.id, item);
+                }
+              }
+
+              const merged = Array.from(jobMap.values())
+                .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
+                .slice(0, 10);
+
+              await chrome.storage.local.set({ recentReplications: merged });
+              renderRecentList(merged.slice(0, 3));
             }
-
-            const merged = Array.from(jobMap.values())
-              .sort((a, b) => new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime())
-              .slice(0, 10);
-
-            await chrome.storage.local.set({ recentReplications: merged });
-            renderRecentList(merged.slice(0, 3));
           }
+        } catch (_) {
+          // Gracefully fallback to local storage if server is offline or unreachable
         }
       }
-    } catch (err) {
-      console.warn('Could not load recent replications:', err);
+    } catch (_) {
+      // Local storage cache already rendered above
     }
   }
 
@@ -838,7 +1015,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (!items || items.length === 0) {
       if (recentCountBadge) recentCountBadge.textContent = '0/3';
-      recentListEl.innerHTML = '<div class="recent-empty">No replicated pages yet. Click Replicate Page above to clone a website.</div>';
+      recentListEl.innerHTML = '<div class="recent-empty">No replicated pages yet. Click Replicate above to clone a website.</div>';
       return;
     }
 

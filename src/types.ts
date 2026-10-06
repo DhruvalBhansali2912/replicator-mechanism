@@ -49,6 +49,9 @@ export interface ExtractionOptions {
   htmlSnapshot?: string;
   clientStylesheets?: string[];
   clientScreenshot?: string;
+  sectionSelector?: string;
+  sectionHtml?: string;
+  targetArchetype?: string;
   renameClasses?: boolean;
   purgeCss?: boolean;
   deminify?: boolean;
@@ -59,21 +62,46 @@ export interface ExtractionOptions {
   mobile?: boolean;
   waitForSelector?: string;
   timeoutMs?: number;
+  recordedInteractions?: RecordedInteraction[];
+  rootCssVariables?: Record<string, string>;
+  pageTheme?: string;
+}
+
+export interface StateMutation {
+  targetSelector: string;
+  mutationType?: 'attributes' | 'childList';
+  attributeName?: string;
+  oldValue?: string | null;
+  newValue?: string | null;
+  addedClasses?: string[];
+  removedClasses?: string[];
+  action?: 'added' | 'removed';
+  html?: string;
+  tagName?: string;
+  className?: string;
+}
+
+export interface RecordedInteraction {
+  triggerSelector: string;
+  eventType: 'click' | 'mouseenter' | 'change';
+  isToggle?: boolean;
+  mutations: StateMutation[];
+  reverseMutations?: StateMutation[];
 }
 
 export interface VisualQAResult {
   fidelityScore: number; // 0 to 100
   passed: boolean; // >= 80%
-  viewportScores: {
+  viewportScores?: {
     desktop: number;
     tablet: number;
     mobile: number;
   };
-  menuInteractivity: {
+  menuInteractivity?: {
     desktopHoverPassed: boolean;
     mobileTogglePassed: boolean;
   };
-  structuralChecks: {
+  structuralChecks?: {
     noWhiteOutSections: boolean;
     carouselsResponsive: boolean;
     fallbacksVisible: boolean;
@@ -83,7 +111,10 @@ export interface VisualQAResult {
     tablet?: string;
     mobile?: string;
   };
-  attempts: number;
+  attempts?: number;
+  viewportsTested?: string[];
+  healingActionsApplied?: string[];
+  failureReasons?: string[];
 }
 
 export type JobStatusType = 'queued' | 'crawling' | 'classifying' | 'transforming' | 'optimizing' | 'packaging' | 'validating' | 'completed' | 'failed';
