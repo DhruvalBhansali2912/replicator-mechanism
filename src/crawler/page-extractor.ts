@@ -62,9 +62,21 @@ export class PageExtractor {
       combinedCss += '\n' + $(el).text();
     });
 
-    // Normalize inline SVGs in snapshot
+    // Normalize inline SVGs in snapshot, but preserve logo and brand dimensions
     $('svg').each((_, el) => {
       const $svg = $(el);
+      const isLogo = $svg.is('.logo, [class*="logo"], [class*="brand"], [id*="logo"], [id*="brand"]') ||
+                     $svg.closest('[class*="logo"], [class*="brand"], [id*="logo"], [id*="brand"], [class*="header__logo"], [class*="nav__logo"]').length > 0;
+
+      if (isLogo) {
+        $svg.removeAttr('width').removeAttr('height');
+        const style = $svg.attr('style') || '';
+        const cleanStyle = style.replace(/(?:^|;)\s*(?:width|height)\s*:\s*\d+px;?/gi, '').trim();
+        if (cleanStyle) $svg.attr('style', cleanStyle);
+        else $svg.removeAttr('style');
+        return;
+      }
+
       const vb = $svg.attr('viewBox');
       const w = $svg.attr('width');
       const h = $svg.attr('height');

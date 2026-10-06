@@ -1820,13 +1820,41 @@ svg {
   max-width: 100%;
 }
 
-header svg, nav svg, [role="navigation"] svg {
+header svg:not(.logo):not([class*="logo"]):not([class*="brand"]),
+nav svg:not(.logo):not([class*="logo"]):not([class*="brand"]),
+[role="navigation"] svg:not(.logo):not([class*="logo"]):not([class*="brand"]) {
   max-height: 48px;
 }
 
-a svg, button svg, .nav-action-icon svg, [class*="icon"] svg {
+a:not([class*="logo"]):not([class*="brand"]) svg:not(.logo):not([class*="logo"]):not([class*="brand"]),
+button:not([class*="logo"]):not([class*="brand"]) svg:not(.logo):not([class*="logo"]):not([class*="brand"]),
+.nav-action-icon svg,
+[class*="icon"]:not([class*="logo"]):not([class*="brand"]) svg {
   max-width: 28px;
   max-height: 28px;
+}
+
+/* Authentic Logo & Brand SVG Proportions: Never crush logos */
+.logo,
+.nav__logo,
+[class*="nav__logo"],
+[class*="site-logo"],
+[class*="brand-logo"] {
+  display: block;
+}
+
+.logo,
+.nav__logo svg,
+[class*="nav__logo"] svg,
+[class*="logo"] svg,
+[class*="brand"] svg,
+svg.logo,
+svg[class*="logo"] {
+  width: auto !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 5rem !important;
+  fill: currentColor;
 }
 
 /* Base Navigation Container & Tokens */
@@ -2015,19 +2043,41 @@ nav,
     align-items: start !important;
   }
 
-  /* Inline dropdown menus and flyouts */
+  /* Inline dropdown menus and flyouts (BEM, Kebab, and Semantic) */
   .has-dropdown:hover > [class*="dropdown-menu"],
   .has-dropdown.is-open > [class*="dropdown-menu"],
   [class*="nav-item"]:hover > [class*="dropdown-menu"],
   [class*="nav-item"].is-open > [class*="dropdown-menu"],
   [class*="nav-item"]:hover > [class*="submenu"],
   [class*="nav-item"].is-open > [class*="submenu"],
+  [class*="nav__item"]:hover > [class*="nav__submenu"],
+  [class*="nav__item"].is-open > [class*="nav__submenu"],
+  [class*="nav__item"]:focus-within > [class*="nav__submenu"],
+  .nav__item:hover > .nav__submenu,
+  .nav__item.is-open > .nav__submenu,
+  .nav__item:focus-within > .nav__submenu,
+  [class*="item"]:hover > [class*="submenu"],
+  [class*="item"]:hover > [class*="sub-menu"],
+  li:hover > [class*="submenu"],
+  li:hover > [class*="sub-menu"],
   [class*="nav-item"][class*="flyout-open"] > [class*="flyout"],
   [class*="nav-item"][class*="flyout-open"] > [class*="submenu"] {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
+  }
+
+  /* Desktop background backdrop hover reveal */
+  .nav__menu:hover::before,
+  .nav__menu:focus-within::before,
+  .nav__menu.nav__menu--expanded::before {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+  .nav__menu:not(:hover):not(:focus-within):not(.nav__menu--expanded)::before {
+    visibility: hidden !important;
+    opacity: 0 !important;
   }
 
   /* Submenu flex columns */

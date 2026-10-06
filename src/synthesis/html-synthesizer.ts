@@ -806,9 +806,21 @@ export class HtmlSynthesizer {
       // Strip unrelated popups, reviews, and floating dialogs that leaked into navigation DOM
       $('section.popup, div.popup, [class*="popup--alert"], [class*="bottom-sheet"], [class*="confirm-popup"], [class*="sns-share"], [class*="review-contents"], .mini-cart-popup, [class*="fab__confirm"]').remove();
 
-      // Normalize all SVGs so icons never inflate to screen width
+      // Normalize all SVGs so icons never inflate to screen width, but preserve brand/logo dimensions
       $('svg').each((_, el) => {
         const $svg = $(el);
+        const isLogo = $svg.is('.logo, [class*="logo"], [class*="brand"], [id*="logo"], [id*="brand"]') ||
+                       $svg.closest('[class*="logo"], [class*="brand"], [id*="logo"], [id*="brand"], [class*="header__logo"], [class*="nav__logo"]').length > 0;
+
+        if (isLogo) {
+          $svg.removeAttr('width').removeAttr('height');
+          const style = $svg.attr('style') || '';
+          const cleanStyle = style.replace(/(?:^|;)\s*(?:width|height)\s*:\s*\d+px;?/gi, '').trim();
+          if (cleanStyle) $svg.attr('style', cleanStyle);
+          else $svg.removeAttr('style');
+          return;
+        }
+
         const vb = $svg.attr('viewBox');
         const w = $svg.attr('width');
         const h = $svg.attr('height');
@@ -840,7 +852,7 @@ export class HtmlSynthesizer {
         if (cls) {
           const updated = cls
             .split(/\s+/)
-            .filter((c) => !c.match(/^(active|is-active|open|is-open|show|is-show)$/i) && !c.match(/--(show|active|open)$/i))
+            .filter((c) => !c.match(/^(active|is-active|open|is-open|show|is-show|expanded|is-expanded)$/i) && !c.match(/--(show|active|open|expanded)$/i))
             .join(' ');
           if (updated !== cls) {
             $(el).attr('class', updated);
@@ -848,6 +860,24 @@ export class HtmlSynthesizer {
         }
       });
       $('button[aria-expanded], a[aria-expanded], summary[aria-expanded], [aria-haspopup][aria-expanded]').attr('aria-expanded', 'false');
+
+      // Strip frozen inline display/visibility styles from submenus so they don't remain stuck open
+      $('[class*="submenu"], [class*="dropdown-menu"], [class*="sub-menu"], [class*="flyout"]').each((_, el) => {
+        const style = $(el).attr('style');
+        if (style) {
+          const cleanStyle = style
+            .replace(/(^|;)\s*display\s*:\s*(?:block|flex|grid)\s*(;|$)/gi, '$1')
+            .replace(/(^|;)\s*visibility\s*:\s*visible\s*(;|$)/gi, '$1')
+            .replace(/(^|;)\s*opacity\s*:\s*1\s*(;|$)/gi, '$1')
+            .trim();
+          if (cleanStyle) {
+            $(el).attr('style', cleanStyle);
+          } else {
+            $(el).removeAttr('style');
+          }
+        }
+      });
+
       $('[class*="panel-content"]').removeClass('active is-active');
       $('[class*="backdrop"], [class*="curtain"], [class*="scrim"]').removeClass('is-active is-open open');
     }
@@ -898,15 +928,33 @@ export class HtmlSynthesizer {
 
     if (!hasLandmark) {
       const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
+      const isDarkNav = ast.archetype === 'navbar' && (
+        rawLower.includes('color: #fff') ||
+        rawLower.includes('color:#fff') ||
+        rawLower.includes('nav__link') ||
+        rawLower.includes('color: rgb(255') ||
+        ast.theme === 'dark'
+      );
+      const navBgStyle = isDarkNav ? ' style="background-color: #121c3b; min-height: 5.5rem; position: relative;"' : '';
       const archetypeClasses = ast.archetype === 'footer'
         ? 'site-footer page-footer'
         : ast.archetype === 'navbar'
-        ? 'site-header shared-header header-nav globalnav'
+        ? 'site-header shared-header header-nav globalnav' + (isDarkNav ? ' nav--dark-theme' : '')
         : '';
-      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}">\n${$.html().trim()}\n</${wrapperTag}>`;
+      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}"${navBgStyle}>\n${$.html().trim()}\n</${wrapperTag}>`;
     } else {
       if (!rootEl.attr('id')) {
         rootEl.attr('id', ast.id);
+      }
+      if (ast.archetype === 'navbar') {
+        const isDarkNav = rawLower.includes('color: #fff') || rawLower.includes('color:#fff') || rawLower.includes('nav__link') || ast.theme === 'dark';
+        if (isDarkNav) {
+          rootEl.addClass('nav--dark-theme');
+          const curStyle = rootEl.attr('style') || '';
+          if (!curStyle.includes('background')) {
+            rootEl.attr('style', `background-color: #121c3b; min-height: 5.5rem; position: relative; ${curStyle}`.trim());
+          }
+        }
       }
       result = $.html().trim();
     }
