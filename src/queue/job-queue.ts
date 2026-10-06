@@ -295,6 +295,57 @@ export class JobQueue {
         baselineScreenshots = renderRes.screenshots;
         initialHtml = renderRes.renderedHtml;
       }
+
+      // Universal External Stylesheet Harvesting Fallback:
+      // If client stylesheets were missing or blocked by CORS in the browser,
+      // harvest and fetch all <link rel="stylesheet"> and <style> tags from initialHtml.
+      if (initialCss.trim().length < 200 && initialHtml) {
+        try {
+          const $snap = cheerio.load(initialHtml);
+          const externalHrefs: string[] = [];
+          $snap('link[rel="stylesheet"]').each((_, el) => {
+            const href = $snap(el).attr('href');
+            if (href && !href.startsWith('chrome-extension://')) {
+              try {
+                externalHrefs.push(new URL(href, url).href);
+              } catch {}
+            }
+          });
+
+          const inlineStyles: string[] = [];
+          $snap('style').each((_, el) => {
+            const content = $snap(el).html();
+            if (content && content.trim().length > 0) {
+              inlineStyles.push(content.trim());
+            }
+          });
+
+          if (externalHrefs.length > 0 || inlineStyles.length > 0) {
+            const fetchedSheets = await Promise.all(
+              externalHrefs.map(async (href) => {
+                try {
+                  const resp = await fetch(href, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                      'Referer': url,
+                    },
+                  });
+                  if (resp.ok) {
+                    return await resp.text();
+                  }
+                } catch {}
+                return '';
+              })
+            );
+            const validSheets = [...inlineStyles, ...fetchedSheets.filter((s) => s && s.trim().length > 0)];
+            if (validSheets.length > 0) {
+              initialCss = (initialCss ? initialCss + '\n' : '') + validSheets.join('\n');
+            }
+          }
+        } catch (err) {
+          console.warn('[JobQueue] Error harvesting external stylesheets:', err);
+        }
+      }
       totalTokensUsed += PricingService.getCost('capture_viewport') * 3;
       setStep('Chromium Baseline Render', ChromiumRenderWorker.workerName, 'completed', PricingService.getCost('capture_viewport') * 3);
 

@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   activeSelectedSection = store.selectedSection || null;
 
-  const apiUrl = (store.apiUrl && store.apiUrl !== 'https://replicator.inventkid.com' ? store.apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+  const apiUrl = (store.apiUrl || 'http://localhost:3000').replace(/\/$/, '');
   serverUrlDisplay.textContent = `Server: ${apiUrl.replace(/^https?:\/\//, '')}`;
 
   // If no API key is present, auto-provision default 3-token trial key immediately
@@ -609,6 +609,7 @@ document.addEventListener('DOMContentLoaded', async () => {
               return {
                 html: document.documentElement.outerHTML,
                 stylesheets: stylesheets,
+                stylesheetUrls: Array.from(fetchedHrefs),
               };
             },
           });
@@ -617,9 +618,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
           const results = await Promise.race([scriptPromise, timeoutPromise]);
 
+          let extractedStylesheetUrls = [];
           if (results && results[0] && results[0].result) {
             htmlSnapshot = results[0].result.html || '';
             clientStylesheets = results[0].result.stylesheets || [];
+            extractedStylesheetUrls = results[0].result.stylesheetUrls || [];
           }
 
           // Bulletproof Fallback: If active probing timed out or didn't return HTML,
@@ -670,6 +673,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         renameClasses: document.getElementById('opt-rename').checked,
         htmlSnapshot: htmlSnapshot,
         clientStylesheets: clientStylesheets.length > 0 ? clientStylesheets : undefined,
+        stylesheetUrls: extractedStylesheetUrls.length > 0 ? extractedStylesheetUrls : undefined,
         clientScreenshot: (typeof extractedClientScreenshot !== 'undefined' && extractedClientScreenshot) ? extractedClientScreenshot : undefined,
         sectionSelector: isSectionMode ? selectedSection.selector : undefined,
         sectionHtml: isSectionMode ? selectedSection.sectionHtml : undefined,

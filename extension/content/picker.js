@@ -1287,6 +1287,7 @@
             sectionHtml: dynamicSectionHtml || data.sectionHtml,
             targetArchetype: data.archetype,
             clientStylesheets: sheets,
+            stylesheetUrls: Array.from(fetchedHrefs),
             htmlSnapshot: document.documentElement.outerHTML,
             recordedInteractions: recordedInteractions,
             rootCssVariables: harvestRootCssVariables(),

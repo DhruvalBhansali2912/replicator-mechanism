@@ -18,7 +18,7 @@ chrome.runtime.onInstalled.addListener(async () => {
     updates.deviceId = deviceId;
   }
 
-  if (!data.apiUrl || data.apiUrl === 'https://replicator.inventkid.com') {
+  if (!data.apiUrl) {
     updates.apiUrl = 'http://localhost:3000';
   }
 
@@ -181,8 +181,55 @@ async function handleStartExtraction({ url, options }) {
     throw new Error('Please enter your License Key before starting replication.');
   }
 
-  const baseUrl = (apiUrl && apiUrl !== 'https://replicator.inventkid.com' ? apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+  const baseUrl = (apiUrl || 'http://localhost:3000').replace(/\/$/, '');
   const isV1Token = apiKey.startsWith('rep_sec_') || apiKey.startsWith('rep_live_');
+
+  // Universal Cross-Origin Stylesheet Harvesting in Extension Service Worker:
+  // In Chrome MV3, content scripts and in-page scripts are blocked by CORS when fetching cross-origin CSS.
+  // The Background Service Worker has <all_urls> host_permissions and can fetch ANY stylesheet without CORS restrictions.
+  const stylesheetUrls = new Set(options?.stylesheetUrls || []);
+  if (options?.htmlSnapshot) {
+    const linkRegex = /<link[^>]+rel=["']stylesheet["'][^>]*>/gi;
+    let match;
+    while ((match = linkRegex.exec(options.htmlSnapshot)) !== null) {
+      const hrefMatch = match[0].match(/href=["']([^"']+)["']/i);
+      if (hrefMatch && hrefMatch[1] && !hrefMatch[1].startsWith('chrome-extension://')) {
+        try {
+          const fullUrl = new URL(hrefMatch[1], url).href;
+          stylesheetUrls.add(fullUrl);
+        } catch (e) {}
+      }
+    }
+  }
+
+  // Fetch all external stylesheets directly in Service Worker using extension host_permissions
+  if (stylesheetUrls.size > 0) {
+    try {
+      const fetchedCss = await Promise.all(
+        Array.from(stylesheetUrls).map(async (cssUrl) => {
+          try {
+            const resp = await fetch(cssUrl, { cache: 'force-cache' });
+            if (resp.ok) {
+              const text = await resp.text();
+              if (text && text.trim().length > 0) return text;
+            }
+          } catch (e) {
+            console.debug('Service Worker stylesheet fetch note:', cssUrl, e);
+          }
+          return '';
+        })
+      );
+      const validCss = fetchedCss.filter((c) => c && c.trim().length > 0);
+      if (validCss.length > 0) {
+        options.clientStylesheets = [
+          ...(options.clientStylesheets || []),
+          ...validCss,
+        ];
+      }
+    } catch (e) {
+      console.debug('Service Worker parallel fetch note:', e);
+    }
+  }
 
   let endpoint = isV1Token ? `${baseUrl}/api/v1/reconstruction` : `${baseUrl}/api/extract`;
   let headers = {
