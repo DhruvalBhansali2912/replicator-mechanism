@@ -13,7 +13,13 @@
   if (window.__replicator_cleanup) {
     try { window.__replicator_cleanup(); } catch {}
   }
-  window.__REPLICATOR_PICKER_ACTIVE__ = true;
+  // Helper: Safely extract class string from any HTML, SVG, or custom element
+  function getElementClassString(el) {
+    if (!el) return '';
+    if (typeof el.className === 'string') return el.className;
+    if (el.className && typeof el.className.baseVal === 'string') return el.className.baseVal;
+    return typeof el.getAttribute === 'function' ? (el.getAttribute('class') || '') : '';
+  }
 
   // 1. Create Top Instruction Bar
   const bar = document.createElement('div');
@@ -335,7 +341,7 @@
       tag !== 'nav' &&
       ((isNearPageTop && (hasH1 || html.includes('hero') || html.includes('carousel') || html.includes('banner'))) ||
       html.includes('homepage-promo') ||
-      /hero|billboard|stage-header|banner-main/i.test(el.className || ''));
+      /hero|billboard|stage-header|banner-main/i.test(getElementClassString(el)));
 
     if (isHeroLike) {
       return { name: 'Hero Banner', icon: '⚡', archetype: 'hero' };
@@ -625,7 +631,7 @@
     const tabTriggers = Array.from(sectionEl.querySelectorAll(
       '[role="tab"], [class*="tab__item"], [class*="tab-item"], button[class*="tab"], li[class*="tab"], [data-tab]'
     )).filter((el) => {
-      const cls = (el.className || '').toLowerCase();
+      const cls = getElementClassString(el).toLowerCase();
       return !cls.includes('panel') && !cls.includes('pane') && !cls.includes('content') &&
              !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__');
     });
@@ -686,7 +692,7 @@
     const cardCandidates = Array.from(sectionEl.querySelectorAll(
       'article, [role="listitem"], [class*="product-card"], [class*="product-item"], [class*="catalog-item"], [class*="card"]'
     )).filter(el => {
-      const cls = (el.className || '').toLowerCase();
+      const cls = getElementClassString(el).toLowerCase();
       return !cls.includes('filter') && !cls.includes('nav') && !cls.includes('header') && !el.closest('[class*="filter"]');
     });
 
@@ -710,7 +716,7 @@
       const isCatalogViewMore = (el) => {
         if (!el || el.closest('[class*="filter"]') || el.closest('[class*="sidebar"]') || el.closest('[class*="selector-item"]')) return false;
         const txt = (el.textContent || '').trim().toLowerCase();
-        const cls = (el.className || '').toLowerCase();
+        const cls = getElementClassString(el).toLowerCase();
         const aria = (el.getAttribute('aria-label') || '').toLowerCase();
         const anLa = (el.getAttribute('an-la') || '').toLowerCase();
         return (txt.includes('view more') || txt.includes('load more') || txt.includes('show more') ||
@@ -762,7 +768,7 @@
           const currentCards = Array.from(sectionEl.querySelectorAll(
             'article, [role="listitem"], [class*="product-card"], [class*="product-item"], [class*="catalog-item"], [class*="card"]'
           )).filter(el => {
-            const cls = (el.className || '').toLowerCase();
+            const cls = getElementClassString(el).toLowerCase();
             return !cls.includes('filter') && !cls.includes('nav') && !cls.includes('header') && !el.closest('[class*="filter"]');
           });
 
@@ -789,7 +795,7 @@
     const triggers = Array.from(sectionEl.querySelectorAll(
       'button, a, [role="button"], [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [data-menu], li'
     )).filter((el) => {
-      const isTab = el.getAttribute('role') === 'tab' || (el.className || '').includes('tab');
+      const isTab = el.getAttribute('role') === 'tab' || getElementClassString(el).toLowerCase().includes('tab');
       return !isTab && !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__');
     });
 
@@ -967,7 +973,7 @@
     const categoryOpeners = Array.from(sectionEl.querySelectorAll(
       'button[aria-expanded], [role="button"][aria-expanded], [aria-haspopup], [class*="opener"], [class*="toggle"], [class*="dropdown-toggle"], [class*="accordion-toggle"], [class*="filter-trigger"], [class*="facet-trigger"], summary'
     )).filter(el => {
-      const cls = (el.className || '').toLowerCase();
+      const cls = getElementClassString(el).toLowerCase();
       return !el.closest('#__replicator_picker_bar__') &&
              !el.closest('#__replicator_picker_overlay__') &&
              !cls.includes('view-more') && !cls.includes('load-more') &&
@@ -1207,12 +1213,21 @@
     });
 
     // Universally explore and reveal dynamic sections before capturing
-    await revealDynamicSections(currentTarget);
+    try {
+      await revealDynamicSections(currentTarget);
+    } catch (probeErr) {
+      console.warn('[replicator] Dynamic section probe warning:', probeErr);
+    }
     const dynamicSectionHtml = harvestSectionHtmlWithDynamics(currentTarget, data.archetype);
 
     const progressStepEl = document.getElementById('__replicator_progress_step__');
     if (progressStepEl) progressStepEl.textContent = 'Probing & recording interactive behaviors...';
-    const recordedInteractions = await recordDynamicInteractions(currentTarget);
+    let recordedInteractions = [];
+    try {
+      recordedInteractions = await recordDynamicInteractions(currentTarget);
+    } catch (recordErr) {
+      console.warn('[replicator] Interactive behavior recording warning:', recordErr);
+    }
 
     if (progressStepEl) progressStepEl.textContent = 'Extracting styles & synthesizing code...';
 
