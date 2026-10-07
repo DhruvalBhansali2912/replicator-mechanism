@@ -921,10 +921,9 @@ export class HtmlSynthesizer {
 
     // 5. Ensure top element has semantic landmark and id
     let result = '';
-    const rootEl = $('*').first();
+    const rootEl = $.root().children().first();
     const firstTag = rootEl.prop('tagName')?.toLowerCase();
-    const isNavUnderNavbar = ast.archetype === 'navbar' && firstTag === 'nav';
-    const hasLandmark = ['header', 'section', 'footer', 'article', 'main'].includes(firstTag || '') && !isNavUnderNavbar;
+    const hasLandmark = ['header', 'nav', 'section', 'footer', 'article', 'main'].includes(firstTag || '');
 
     if (!hasLandmark) {
       const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
@@ -932,8 +931,8 @@ export class HtmlSynthesizer {
         ? 'site-footer page-footer'
         : ast.archetype === 'navbar'
         ? 'site-header shared-header header-nav'
-        : '';
-      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}" data-theme="${ast.theme || 'light'}">\n${$.html().trim()}\n</${wrapperTag}>`;
+        : 'site-section page-section';
+      result = `<${wrapperTag} class="authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}" data-theme="${ast.theme || 'light'}">\n${$.html().trim()}\n</${wrapperTag}>`;
     } else {
       if (!rootEl.attr('id')) {
         rootEl.attr('id', ast.id);
