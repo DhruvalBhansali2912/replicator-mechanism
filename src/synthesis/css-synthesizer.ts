@@ -2572,6 +2572,16 @@ ${this.getUniversalInteractiveRules()}
   z-index: 600 !important;
 }
 
+/* Universal container unclipping when an open dropdown/popover/flyout is active */
+.has-open-dropdown,
+.has-open-popover,
+header:has([aria-expanded="true"]),
+nav:has([aria-expanded="true"]),
+ul:has([aria-expanded="true"]),
+div:has(> [aria-expanded="true"]) {
+  overflow: visible !important;
+}
+
 /* Universal popovers / dropdowns controlled by a closed trigger (resting state only, never blocking hover) */
 [aria-expanded="false"]:not(:hover) + [class*="dropdown"]:not(button):not(a):not(:hover),
 [aria-expanded="false"]:not(:hover) + [class*="submenu"]:not(button):not(a):not(:hover),

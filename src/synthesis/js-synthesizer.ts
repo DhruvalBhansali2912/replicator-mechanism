@@ -217,6 +217,11 @@ export class JsSynthesizer {
           });
         }
 
+        // Delegate dropdown/popover triggers to the universal dropdown controller
+        if (trigger.matches && trigger.matches('button[aria-haspopup], [role="button"][aria-haspopup], button[aria-expanded], [role="button"][aria-expanded], [data-toggle="dropdown"], [data-bs-toggle="dropdown"]')) {
+          return;
+        }
+
         trigger.setAttribute('data-has-recorded-interaction', 'true');
         const isCheckboxOrRadio = trigger.tagName === 'INPUT' && (trigger.type === 'checkbox' || trigger.type === 'radio');
 
@@ -509,6 +514,12 @@ export class JsSynthesizer {
         el.style.visibility = '';
         el.style.pointerEvents = '';
       });
+      let anc = itDropdown.parentElement;
+      while (anc && anc !== it && anc !== document.body) {
+        anc.classList.remove('is-open', 'open', 'show', 'active');
+        anc.style.display = 'none';
+        anc = anc.parentElement;
+      }
     }
     // Clean up aria-expanded and active state on the item itself and all non-dropdown descendants
     if (it.getAttribute('aria-expanded')) it.setAttribute('aria-expanded', 'false');
@@ -521,6 +532,27 @@ export class JsSynthesizer {
         applyFrameworkStateClasses(ch, false);
       }
     });
+
+    // Restore clipping ancestors
+    let clipAnc = it.parentElement;
+    while (clipAnc && clipAnc !== document.body && clipAnc !== document.documentElement) {
+      const hasOtherOpen = clipAnc.querySelector('.is-open, [aria-expanded="true"]');
+      if (!hasOtherOpen && clipAnc.hasAttribute('data-orig-overflow')) {
+        const orig = clipAnc.getAttribute('data-orig-overflow');
+        if (orig) {
+          clipAnc.style.setProperty('overflow', orig);
+        } else {
+          clipAnc.style.removeProperty('overflow');
+        }
+        clipAnc.removeAttribute('data-orig-overflow');
+      }
+      if (!hasOtherOpen) {
+        clipAnc.classList.remove('has-open-dropdown');
+      }
+      clipAnc = clipAnc.parentElement;
+    }
+    const icon = it.querySelector('svg, .icon, [class*="icon"], [class*="chevron"], [class*="arrow"]');
+    if (icon) icon.style.transform = 'rotate(0deg)';
 
     const curtains = document.querySelectorAll('.globalnav-curtain, [class*="curtain"], [class*="backdrop"], [class*="scrim"], [class*="overlay-cover"]');
     curtains.forEach(function(curtain) {
@@ -815,6 +847,58 @@ export class JsSynthesizer {
       dropdown.setAttribute('aria-hidden', 'false');
       dropdown.classList.add('is-open', 'open', 'show', 'active');
 
+      // Unhide intermediate wrappers and panel elements
+      const elementsToUnhide = [dropdown];
+      let anc = dropdown.parentElement;
+      while (anc && anc !== item && anc !== document.body) {
+        elementsToUnhide.push(anc);
+        anc = anc.parentElement;
+      }
+      elementsToUnhide.forEach(function(el) {
+        el.classList.add('is-open', 'open', 'show', 'active');
+        el.style.setProperty('display', 'block', 'important');
+        el.style.setProperty('visibility', 'visible', 'important');
+        el.style.setProperty('opacity', '1', 'important');
+        el.style.setProperty('pointer-events', 'auto', 'important');
+        const cs = window.getComputedStyle(el);
+        if (cs.position === 'static') {
+          el.style.setProperty('position', 'absolute', 'important');
+          el.style.setProperty('top', '100%', 'important');
+          const itemRect = item.getBoundingClientRect();
+          if (itemRect.right > window.innerWidth * 0.75) {
+            el.style.setProperty('right', '0', 'important');
+            el.style.setProperty('left', 'auto', 'important');
+          } else {
+            el.style.setProperty('left', '0', 'important');
+            el.style.setProperty('right', 'auto', 'important');
+          }
+          el.style.setProperty('z-index', '1000', 'important');
+        }
+      });
+      dropdown.querySelectorAll('[role="menu"], [data-baseweb="menu"], ul').forEach(function(m) {
+        m.classList.add('is-open', 'open', 'show', 'active');
+        m.style.setProperty('display', 'block', 'important');
+        m.style.setProperty('visibility', 'visible', 'important');
+      });
+
+      // Unclip ancestors
+      let clipAnc = item.parentElement;
+      while (clipAnc && clipAnc !== document.body && clipAnc !== document.documentElement) {
+        const cs = window.getComputedStyle(clipAnc);
+        if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden' || cs.overflow === 'clip') {
+          if (!clipAnc.hasAttribute('data-orig-overflow')) {
+            clipAnc.setAttribute('data-orig-overflow', clipAnc.style.overflow || '');
+          }
+          clipAnc.style.setProperty('overflow', 'visible', 'important');
+          clipAnc.classList.add('has-open-dropdown');
+        }
+        clipAnc = clipAnc.parentElement;
+      }
+
+      // Rotate chevron
+      const icon = item.querySelector('svg, .icon, [class*="icon"], [class*="chevron"], [class*="arrow"]');
+      if (icon) icon.style.transform = 'rotate(180deg)';
+
       // Apply framework state classes dynamically to dropdown and triggers
       applyFrameworkStateClasses(dropdown, true);
       triggers.forEach(function(trg) {
@@ -860,24 +944,34 @@ export class JsSynthesizer {
       scheduleFlyoutClose();
     }
 
-    // Attach desktop hover & focus interactions unconditionally for desktop viewports
-    item.addEventListener('mouseenter', handleDesktopHoverOrFocus);
-    item.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
-    item.addEventListener('focusin', handleDesktopHoverOrFocus);
-    item.addEventListener('focusout', handleDesktopLeaveOrBlur);
+    // Attach desktop hover & focus interactions for traditional hover flyouts (not for explicit ARIA button triggers)
+    const hasClickButtonTrigger = triggers.some(function(t) {
+      return t.tagName === 'BUTTON' || t.hasAttribute('aria-haspopup') || t.getAttribute('role') === 'button';
+    });
+    if (!hasClickButtonTrigger) {
+      item.addEventListener('mouseenter', handleDesktopHoverOrFocus);
+      item.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
+      item.addEventListener('focusin', handleDesktopHoverOrFocus);
+      item.addEventListener('focusout', handleDesktopLeaveOrBlur);
+
+      triggers.forEach(function(trg) {
+        trg.addEventListener('mouseenter', handleDesktopHoverOrFocus);
+        trg.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
+        trg.addEventListener('focus', handleDesktopHoverOrFocus);
+      });
+
+      dropdown.addEventListener('mouseenter', function() {
+        clearTimeout(flyoutLeaveTimer);
+      });
+      dropdown.addEventListener('mouseleave', scheduleFlyoutClose);
+    }
 
     triggers.forEach(function(trg) {
-      trg.addEventListener('mouseenter', handleDesktopHoverOrFocus);
-      trg.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
-      trg.addEventListener('focus', handleDesktopHoverOrFocus);
-    });
+      // If trigger is an explicit button handled by the interactive dropdown controller, delegate to Section 5
+      if (trg.tagName === 'BUTTON' || trg.hasAttribute('aria-haspopup') || trg.getAttribute('role') === 'button') {
+        return;
+      }
 
-    dropdown.addEventListener('mouseenter', function() {
-      clearTimeout(flyoutLeaveTimer);
-    });
-    dropdown.addEventListener('mouseleave', scheduleFlyoutClose);
-
-    triggers.forEach(function(trg) {
       // Click handler toggles dropdown on button click or mobile tap
       trg.addEventListener('click', function(e) {
         const href = trg.getAttribute('href');
@@ -2288,7 +2382,14 @@ export class JsSynthesizer {
           if (cs.position === 'static') {
             el.style.setProperty('position', 'absolute', 'important');
             el.style.setProperty('top', '100%', 'important');
-            el.style.setProperty('left', '0', 'important');
+            const triggerRect = trigger.getBoundingClientRect();
+            if (triggerRect.right > window.innerWidth * 0.75) {
+              el.style.setProperty('right', '0', 'important');
+              el.style.setProperty('left', 'auto', 'important');
+            } else {
+              el.style.setProperty('left', '0', 'important');
+              el.style.setProperty('right', 'auto', 'important');
+            }
           }
           el.style.setProperty('pointer-events', 'auto', 'important');
           el.style.setProperty('z-index', '1000', 'important');
@@ -2307,6 +2408,38 @@ export class JsSynthesizer {
           if (window.getComputedStyle(m).display === 'none') m.style.setProperty('display', 'block', 'important');
           if (window.getComputedStyle(m).visibility === 'hidden') m.style.setProperty('visibility', 'visible', 'important');
         });
+
+        // Unclip any ancestors clipping the dropdown
+        let clipAnc = (parentBox || panel).parentElement;
+        while (clipAnc && clipAnc !== document.body && clipAnc !== document.documentElement) {
+          const cs = window.getComputedStyle(clipAnc);
+          if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden' || cs.overflow === 'clip') {
+            if (!clipAnc.hasAttribute('data-orig-overflow')) {
+              clipAnc.setAttribute('data-orig-overflow', clipAnc.style.overflow || '');
+            }
+            clipAnc.style.setProperty('overflow', 'visible', 'important');
+            clipAnc.classList.add('has-open-dropdown');
+          }
+          clipAnc = clipAnc.parentElement;
+        }
+      } else {
+        let clipAnc = (parentBox || panel).parentElement;
+        while (clipAnc && clipAnc !== document.body && clipAnc !== document.documentElement) {
+          const hasOtherOpen = clipAnc.querySelector('.is-open, [aria-expanded="true"]');
+          if (!hasOtherOpen && clipAnc.hasAttribute('data-orig-overflow')) {
+            const orig = clipAnc.getAttribute('data-orig-overflow');
+            if (orig) {
+              clipAnc.style.setProperty('overflow', orig);
+            } else {
+              clipAnc.style.removeProperty('overflow');
+            }
+            clipAnc.removeAttribute('data-orig-overflow');
+          }
+          if (!hasOtherOpen) {
+            clipAnc.classList.remove('has-open-dropdown');
+          }
+          clipAnc = clipAnc.parentElement;
+        }
       }
     }
     const icon = trigger.querySelector('svg, .icon, [class*="icon"], [class*="chevron"], [class*="arrow"]');
