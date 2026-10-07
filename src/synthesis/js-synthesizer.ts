@@ -491,6 +491,7 @@ export class JsSynthesizer {
         it.classList.remove(cls);
       }
     });
+    applyFrameworkStateClasses(it, false);
     const itDropdown = getDropdownFor(it);
     if (itDropdown) {
       itDropdown.classList.remove('is-open', 'open', 'show', 'active');
@@ -509,16 +510,16 @@ export class JsSynthesizer {
         el.style.pointerEvents = '';
       });
     }
-    const itTriggers = Array.from(it.querySelectorAll('a, button, [role="button"]')).filter(function(el) {
-      return !itDropdown || !itDropdown.contains(el);
+    // Clean up aria-expanded and active state on the item itself and all non-dropdown descendants
+    if (it.getAttribute('aria-expanded')) it.setAttribute('aria-expanded', 'false');
+    it.querySelectorAll('[aria-expanded]').forEach(function(el) {
+      if (!itDropdown || !itDropdown.contains(el)) el.setAttribute('aria-expanded', 'false');
     });
-    itTriggers.forEach(function(trg) {
-      trg.setAttribute('aria-expanded', 'false');
-      trg.classList.remove('active', 'is-active');
-      applyFrameworkStateClasses(trg, false);
-    });
-    it.querySelectorAll('[class*="item"], a, button').forEach(function(ch) {
-      if (!itDropdown || !itDropdown.contains(ch)) ch.classList.remove('active', 'is-active');
+    it.querySelectorAll('.active, .is-active').forEach(function(ch) {
+      if (!itDropdown || !itDropdown.contains(ch)) {
+        ch.classList.remove('active', 'is-active');
+        applyFrameworkStateClasses(ch, false);
+      }
     });
 
     const curtains = document.querySelectorAll('.globalnav-curtain, [class*="curtain"], [class*="backdrop"], [class*="scrim"], [class*="overlay-cover"]');
@@ -758,7 +759,7 @@ export class JsSynthesizer {
     if (!dropdown) return;
 
     // Select the item triggers (button or link), outside the dropdown panel
-    const triggers = Array.from(item.querySelectorAll(':scope > a, :scope > button, button, a, [role="button"], [class*="trigger"], .nav-link')).filter(function(el) {
+    const triggers = Array.from(item.querySelectorAll(':scope > a, :scope > button, button, a, [role="button"], [class*="trigger"], a.nav-link, button.nav-link')).filter(function(el) {
       return !dropdown.contains(el);
     });
 

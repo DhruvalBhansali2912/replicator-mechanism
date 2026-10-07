@@ -72,6 +72,8 @@ export class ReconstructionWorker {
   <meta name="referrer" content="no-referrer">
   <title>Synthesized Section</title>
   <style>
+    body { display: block !important; place-items: unset !important; margin: 0; padding: 0; }
+    header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"] { width: 100% !important; align-self: flex-start !important; top: 0 !important; margin-top: 0 !important; }
 ${sec.css}
   </style>
 </head>

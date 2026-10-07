@@ -72,9 +72,29 @@ body.menu-open {
   display: none !important;
 }
 
-/* Ensure Header and Nav Items stay above any background dialogs */
-header, #tds-site-header, .tds-site-header, .tds-site-nav-items {
+/* Ensure Header and Nav Items stay above any background dialogs and pinned to top */
+body:has(> header),
+body:has(> nav),
+body:has(> [role="banner"]),
+body:has(> .site-header),
+body:has(> [class*="site-header"]),
+body:has(> [class*="navbar"]),
+body:has(> [class*="globalnav"]),
+body:has(header),
+body:has(nav),
+body.has-navbar {
+  display: block !important;
+  place-items: unset !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"], #tds-site-header, .tds-site-header, .tds-site-nav-items {
   position: relative !important;
+  align-self: flex-start !important;
+  margin-top: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
   z-index: 600 !important;
 }
 
@@ -1774,7 +1794,8 @@ function generateStandaloneSectionHtml(title: string, html: string, css: string,
   <style>
     /* Reset & Base */
     *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: block !important; place-items: unset !important; }
+    header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"] { width: 100% !important; align-self: flex-start !important; top: 0 !important; margin-top: 0 !important; }
     ${css}
   </style>
 </head>

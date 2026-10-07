@@ -2639,6 +2639,57 @@ svg[class*="pointer"] path {
   stroke-dashoffset: 0 !important;
   visibility: visible !important;
 }
+
+/* Universal Top Placement for Headers & Navbars in Previews */
+body:has(> header),
+body:has(> nav),
+body:has(> [role="banner"]),
+body:has(> .site-header),
+body:has(> [class*="site-header"]),
+body:has(> [class*="navbar"]),
+body:has(> [class*="globalnav"]),
+body:has(header),
+body:has(nav),
+body.has-navbar {
+  display: block !important;
+  place-items: unset !important;
+  justify-content: flex-start !important;
+  align-items: flex-start !important;
+}
+
+header,
+nav,
+[role="banner"],
+.site-header,
+[class*="site-header"],
+[class*="navbar"],
+[class*="globalnav"] {
+  align-self: flex-start !important;
+  margin-top: 0 !important;
+  top: 0 !important;
+  width: 100% !important;
+}
+
+/* Universal Visibility Resilience for Extracted Standalone Sidebars, Panels & Off-Canvas Drawers */
+.authentic-section > [role="navigation"],
+.authentic-section > aside,
+.authentic-section > [class*="sidebar"],
+.authentic-section > [class*="drawer"],
+.authentic-section > [class*="panel"],
+.authentic-section > [class*="offcanvas"],
+body > [role="navigation"],
+body > aside,
+body > [class*="sidebar"],
+body > [class*="drawer"] {
+  position: relative !important;
+  left: 0 !important;
+  top: 0 !important;
+  transform: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  max-width: 100% !important;
+}
 `;
   }
 
