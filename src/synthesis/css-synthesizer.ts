@@ -1912,9 +1912,15 @@ nav,
 [class*="siteHeader"],
 [class*="site-header"],
 [class*="navbar"],
+header,
+nav,
+.header,
+.site-header,
+.section-navbar,
+[role="banner"],
 [class*="globalnav"] {
   position: relative;
-  z-index: 500;
+  z-index: 500 !important;
 }
 
 /* Backdrop & Curtain for navigation and dialog overlays */
@@ -1927,10 +1933,8 @@ nav,
 [class*="curtain"]:not([class*="hero"]):not([class*="slide"]) {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  z-index: 480;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 400;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1956,15 +1960,24 @@ nav,
 
 /* Universal mobile drawer open state fallback */
 [role="dialog"].is-open,
+[role="dialog"].open,
 [role="dialog"][aria-hidden="false"],
 [id*="mobile-menu" i].is-open,
+[id*="mobile-menu" i].open,
+[class*="mobile-menu" i].is-open,
+[class*="mobile-menu" i].open,
 [class*="drawer" i].is-open,
+[class*="drawer" i].open,
 [class*="nav-drawer" i].is-open,
-[class*="sidebar" i].is-open {
-  visibility: visible;
-  opacity: 1;
-  pointer-events: auto;
-  z-index: 1000;
+[class*="nav-drawer" i].open,
+[class*="sidebar" i].is-open,
+[class*="sidebar" i].open {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  display: block !important;
+  transform: none !important;
+  z-index: 1000 !important;
 }
 
 /* Universal accordion open content fallback */
@@ -2061,11 +2074,25 @@ nav,
   li:hover > [class*="submenu"],
   li:hover > [class*="sub-menu"],
   [class*="nav-item"][class*="flyout-open"] > [class*="flyout"],
-  [class*="nav-item"][class*="flyout-open"] > [class*="submenu"] {
+  [class*="nav-item"][class*="flyout-open"] > [class*="submenu"],
+  .group:hover > [class*="group-hover"],
+  .group:hover [class*="group-hover\:block"],
+  [class*="group"]:hover [class*="group-hover\:block"],
+  .group:hover > [class*="dropdown"],
+  [class*="group"]:hover > [class*="dropdown"],
+  [class*="nav-item"]:hover > [class*="dropdown"],
+  .nav-item:hover > .dropdown {
     display: block !important;
     visibility: visible !important;
     opacity: 1 !important;
     pointer-events: auto !important;
+  }
+
+  /* Desktop Submenu Alignment & Flow */
+  .nav__item > .nav__submenu,
+  [class*="nav__item"] > [class*="nav__submenu"] {
+    top: 100% !important;
+    padding-top: 0.5rem !important;
   }
 
   /* Desktop background backdrop hover reveal */
@@ -2441,13 +2468,13 @@ ${this.getUniversalInteractiveRules()}
 }
 
 /* Universal Accessibility & Utility Rules */
-.hidden,
 [hidden],
-.sr-only,
-.visually-hidden,
-.a11y-hidden,
 .blind {
   display: none !important;
+}
+
+.hidden:not(.is-open):not(.open):not([class*="group-hover"]):not([class*="hover"]):not([class*="show"]) {
+  display: none;
 }
 
 @media (min-width: 768px) {
@@ -2534,23 +2561,23 @@ ${this.getUniversalInteractiveRules()}
   z-index: 600 !important;
 }
 
-/* Universal popovers / dropdowns controlled by a closed trigger */
-[aria-expanded="false"] + [class*="dropdown"]:not(button):not(a),
-[aria-expanded="false"] + [class*="submenu"]:not(button):not(a),
-[aria-expanded="false"] + [class*="popover"]:not(button):not(a),
-[aria-expanded="false"] + [role="menu"],
-[aria-expanded="false"] + [role="listbox"],
-[aria-expanded="false"] + [role="dialog"],
-:has(> [aria-expanded="false"]) > [class*="dropdown"]:not(button):not(a):not(.is-open):not([class*="open"]),
-:has(> [aria-expanded="false"]) > [class*="submenu"]:not(button):not(a):not(.is-open):not([class*="open"]),
-:has(> [aria-expanded="false"]) > [class*="popover"]:not(button):not(a):not(.is-open):not([class*="open"]),
-:has(> [aria-expanded="false"]) > [role="menu"]:not(.is-open):not([class*="open"]),
-:has(> [aria-expanded="false"]) > [role="listbox"]:not(.is-open):not([class*="open"]),
-:has(> [aria-expanded="false"]) > [role="dialog"]:not(.is-open):not([class*="open"]) {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
+/* Universal popovers / dropdowns controlled by a closed trigger (resting state only, never blocking hover) */
+[aria-expanded="false"]:not(:hover) + [class*="dropdown"]:not(button):not(a):not(:hover),
+[aria-expanded="false"]:not(:hover) + [class*="submenu"]:not(button):not(a):not(:hover),
+[aria-expanded="false"]:not(:hover) + [class*="popover"]:not(button):not(a):not(:hover),
+[aria-expanded="false"]:not(:hover) + [role="menu"]:not(:hover),
+[aria-expanded="false"]:not(:hover) + [role="listbox"]:not(:hover),
+[aria-expanded="false"]:not(:hover) + [role="dialog"]:not(:hover),
+:has(> [aria-expanded="false"]:not(:hover)):not(:hover):not(:focus-within) > [class*="dropdown"]:not(button):not(a):not(.is-open):not([class*="open"]):not(:hover),
+:has(> [aria-expanded="false"]:not(:hover)):not(:hover):not(:focus-within) > [class*="submenu"]:not(button):not(a):not(.is-open):not([class*="open"]):not(:hover),
+:has(> [aria-expanded="false"]:not(:hover)):not(:hover):not(:focus-within) > [class*="popover"]:not(button):not(a):not(.is-open):not([class*="open"]):not(:hover),
+:has(> [aria-expanded="false"]:not(:hover)):not(:hover):not(:focus-within) > [role="menu"]:not(.is-open):not([class*="open"]):not(:hover),
+:has(> [aria-expanded="false"]:not(:hover)):not(:hover):not(:focus-within) > [role="listbox"]:not(.is-open):not([class*="open"]):not(:hover),
+:has(> [aria-expanded="false"]:not(:hover)):not(:hover):not(:focus-within) > [role="dialog"]:not(.is-open):not([class*="open"]):not(:hover) {
+  display: none;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Universal Logo sizing resilience */

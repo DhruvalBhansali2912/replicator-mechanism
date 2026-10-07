@@ -307,7 +307,7 @@ export class JsSynthesizer {
   // Navigation & Dropdown Mega-Menu Controller
   const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header, #globalnav');
   const menuBtn = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i]'
+    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], button[class*="menu-btn" i], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i]'
   )).find(function(el) {
     const cls = (el.className || '').toLowerCase();
     const lbl = (el.getAttribute('aria-label') || '').toLowerCase();
@@ -323,12 +323,12 @@ export class JsSynthesizer {
   }
   if (!drawer && navRoot) {
     drawer = navRoot.querySelector(
-      '[role="dialog"], [role="navigation"], [id*="mobile-menu" i], [class*="mobile-nav" i], [class*="drawer" i], [class*="sidebar" i], [class*="nav-drawer" i]'
+      '[role="dialog"], [role="navigation"], [id*="mobile-menu" i], [class*="mobile-menu" i], [class*="menu-drawer" i], [class*="mobile-nav" i], [class*="drawer" i], [class*="sidebar" i], [class*="nav-drawer" i]'
     );
   }
   if (!drawer) {
     drawer = document.querySelector(
-      '[role="dialog"][class*="menu" i], [role="dialog"][id*="menu" i], [id*="mobile-menu" i], [class*="drawer" i], [class*="sidebar" i], [class*="mobile-nav" i]'
+      '[role="dialog"][class*="menu" i], [role="dialog"][id*="menu" i], [id*="mobile-menu" i], [class*="mobile-menu" i], [class*="menu-drawer" i], [class*="drawer" i], [class*="sidebar" i], [class*="mobile-nav" i]'
     );
   }
   const menuBackBtn = navRoot ? navRoot.querySelector('.globalnav-menuback-button, [class*="menuback"]') : null;
@@ -802,9 +802,9 @@ export class JsSynthesizer {
       dropdown.style.setProperty('--flyout-height', (h + 30) + 'px');
       dropdown.style.minHeight = (h + 30) + 'px';
       dropdown.style.height = 'auto';
-      dropdown.style.visibility = 'visible';
-      dropdown.style.opacity = '1';
-      dropdown.style.display = 'block';
+      dropdown.style.setProperty('visibility', 'visible', 'important');
+      dropdown.style.setProperty('opacity', '1', 'important');
+      dropdown.style.setProperty('display', 'block', 'important');
       dropdown.setAttribute('aria-hidden', 'false');
       dropdown.classList.add('is-open', 'open', 'show', 'active');
 
@@ -826,18 +826,21 @@ export class JsSynthesizer {
         }
       });
 
-      const curtains = document.querySelectorAll('.globalnav-curtain, [class*="curtain"], [class*="backdrop"], [class*="scrim"], [class*="overlay-cover"]');
-      curtains.forEach(function(curtain) {
-        curtain.style.opacity = '1';
-        curtain.style.visibility = 'visible';
-        curtain.style.pointerEvents = 'auto';
-        curtain.classList.add('is-active', 'is-open', 'show');
-        Array.from(curtain.classList).forEach(function(cls) {
-          if (!cls.endsWith('--show')) {
-            curtain.classList.add(cls + '--show');
-          }
+      // Only reveal authentic curtain overlays if the navigation explicitly uses an Apple globalnav curtain
+      if (navRoot && (navRoot.matches('[class*="globalnav"], [class*="with-curtain"]') || dropdown.matches('[class*="megamenu"], [class*="mega-menu"]'))) {
+        const curtains = document.querySelectorAll('.globalnav-curtain, [class*="curtain"]:not(.nav-curtain), [class*="backdrop"], [class*="scrim"], [class*="overlay-cover"]');
+        curtains.forEach(function(curtain) {
+          curtain.style.opacity = '1';
+          curtain.style.visibility = 'visible';
+          curtain.style.pointerEvents = 'auto';
+          curtain.classList.add('is-active', 'is-open', 'show');
+          Array.from(curtain.classList).forEach(function(cls) {
+            if (!cls.endsWith('--show')) {
+              curtain.classList.add(cls + '--show');
+            }
+          });
         });
-      });
+      }
     }
 
     function handleDesktopHoverOrFocus() {
@@ -850,37 +853,30 @@ export class JsSynthesizer {
       scheduleFlyoutClose();
     }
 
-    // Differentiate between button-based click disclosure menus and anchor-based hover menus
-    const hasButtonTrigger = triggers.some(function(trg) {
-      return trg.matches('button, [role="button"], [aria-expanded], [aria-controls], [aria-haspopup], [data-toggle], [class*="toggle"]');
+    // Attach desktop hover & focus interactions unconditionally for desktop viewports
+    item.addEventListener('mouseenter', handleDesktopHoverOrFocus);
+    item.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
+    item.addEventListener('focusin', handleDesktopHoverOrFocus);
+    item.addEventListener('focusout', handleDesktopLeaveOrBlur);
+
+    triggers.forEach(function(trg) {
+      trg.addEventListener('mouseenter', handleDesktopHoverOrFocus);
+      trg.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
+      trg.addEventListener('focus', handleDesktopHoverOrFocus);
     });
 
-    if (!hasButtonTrigger) {
-      item.addEventListener('mouseenter', handleDesktopHoverOrFocus);
-      item.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
-      item.addEventListener('focusin', handleDesktopHoverOrFocus);
-      item.addEventListener('focusout', handleDesktopLeaveOrBlur);
-
-      triggers.forEach(function(trg) {
-        trg.addEventListener('mouseenter', handleDesktopHoverOrFocus);
-        trg.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
-        trg.addEventListener('focus', handleDesktopHoverOrFocus);
-      });
-
-      dropdown.addEventListener('mouseenter', function() {
-        clearTimeout(flyoutLeaveTimer);
-      });
-      dropdown.addEventListener('mouseleave', scheduleFlyoutClose);
-    }
+    dropdown.addEventListener('mouseenter', function() {
+      clearTimeout(flyoutLeaveTimer);
+    });
+    dropdown.addEventListener('mouseleave', scheduleFlyoutClose);
 
     triggers.forEach(function(trg) {
       // Click handler toggles dropdown on button click or mobile tap
       trg.addEventListener('click', function(e) {
-        const isTriggerBtn = trg.matches('button, [role="button"], [aria-expanded], [aria-controls], [aria-haspopup], [class*="trigger"], [class*="toggle"]');
         const href = trg.getAttribute('href');
         const isAnchorNav = href && href !== '#' && !href.startsWith('javascript:');
 
-        if (hasButtonTrigger || !isAnchorNav || window.innerWidth <= 833) {
+        if (!isAnchorNav || window.innerWidth <= 833) {
           e.preventDefault();
           e.stopPropagation();
           const isSubOpen = item.classList.contains('is-open') || trg.getAttribute('aria-expanded') === 'true';

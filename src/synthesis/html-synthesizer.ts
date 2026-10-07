@@ -931,11 +931,15 @@ export class HtmlSynthesizer {
       const isDarkNav = ast.archetype === 'navbar' && (
         rawLower.includes('color: #fff') ||
         rawLower.includes('color:#fff') ||
+        rawLower.includes('color: white') ||
+        rawLower.includes('var(--color-white)') ||
+        rawLower.includes('text-white') ||
         rawLower.includes('nav__link') ||
         rawLower.includes('color: rgb(255') ||
+        rawLower.includes('bg-transparent') ||
         ast.theme === 'dark'
       );
-      const navBgStyle = isDarkNav ? ' style="background-color: #121c3b; min-height: 5.5rem; position: relative;"' : '';
+      const navBgStyle = isDarkNav ? ' style="background-color: #0b0f19; min-height: 5.5rem; position: relative;"' : '';
       const archetypeClasses = ast.archetype === 'footer'
         ? 'site-footer page-footer'
         : ast.archetype === 'navbar'
@@ -947,20 +951,28 @@ export class HtmlSynthesizer {
         rootEl.attr('id', ast.id);
       }
       if (ast.archetype === 'navbar') {
-        const isDarkNav = rawLower.includes('color: #fff') || rawLower.includes('color:#fff') || rawLower.includes('nav__link') || ast.theme === 'dark';
+        const isDarkNav = rawLower.includes('color: #fff') ||
+          rawLower.includes('color:#fff') ||
+          rawLower.includes('color: white') ||
+          rawLower.includes('var(--color-white)') ||
+          rawLower.includes('text-white') ||
+          rawLower.includes('nav__link') ||
+          rawLower.includes('bg-transparent') ||
+          ast.theme === 'dark';
         if (isDarkNav) {
           rootEl.addClass('nav--dark-theme');
           const curStyle = rootEl.attr('style') || '';
-          if (!curStyle.includes('background')) {
-            rootEl.attr('style', `background-color: #121c3b; min-height: 5.5rem; position: relative; ${curStyle}`.trim());
+          if (!curStyle.includes('background') || curStyle.includes('bg-transparent') || curStyle.includes('transparent')) {
+            rootEl.attr('style', `background-color: #0b0f19; min-height: 5.5rem; position: relative; ${curStyle}`.trim());
           }
         }
       }
       result = $.html().trim();
     }
 
-    // Nav-curtain backdrop must live as a sibling AFTER the header, never inside it, so it covers page content beneath the header without masking header children
-    if (isNavigationSection && !result.includes('curtain') && !result.includes('backdrop')) {
+    // Only inject nav-curtain if the authentic markup specifically relies on an Apple-style globalnav or curtain/backdrop
+    const needsAuthenticCurtain = rawLower.includes('globalnav') || rawLower.includes('curtain') || rawLower.includes('backdrop');
+    if (isNavigationSection && needsAuthenticCurtain && !result.includes('curtain') && !result.includes('backdrop')) {
       result += '\n<div class="nav-curtain"></div>';
     }
 
