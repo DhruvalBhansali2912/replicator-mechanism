@@ -581,6 +581,7 @@ export class JsSynthesizer {
     if (menuBtn) {
       menuBtn.setAttribute('aria-expanded', 'false');
       menuBtn.classList.remove('is-active', 'is-open');
+      applyFrameworkStateClasses(menuBtn, false);
       menuBtn.querySelectorAll('animate[id*="close"]').forEach(function(anim) {
         if (typeof anim.beginElement === 'function') {
           try { anim.beginElement(); } catch (_) {}
@@ -673,6 +674,7 @@ export class JsSynthesizer {
         }
         menuBtn.setAttribute('aria-expanded', 'true');
         menuBtn.classList.add('is-active', 'is-open');
+        applyFrameworkStateClasses(menuBtn, true);
         menuBtn.querySelectorAll('animate[id*="open"]').forEach(function(anim) {
           if (typeof anim.beginElement === 'function') {
             try { anim.beginElement(); } catch (_) {}
@@ -787,7 +789,8 @@ export class JsSynthesizer {
       triggers.forEach(function(trg) { trg.setAttribute('aria-expanded', 'true'); trg.classList.add('active', 'is-active'); });
 
       const content = dropdown.querySelector('[class*="content"], [class*="inner"], [class*="container"]') || dropdown.firstElementChild || dropdown;
-      const h = Math.max(content ? content.scrollHeight : 0, dropdown.scrollHeight, 380);
+      const h = Math.max(content ? content.scrollHeight : 0, dropdown.scrollHeight);
+      const isMega = dropdown.matches('[class*="megamenu"], [class*="mega-menu"], [class*="nav-megamenu"], [class*="overlay"]');
 
       if (navRoot) {
         navRoot.classList.add('is-open', 'has-flyout-open');
@@ -796,12 +799,15 @@ export class JsSynthesizer {
             navRoot.classList.add(cls + '-with-flyout-open');
           }
         });
-        navRoot.style.setProperty('--r-globalnav-flyout-height', (h + 30) + 'px');
+        if (isMega && h > 0) {
+          const megaH = Math.max(h, 380);
+          navRoot.style.setProperty('--r-globalnav-flyout-height', (megaH + 30) + 'px');
+          dropdown.style.setProperty('--r-globalnav-flyout-height', (megaH + 30) + 'px');
+          dropdown.style.setProperty('--flyout-height', (megaH + 30) + 'px');
+          dropdown.style.minHeight = (megaH + 30) + 'px';
+        }
       }
 
-      dropdown.style.setProperty('--r-globalnav-flyout-height', (h + 30) + 'px');
-      dropdown.style.setProperty('--flyout-height', (h + 30) + 'px');
-      dropdown.style.minHeight = (h + 30) + 'px';
       dropdown.style.height = 'auto';
       dropdown.style.setProperty('visibility', 'visible', 'important');
       dropdown.style.setProperty('opacity', '1', 'important');
@@ -1212,42 +1218,69 @@ export class JsSynthesizer {
       `.trim());
     }
 
-    // Universal Tabbed Sections & Panes Controller
+    // Universal Tabbed Sections & Category Filter Controller
     const hasTabs =
       ast.archetype === 'tabs' ||
       ast.archetype === 'features' ||
-      rawLower.includes('tab__item') ||
-      rawLower.includes('tab-item') ||
-      rawLower.includes('feature-tab') ||
-      rawLower.includes('role="tab"') ||
-      rawLower.includes('role="tablist"') ||
-      rawLower.includes('tab-list') ||
-      rawLower.includes('tabs-nav') ||
-      rawLower.includes('tab-header') ||
-      rawLower.includes('tablist');
+      ast.archetype === 'pricing' ||
+      ast.archetype === 'testimonials' ||
+      rawLower.includes('tab') ||
+      rawLower.includes('filter') ||
+      rawLower.includes('categor') ||
+      rawLower.includes('department') ||
+      rawLower.includes('segment');
 
     if (hasTabs) {
       scripts.push(`
-  // Universal Tabbed Sections Controller
+  // Universal Tabbed Sections & Category Filter Controller
   (function() {
-    const tabScope = document.getElementById('${ast.id}') || document.querySelector('.feature-tab, [class*="feature-tab"], [role="tablist"], [class*="tab"]') || document;
+    const tabScope = document.getElementById('${ast.id}') || document.querySelector('.feature-tab, [class*="feature-tab"], [role="tablist"], [class*="tab"], [class*="filter"]') || document;
     
-    // Find tab list headers or groups
+    // 1. Locate explicit tablist / filter containers
     const tabLists = Array.from(tabScope.querySelectorAll(
-      '[role="tablist"], [class*="tab-header"], [class*="tab__header"], [class*="tab-nav"], [class*="tabs-nav"], [class*="tab-list"], [class*="tabList"], [class*="nav-tabs"], ul[class*="tabs"]'
+      '[role="tablist"], [class*="tab-header"], [class*="tab__header"], [class*="tab-nav"], [class*="tabs-nav"], [class*="tab-list"], [class*="tabList"], [class*="nav-tabs"], ul[class*="tabs"], [class*="filter"]:not(button):not(a), [class*="categories"]:not(button):not(a), [class*="category-list"], [class*="pills"]:not(button):not(a), [class*="segmented"]:not(button):not(a), [class*="department"]'
     ));
-    
-    const tabGroups = tabLists.length > 0 ? tabLists : [tabScope];
+
+    // 2. Also discover any button groups acting as tabs/filters
+    const directButtonGroups = Array.from(tabScope.querySelectorAll('div, ul, nav')).filter(function(cont) {
+      if (tabLists.includes(cont)) return false;
+      if (cont.closest('header, nav, [role="navigation"]')) return false;
+      const btns = Array.from(cont.querySelectorAll(':scope > button, :scope > a, :scope > li > button, :scope > li > a')).filter(function(b) {
+        return !b.matches('[class*="close"], [class*="prev"], [class*="next"], [aria-label*="close" i]');
+      });
+      return btns.length >= 2 && btns.length <= 15;
+    });
+
+    const tabGroups = tabLists.concat(directButtonGroups);
+    if (tabGroups.length === 0) tabGroups.push(tabScope);
     
     tabGroups.forEach(function(group) {
       const tabs = Array.from(group.querySelectorAll(
-        '[role="tab"], [class*="tab__item"], [class*="tab-item"], button[class*="tab"], li[class*="tab"], [data-tab]'
+        ':scope > button, :scope > a, :scope > li > button, :scope > li > a, [role="tab"], [class*="tab__item"], [class*="tab-item"], button[class*="tab"], li[class*="tab"], [data-tab], [class*="filter-btn"], [class*="filter-button"]'
       )).filter(function(el) {
         const cls = (el.className || '').toLowerCase();
-        return !cls.includes('panel') && !cls.includes('content') && !cls.includes('pane') && !cls.includes('container') && !cls.includes('wrapper');
+        return !cls.includes('panel') && !cls.includes('content') && !cls.includes('pane') && !cls.includes('container') && !cls.includes('wrapper') && !cls.includes('close');
       });
 
       if (tabs.length <= 1) return;
+
+      // Identify initial active button and diff active/inactive classes
+      let initialActiveIdx = tabs.findIndex(function(t) {
+        const cls = (t.className || '').toLowerCase();
+        return t.getAttribute('aria-selected') === 'true' || cls.includes('active') || cls.includes('selected') || cls.includes('current');
+      });
+      if (initialActiveIdx === -1) initialActiveIdx = 0;
+
+      let activeUniqueClasses = [];
+      let inactiveUniqueClasses = [];
+      if (tabs.length >= 2) {
+        const actBtn = tabs[initialActiveIdx];
+        const inactBtn = tabs[initialActiveIdx === 0 ? 1 : 0];
+        const actClasses = Array.from(actBtn.classList);
+        const inactClasses = Array.from(inactBtn.classList);
+        activeUniqueClasses = actClasses.filter(function(c) { return !inactClasses.includes(c); });
+        inactiveUniqueClasses = inactClasses.filter(function(c) { return !actClasses.includes(c); });
+      }
 
       // Locate matching tab panes
       let panes = [];
@@ -1263,7 +1296,6 @@ export class JsSynthesizer {
         }).filter(Boolean);
       }
 
-      // If no valid direct ID controls found, locate pane elements in tabScope
       if (panes.length === 0) {
         const paneCandidates = Array.from(tabScope.querySelectorAll(
           '[role="tabpanel"], [class*="tab__pane"], [class*="tab-pane"], [class*="tab-content"], [data-tab-pane], [data-tab-pane-index], [class*="tab_panel"]'
@@ -1271,7 +1303,6 @@ export class JsSynthesizer {
           return !group.contains(p);
         });
 
-        // Filter out nested descendant panes so only top-level pane containers are matched
         const topPanes = paneCandidates.filter(function(p) {
           return !paneCandidates.some(function(other) {
             return other !== p && other.contains(p);
@@ -1283,6 +1314,21 @@ export class JsSynthesizer {
         }
       }
 
+      // If no separate tabpane containers exist, find content cards / items to filter by category
+      let cards = [];
+      if (panes.length <= 1) {
+        const cardCandidates = Array.from(tabScope.querySelectorAll(
+          '[class*="card"]:not([class*="filter"]):not([class*="tab"]), [class*="item"]:not([class*="filter"]):not([class*="tab"]):not(li:has(> button)), [class*="carousel-responsive"], [class*="grid"] > div, [class*="list"] > li'
+        )).filter(function(c) {
+          return !group.contains(c);
+        });
+        cards = cardCandidates.filter(function(c) {
+          return !cardCandidates.some(function(other) {
+            return other !== c && other.contains(c);
+          });
+        });
+      }
+
       function setActiveTab(targetIdx) {
         tabs.forEach(function(t, i) {
           const isAct = i === targetIdx;
@@ -1291,15 +1337,18 @@ export class JsSynthesizer {
           
           if (isAct) {
             t.classList.add('is-active', 'active', 'selected');
+            inactiveUniqueClasses.forEach(function(c) { t.classList.remove(c); });
+            activeUniqueClasses.forEach(function(c) { t.classList.add(c); });
             const clList = Array.from(t.classList);
             clList.forEach(function(c) {
               if (c.includes('tab') && !c.includes('active')) {
-                t.classList.add(c + '--active');
-                t.classList.add(c + '-active');
+                t.classList.add(c + '--active', c + '-active');
               }
             });
           } else {
             t.classList.remove('is-active', 'active', 'selected');
+            activeUniqueClasses.forEach(function(c) { t.classList.remove(c); });
+            inactiveUniqueClasses.forEach(function(c) { t.classList.add(c); });
             Array.from(t.classList).forEach(function(c) {
               if (c.endsWith('--active') || c.endsWith('-active') || c.endsWith('_active')) {
                 t.classList.remove(c);
@@ -1326,12 +1375,34 @@ export class JsSynthesizer {
             }
           });
         } else if (panes.length === 1) {
-          // If only 1 pane exists in DOM, never hide it! Keep it visible so layout never breaks
           panes[0].style.display = '';
           panes[0].style.opacity = '1';
           panes[0].style.visibility = 'visible';
           panes[0].setAttribute('aria-hidden', 'false');
           panes[0].classList.add('is-active', 'active');
+        } else if (cards.length > 0) {
+          // Filter cards by category keyword
+          const targetTab = tabs[targetIdx];
+          const filterText = (targetTab.textContent || '').trim().toLowerCase();
+          if (filterText && filterText !== 'all') {
+            const matchingCards = cards.filter(function(card) {
+              const cardText = (card.textContent || '').toLowerCase();
+              return cardText.includes(filterText);
+            });
+            if (matchingCards.length > 0) {
+              cards.forEach(function(card) {
+                const matches = matchingCards.includes(card);
+                card.style.display = matches ? '' : 'none';
+                if (matches) card.classList.remove('hidden');
+                else card.classList.add('hidden');
+              });
+            }
+          } else {
+            cards.forEach(function(card) {
+              card.style.display = '';
+              card.classList.remove('hidden');
+            });
+          }
         }
       }
 

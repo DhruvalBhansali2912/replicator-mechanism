@@ -928,44 +928,15 @@ export class HtmlSynthesizer {
 
     if (!hasLandmark) {
       const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
-      const isDarkNav = ast.archetype === 'navbar' && (
-        rawLower.includes('color: #fff') ||
-        rawLower.includes('color:#fff') ||
-        rawLower.includes('color: white') ||
-        rawLower.includes('var(--color-white)') ||
-        rawLower.includes('text-white') ||
-        rawLower.includes('nav__link') ||
-        rawLower.includes('color: rgb(255') ||
-        rawLower.includes('bg-transparent') ||
-        ast.theme === 'dark'
-      );
-      const navBgStyle = isDarkNav ? ' style="background-color: #0b0f19; min-height: 5.5rem; position: relative;"' : '';
       const archetypeClasses = ast.archetype === 'footer'
         ? 'site-footer page-footer'
         : ast.archetype === 'navbar'
-        ? 'site-header shared-header header-nav globalnav' + (isDarkNav ? ' nav--dark-theme' : '')
+        ? 'site-header shared-header header-nav'
         : '';
-      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}"${navBgStyle}>\n${$.html().trim()}\n</${wrapperTag}>`;
+      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}">\n${$.html().trim()}\n</${wrapperTag}>`;
     } else {
       if (!rootEl.attr('id')) {
         rootEl.attr('id', ast.id);
-      }
-      if (ast.archetype === 'navbar') {
-        const isDarkNav = rawLower.includes('color: #fff') ||
-          rawLower.includes('color:#fff') ||
-          rawLower.includes('color: white') ||
-          rawLower.includes('var(--color-white)') ||
-          rawLower.includes('text-white') ||
-          rawLower.includes('nav__link') ||
-          rawLower.includes('bg-transparent') ||
-          ast.theme === 'dark';
-        if (isDarkNav) {
-          rootEl.addClass('nav--dark-theme');
-          const curStyle = rootEl.attr('style') || '';
-          if (!curStyle.includes('background') || curStyle.includes('bg-transparent') || curStyle.includes('transparent')) {
-            rootEl.attr('style', `background-color: #0b0f19; min-height: 5.5rem; position: relative; ${curStyle}`.trim());
-          }
-        }
       }
       result = $.html().trim();
     }

@@ -58,7 +58,7 @@ export class TokenHarvester {
 
     let background = '#ffffff';
     const hasDarkDescendant =
-      $('[class*="theme-dark"], [class*="theme--dark"], [class*="bg-dark"], [class*="bg-black"], [style*="#000"], [style*="rgb(0, 0, 0)"]').length > 0;
+      $('[class*="theme-dark"], [class*="theme--dark"], [class*="bg-dark"], [class*="bg-black"], [style*="background: #000"], [style*="background:#000"], [style*="background-color: #000"], [style*="background-color:#000"], [style*="background: rgb(0, 0, 0)"], [style*="background-color: rgb(0, 0, 0)"]').length > 0;
 
     const isExplicitDarkSection =
       classList.includes('scrim--black') ||
