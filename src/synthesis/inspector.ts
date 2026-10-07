@@ -166,7 +166,8 @@ export class SectionInspector {
       lower.includes('theme--dark') ||
       lower.includes('theme-dark') ||
       lower.includes('bg-dark') ||
-      tokens.colors.background === '#000000'
+      tokens.colors.background === '#000000' ||
+      tokens.colors.textPrimary === '#ffffff'
     ) {
       theme = 'dark';
     } else if (htmlSnapshot) {

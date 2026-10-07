@@ -1770,8 +1770,19 @@ body {
   padding: 0;
   font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   -webkit-font-smoothing: antialiased;
-  background-color: var(--color-bg, ${ast.theme === 'dark' ? '#000000' : '#ffffff'});
+  background-color: var(--color-bg, ${ast.theme === 'dark' ? '#0f172a' : '#ffffff'});
   color: var(--color-text-primary, ${ast.theme === 'dark' ? '#ffffff' : '#000000'});
+}
+
+/* Universal Standalone Canvas Contrast (Zero-hardcoding theme contract) */
+body:has(> [data-theme="dark"]),
+body:has(> .section[data-theme="dark"]),
+body:has(> header[data-theme="dark"]),
+body:has(> nav[data-theme="dark"]),
+body[data-theme="dark"],
+body.theme-dark {
+  background-color: #0f172a !important;
+  color: #f8fafc;
 }
 
 /* Static visibility preservation for scroll-reveal and dynamic animation initial states */

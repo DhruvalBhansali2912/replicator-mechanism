@@ -73,6 +73,7 @@ export class ReconstructionWorker {
   <title>Synthesized Section</title>
   <style>
     body { display: block !important; place-items: unset !important; margin: 0; padding: 0; }
+    body:has(> [data-theme="dark"]), body:has(> .section[data-theme="dark"]), body:has(> header[data-theme="dark"]), body:has(> nav[data-theme="dark"]), body[data-theme="dark"], body.theme-dark { background-color: #0f172a !important; color: #f8fafc; }
     header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"] { width: 100% !important; align-self: flex-start !important; top: 0 !important; margin-top: 0 !important; }
 ${sec.css}
   </style>

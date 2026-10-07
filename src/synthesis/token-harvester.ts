@@ -75,17 +75,38 @@ export class TokenHarvester {
       styleAttr.includes('background-color: rgb(0, 0, 0)') ||
       hasDarkDescendant;
 
+    const isExplicitLightSection =
+      classList.includes('theme--light') ||
+      classList.includes('theme-light') ||
+      classList.includes('bg-white') ||
+      classList.includes('bg-light') ||
+      styleAttr.includes('background: #fff') ||
+      styleAttr.includes('background-color: #fff') ||
+      styleAttr.includes('background:#fff') ||
+      styleAttr.includes('background-color:#fff') ||
+      styleAttr.includes('background: rgb(255, 255, 255)') ||
+      styleAttr.includes('background-color: rgb(255, 255, 255)');
+
     if (isExplicitDarkSection) {
       background = '#000000';
     }
 
-    const isDark = this.isDarkColor(background);
+    // Universal text contrast detection:
+    // If CSS or DOM explicitly declares white or near-white text on elements (e.g. transparent overlay navbars),
+    // and the container is not explicitly solid white, recognize dark/overlay theme contract.
+    const hasWhiteTextInCss = /(?:nav|header|menu|link|brand|logo|\.btn|a\b)[^{}]*\{[^}]*color:\s*(?:#fff\b|#ffffff\b|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|white\b)/i.test(css);
+    const hasWhiteTextInDom = $('[style*="color: #fff"], [style*="color:#fff"], [style*="color: rgb(255, 255, 255)"], [style*="color:rgb(255,255,255)"], [style*="color: white"]').length > 0;
+
+    let isDark = this.isDarkColor(background);
+    if (!isExplicitLightSection && (hasWhiteTextInCss || hasWhiteTextInDom)) {
+      isDark = true;
+    }
 
     return {
       primary: isDark ? '#ffffff' : '#171a20',
       secondary: isDark ? '#393c41' : '#f4f4f4',
       accent: '#2563eb',
-      background,
+      background: isDark && background === '#ffffff' ? 'transparent' : background,
       surface: isDark ? '#171a20' : '#ffffff',
       textPrimary: isDark ? '#ffffff' : '#171a20',
       textMuted: isDark ? '#a2a3a5' : '#5c5e62',

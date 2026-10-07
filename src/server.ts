@@ -847,27 +847,39 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
 
     // Universal External Stylesheet Harvesting:
     // If client stylesheets were blocked by CORS/CSP in the browser or missing from the request,
-    // harvest and fetch all <link rel="stylesheet"> and <style> tags from htmlSnapshot.
-    if (rawCss.trim().length < 200 && hasSnapshot && job.options.htmlSnapshot) {
+    // harvest and fetch all <link rel="stylesheet"> and <style> tags from htmlSnapshot and stylesheetUrls.
+    const optStylesheetUrls: string[] = Array.isArray((job.options as any).stylesheetUrls)
+      ? (job.options as any).stylesheetUrls
+      : [];
+    if (rawCss.trim().length < 200 && (hasSnapshot || optStylesheetUrls.length > 0)) {
       try {
-        const $snap = cheerio.load(job.options.htmlSnapshot);
         const externalHrefs: string[] = [];
-        $snap('link[rel="stylesheet"]').each((_, el) => {
-          const href = $snap(el).attr('href');
-          if (href && !href.startsWith('chrome-extension://')) {
+        const inlineStyles: string[] = [];
+        for (const u of optStylesheetUrls) {
+          if (u && typeof u === 'string' && !u.startsWith('chrome-extension://')) {
             try {
-              externalHrefs.push(new URL(href, sourceUrl).href);
+              externalHrefs.push(new URL(u, sourceUrl).href);
             } catch {}
           }
-        });
+        }
+        if (hasSnapshot && job.options.htmlSnapshot) {
+          const $snap = cheerio.load(job.options.htmlSnapshot);
+          $snap('link[rel="stylesheet"]').each((_, el) => {
+            const href = $snap(el).attr('href');
+            if (href && !href.startsWith('chrome-extension://')) {
+              try {
+                externalHrefs.push(new URL(href, sourceUrl).href);
+              } catch {}
+            }
+          });
 
-        const inlineStyles: string[] = [];
-        $snap('style').each((_, el) => {
-          const content = $snap(el).html();
-          if (content && content.trim().length > 0) {
-            inlineStyles.push(content.trim());
-          }
-        });
+          $snap('style').each((_, el) => {
+            const content = $snap(el).html();
+            if (content && content.trim().length > 0) {
+              inlineStyles.push(content.trim());
+            }
+          });
+        }
 
         if (externalHrefs.length > 0 || inlineStyles.length > 0) {
           const fetchedSheets = await Promise.all(
@@ -1106,6 +1118,9 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Synthesized Section</title>
   <style>
+    body { display: block !important; place-items: unset !important; margin: 0; padding: 0; }
+    body:has(> [data-theme="dark"]), body:has(> .section[data-theme="dark"]), body:has(> header[data-theme="dark"]), body:has(> nav[data-theme="dark"]), body[data-theme="dark"], body.theme-dark { background-color: #0f172a !important; color: #f8fafc; }
+    header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"] { width: 100% !important; align-self: flex-start !important; top: 0 !important; margin-top: 0 !important; }
 ${secRes.css}
   </style>
 </head>

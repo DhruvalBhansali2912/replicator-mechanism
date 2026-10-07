@@ -202,7 +202,7 @@ export class HtmlSynthesizer {
     const themeClass = ast.theme === 'dark' ? ' theme-dark' : '';
 
     return `
-<header class="site-header${themeClass}" id="${ast.id}">
+<header class="site-header${themeClass}" id="${ast.id}" data-theme="${ast.theme || 'light'}">
   ${utilityBarHtml}
   <div class="container navbar-container">
     <nav class="navbar" aria-label="Main Navigation">
@@ -933,11 +933,12 @@ export class HtmlSynthesizer {
         : ast.archetype === 'navbar'
         ? 'site-header shared-header header-nav'
         : '';
-      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}">\n${$.html().trim()}\n</${wrapperTag}>`;
+      result = `<${wrapperTag} class="section section-${ast.archetype} authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}" data-theme="${ast.theme || 'light'}">\n${$.html().trim()}\n</${wrapperTag}>`;
     } else {
       if (!rootEl.attr('id')) {
         rootEl.attr('id', ast.id);
       }
+      rootEl.attr('data-theme', ast.theme || 'light');
       result = $.html().trim();
     }
 
