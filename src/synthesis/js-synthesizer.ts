@@ -2383,18 +2383,27 @@ export class JsSynthesizer {
         panel.classList.toggle('is-open', open);
         panel.classList.toggle('open', open);
         if (open) {
+          const header = (scope || document).querySelector('header, nav, [role="banner"], [role="navigation"]');
+          const headerHeight = header ? Math.round(header.getBoundingClientRect().height) || 64 : 64;
+
           panel.style.setProperty('display', 'block', 'important');
           panel.style.setProperty('visibility', 'visible', 'important');
           panel.style.setProperty('opacity', '1', 'important');
           panel.style.setProperty('pointer-events', 'auto', 'important');
           panel.style.setProperty('position', 'fixed', 'important');
-          panel.style.setProperty('top', '0', 'important');
+          panel.style.setProperty('top', headerHeight + 'px', 'important');
           panel.style.setProperty('left', '0', 'important');
           panel.style.setProperty('width', '100vw', 'important');
-          panel.style.setProperty('height', '100vh', 'important');
+          panel.style.setProperty('height', 'calc(100vh - ' + headerHeight + 'px)', 'important');
           panel.style.setProperty('background', '#ffffff', 'important');
-          panel.style.setProperty('z-index', '99999', 'important');
+          panel.style.setProperty('z-index', '9999', 'important');
           panel.style.setProperty('overflow-y', 'auto', 'important');
+          panel.style.setProperty('box-sizing', 'border-box', 'important');
+
+          if (header) {
+            header.style.setProperty('z-index', '10001', 'important');
+            header.style.setProperty('position', 'relative', 'important');
+          }
 
           panel.querySelectorAll('.is-open, [class*="css-"], div, section').forEach(function(el) {
             const cs = window.getComputedStyle(el);

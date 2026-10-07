@@ -2594,18 +2594,55 @@ div:has(> [aria-expanded="true"]) {
   opacity: 1 !important;
   pointer-events: auto !important;
   position: fixed !important;
-  top: 0 !important;
+  top: 64px !important;
   left: 0 !important;
   width: 100vw !important;
-  height: 100vh !important;
+  height: calc(100vh - 64px) !important;
   background: #ffffff !important;
-  z-index: 99999 !important;
+  z-index: 9999 !important;
   overflow-y: auto !important;
+  box-sizing: border-box !important;
 }
+
+[data-testid*="drawer"] .css-csgQWN,
+[data-baseweb="drawer"] .css-csgQWN {
+  max-width: 1136px !important;
+  margin: 0 auto !important;
+  position: relative !important;
+}
+
+[data-testid*="drawer"] button[aria-label*="close" i],
+[data-testid*="drawer"] button[aria-label="Close"],
+[data-baseweb="drawer"] button[aria-label="Close"] {
+  position: absolute !important;
+  top: 48px !important;
+  right: 0 !important;
+  z-index: 10 !important;
+  cursor: pointer !important;
+}
+
+[data-testid*="drawer"] .css-bEvpjW,
+[data-baseweb="drawer"] .css-bEvpjW {
+  max-width: 1136px !important;
+  margin: 0 auto !important;
+  padding-top: 48px !important;
+  padding-bottom: 64px !important;
+  box-sizing: border-box !important;
+}
+
+[data-testid*="drawer"] h2,
+[data-baseweb="drawer"] h2 {
+  font-size: 36px !important;
+  font-weight: 700 !important;
+  line-height: 44px !important;
+  margin: 0 0 32px 0 !important;
+  color: #000000 !important;
+}
+
 [data-testid*="drawer"]:not(.is-open):not(.open),
 [data-baseweb="drawer"]:not(.is-open):not(.open),
 [role="dialog"]:not(.is-open):not(.open):not([open]) {
-  display: none;
+  display: none !important;
 }
 
 /* Universal popovers / dropdowns controlled by a closed trigger (resting state only, never blocking hover) */
