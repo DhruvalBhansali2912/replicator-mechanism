@@ -2186,15 +2186,19 @@ export class JsSynthesizer {
     }
     // Check next element sibling
     const sib = trigger.nextElementSibling;
-    if (sib && (
-      sib.getAttribute('role') === 'menu' ||
-      sib.getAttribute('role') === 'listbox' ||
-      sib.getAttribute('role') === 'dialog' ||
-      sib.getAttribute('data-baseweb') === 'menu' ||
-      sib.getAttribute('data-baseweb') === 'popover' ||
-      /(?:menu|option|dropdown|popover|content|panel|list)/i.test(sib.className || '')
-    )) {
-      return sib;
+    if (sib && sib !== trigger && !trigger.contains(sib) && !sib.matches('button, input, select')) {
+      if (
+        sib.getAttribute('role') === 'menu' ||
+        sib.getAttribute('role') === 'listbox' ||
+        sib.getAttribute('role') === 'dialog' ||
+        sib.getAttribute('data-baseweb') === 'menu' ||
+        sib.getAttribute('data-baseweb') === 'popover' ||
+        /(?:menu|option|dropdown|popover|content|panel|list)/i.test(sib.className || '') ||
+        trigger.hasAttribute('aria-haspopup') ||
+        trigger.hasAttribute('aria-expanded')
+      ) {
+        return sib;
+      }
     }
     // Check inside immediate container (parent li, parent div, parent container)
     const parentBox = trigger.closest('[class*="item"], [class*="container"], [class*="wrap"], [role="listitem"], li, div');
@@ -2203,6 +2207,12 @@ export class JsSynthesizer {
         '[role="menu"], [role="listbox"], [role="dialog"], [data-baseweb="menu"], [data-baseweb="popover"], [class*="menu"], [class*="option"], [class*="dropdown"], [class*="popover"], [class*="content"]'
       )).find(function(p) { return p !== trigger && !trigger.contains(p); });
       if (panel) return panel;
+
+      // Fallback: any non-button sibling in parentBox containing links or child elements
+      const genericSibling = Array.from(parentBox.children).find(function(c) {
+        return c !== trigger && !c.matches('button, label, input') && (c.querySelector('a, li, button') || c.children.length > 0);
+      });
+      if (genericSibling) return genericSibling;
     }
     // Check parent's next sibling or adjacent container
     if (trigger.parentElement) {
@@ -2227,6 +2237,9 @@ export class JsSynthesizer {
     if (parentBox) {
       parentBox.classList.toggle('is-open', open);
       parentBox.classList.toggle('open', open);
+      if (window.getComputedStyle(parentBox).position === 'static') {
+        parentBox.style.setProperty('position', 'relative');
+      }
       Array.from(parentBox.classList).forEach(function(c) {
         if (!c.includes('--')) {
           parentBox.classList.toggle(c + '--open', open);
@@ -2246,30 +2259,54 @@ export class JsSynthesizer {
       }
     }
     if (panel) {
+      // Toggle panel and all intermediate container wrappers between parentBox and panel
+      const elementsToToggle = [panel];
+      let anc = panel.parentElement;
+      while (anc && anc !== parentBox && anc !== document.body) {
+        elementsToToggle.push(anc);
+        anc = anc.parentElement;
+      }
+
+      elementsToToggle.forEach(function(el) {
+        if (open) {
+          el.classList.add('is-open', 'open', 'show', 'active');
+          el.style.removeProperty('display');
+          el.style.removeProperty('opacity');
+          el.style.removeProperty('visibility');
+          el.style.removeProperty('pointer-events');
+          el.style.removeProperty('transform');
+          if (window.getComputedStyle(el).display === 'none') {
+            el.style.setProperty('display', 'block', 'important');
+          }
+          if (window.getComputedStyle(el).visibility === 'hidden') {
+            el.style.setProperty('visibility', 'visible', 'important');
+          }
+          if (window.getComputedStyle(el).opacity === '0') {
+            el.style.setProperty('opacity', '1', 'important');
+          }
+          const cs = window.getComputedStyle(el);
+          if (cs.position === 'static') {
+            el.style.setProperty('position', 'absolute', 'important');
+            el.style.setProperty('top', '100%', 'important');
+            el.style.setProperty('left', '0', 'important');
+          }
+          el.style.setProperty('pointer-events', 'auto', 'important');
+          el.style.setProperty('z-index', '1000', 'important');
+        } else {
+          el.classList.remove('is-open', 'open', 'show', 'active');
+          el.style.setProperty('display', 'none', 'important');
+          el.style.setProperty('opacity', '0', 'important');
+          el.style.setProperty('visibility', 'hidden', 'important');
+          el.style.setProperty('pointer-events', 'none', 'important');
+        }
+      });
+
       if (open) {
-        panel.classList.add('is-open', 'open', 'show', 'active');
-        panel.style.removeProperty('display');
-        panel.style.removeProperty('opacity');
-        panel.style.removeProperty('visibility');
-        panel.style.removeProperty('pointer-events');
-        panel.style.removeProperty('transform');
-        if (window.getComputedStyle(panel).display === 'none') {
-          panel.style.setProperty('display', 'block', 'important');
-        }
-        if (window.getComputedStyle(panel).visibility === 'hidden') {
-          panel.style.setProperty('visibility', 'visible', 'important');
-        }
-        if (window.getComputedStyle(panel).opacity === '0') {
-          panel.style.setProperty('opacity', '1', 'important');
-        }
-        panel.style.setProperty('pointer-events', 'auto', 'important');
-        panel.style.setProperty('z-index', '100', 'important');
-      } else {
-        panel.classList.remove('is-open', 'open', 'show', 'active');
-        panel.style.setProperty('display', 'none', 'important');
-        panel.style.setProperty('opacity', '0', 'important');
-        panel.style.setProperty('visibility', 'hidden', 'important');
-        panel.style.setProperty('pointer-events', 'none', 'important');
+        panel.querySelectorAll('[role="menu"], [data-baseweb="menu"], ul').forEach(function(m) {
+          m.classList.add('is-open', 'open', 'show', 'active');
+          if (window.getComputedStyle(m).display === 'none') m.style.setProperty('display', 'block', 'important');
+          if (window.getComputedStyle(m).visibility === 'hidden') m.style.setProperty('visibility', 'visible', 'important');
+        });
       }
     }
     const icon = trigger.querySelector('svg, .icon, [class*="icon"], [class*="chevron"], [class*="arrow"]');

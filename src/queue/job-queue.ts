@@ -329,6 +329,7 @@ export class JobQueue {
                       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                       'Referer': url,
                     },
+                    signal: AbortSignal.timeout(3000),
                   });
                   if (resp.ok) {
                     return await resp.text();
@@ -387,7 +388,29 @@ export class JobQueue {
       let segRes = await segWorker.execute(domRes.cleanedHtml);
 
       // Section Isolation: If options.sectionSelector or options.sectionHtml is provided, isolate target section
-      if (options.sectionHtml) {
+      let targetSectionHtml = options.sectionHtml;
+      if (options.htmlSnapshot && options.htmlSnapshot.length > 50) {
+        try {
+          const $snap = cheerio.load(options.htmlSnapshot);
+          const defaultSelector = options.targetArchetype === 'navbar'
+            ? 'header, nav, [role="banner"], [role="navigation"]'
+            : options.targetArchetype === 'hero'
+            ? '[class*="hero"], [class*="banner"], main > section:first-of-type, [role="main"] > section:first-of-type, main > div:first-of-type, [role="main"] > div:first-of-type, body > section:first-of-type, section:first-of-type'
+            : 'section';
+          const effectiveSelector = options.sectionSelector || defaultSelector;
+          const snapTarget = $snap(effectiveSelector).first();
+          if (snapTarget.length > 0) {
+            const snapMenus = snapTarget.find('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+            const $cur = cheerio.load(targetSectionHtml || '');
+            const curMenus = $cur('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+            if (snapMenus > curMenus) {
+              targetSectionHtml = $snap.html(snapTarget) || targetSectionHtml;
+            }
+          }
+        } catch {}
+      }
+
+      if (targetSectionHtml) {
         segRes = {
           totalSections: 1,
           sections: [
@@ -395,10 +418,10 @@ export class JobQueue {
               id: `sec_${uuidv4().replace(/-/g, '').slice(0, 16)}`,
               index: 0,
               selector: options.sectionSelector || 'section',
-              tagName: 'section',
+              tagName: options.targetArchetype === 'navbar' ? 'nav' : 'section',
               archetype: (options.targetArchetype as any) || 'generic-section',
               confidence: 1.0,
-              html: options.sectionHtml,
+              html: targetSectionHtml,
               rect: { x: 0, y: 0, width: 1440, height: 600 },
             },
           ],

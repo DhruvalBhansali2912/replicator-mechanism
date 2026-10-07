@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import { SectionInspector } from './inspector.js';
 import { HtmlSynthesizer } from './html-synthesizer.js';
 import { CssSynthesizer } from './css-synthesizer.js';
@@ -27,6 +28,30 @@ export class GroundUpSynthesisEngine {
     recordedInteractions?: RecordedInteraction[],
     rootCssVariables?: Record<string, string>
   ): SynthesizedSectionResult {
+    // Universal Snapshot Enrichment:
+    // If htmlSnapshot contains the target element with richer interactive menus, dropdown panels,
+    // or tab panes, prefer the snapshot version over an un-interacted or stripped sectionHtml snippet
+    if (htmlSnapshot && htmlSnapshot.length > 50) {
+      try {
+        const $snap = cheerio.load(htmlSnapshot);
+        const defaultSelector = targetArchetypeHint === 'navbar'
+          ? 'header, nav, [role="banner"], [role="navigation"]'
+          : targetArchetypeHint === 'hero'
+          ? '[class*="hero"], [class*="banner"], main > section:first-of-type, [role="main"] > section:first-of-type, main > div:first-of-type, [role="main"] > div:first-of-type, body > section:first-of-type, section:first-of-type'
+          : 'section';
+        const effectiveSelector = sourceSelector || defaultSelector;
+        const snapTarget = $snap(effectiveSelector).first();
+        if (snapTarget.length > 0) {
+          const snapMenus = snapTarget.find('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+          const $cur = cheerio.load(sectionHtml || '');
+          const curMenus = $cur('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+          if (snapMenus > curMenus) {
+            sectionHtml = $snap.html(snapTarget) || sectionHtml;
+          }
+        }
+      } catch {}
+    }
+
     // 1. Inspect DOM & harvest design tokens into AST
     const ast = this.inspector.inspect(sectionHtml, sourceUrl, cssContext, sourceSelector, targetArchetypeHint, htmlSnapshot, recordedInteractions, rootCssVariables);
 
