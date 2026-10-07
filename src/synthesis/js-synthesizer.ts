@@ -377,7 +377,7 @@ export class JsSynthesizer {
       }
     }
     const candidates = Array.from(item.querySelectorAll(
-      '.nav-dropdown-menu, [role="menu"], [class*="dropdown-menu"], [class*="submenu"], [class*="flyout"], [class*="dropdown"], [class*="megamenu"], [class*="nav-tab__overlay"], [class*="menu__overlay"], [class*="overlay"]'
+      '.nav-dropdown-menu, [role="menu"], [data-baseweb="menu"], [data-baseweb="popover"], [class*="dropdown-menu"], [class*="submenu"], [class*="flyout"], [class*="dropdown"], [class*="megamenu"], [class*="nav-tab__overlay"], [class*="menu__overlay"], [class*="overlay"]'
     ));
     const match = candidates.find(function(el) {
       if (el === item) return false;
@@ -1446,47 +1446,78 @@ export class JsSynthesizer {
       ast.archetype === 'pricing' ||
       ast.archetype === 'faq';
 
-    if (
-      !isCatalogOrFilter &&
-      (ast.carouselDots ||
-        ast.layout === 'hero-overlay' ||
-        (ast.images && ast.images.length > 1) ||
-        ast.rawSectionHtml?.includes('carousel') ||
-        ast.rawSectionHtml?.includes('swiper') ||
-        ast.rawSectionHtml?.includes('slick') ||
-        ast.rawSectionHtml?.includes('glide') ||
-        ast.rawSectionHtml?.includes('splide') ||
-        ast.rawSectionHtml?.includes('slider'))
-    ) {
+    const hasExplicitCarousel = Boolean(
+      ast.carouselDots ||
+      ast.layout === 'hero-overlay' ||
+      ast.rawSectionHtml?.includes('carousel') ||
+      ast.rawSectionHtml?.includes('swiper') ||
+      ast.rawSectionHtml?.includes('slick') ||
+      ast.rawSectionHtml?.includes('glide') ||
+      ast.rawSectionHtml?.includes('splide') ||
+      ast.rawSectionHtml?.includes('slider') ||
+      ast.rawSectionHtml?.includes('pagination-next') ||
+      ast.rawSectionHtml?.includes('pagination-prev') ||
+      (ast.rawSectionHtml?.includes('aria-controls') &&
+        (ast.rawSectionHtml?.includes('next') || ast.rawSectionHtml?.includes('prev') || ast.rawSectionHtml?.includes('Chevron')))
+    );
+
+    const hasImageGridFallback = !isCatalogOrFilter && Boolean(ast.images && ast.images.length > 1);
+
+    if (hasExplicitCarousel || hasImageGridFallback) {
       scripts.push(`
   // Universal Carousel: Transform/Translate, Horizontal Scroll-Snap & Stacked Slide Controllers
   const sectionScope = document.getElementById('${ast.id}') || document.querySelector('section, [class*="hero"], [class*="carousel"]') || document;
 
   // 1. Detect Universal Transform / Translate Slider (Swiper, Slick, Glide, Splide, Embla, CSS transform tracks)
-  const transformTrack = sectionScope.querySelector(
-    '.swiper-wrapper, ' +
-    '.slick-track, ' +
-    '.glide__slides, ' +
-    '.splide__list, ' +
-    '[class*="slider-track"], ' +
-    '[class*="slides-wrapper"], ' +
-    '[class*="carousel-wrapper"], ' +
-    '[class*="slider__wrapper"], ' +
-    '[class*="carousel__track"]'
-  ) || Array.from(sectionScope.querySelectorAll('div, ul, ol')).find(function(el) {
-    const cls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
-    if (cls.includes('container') && !cls.includes('wrapper')) return false;
-    const kids = Array.from(el.children);
-    return kids.length > 1 && kids.some(function(k) {
-      const kCls = (typeof k.className === 'string' ? k.className : (k.getAttribute && k.getAttribute('class')) || '').toLowerCase();
-      return kCls.includes('slide');
-    });
-  });
+  const transformTrack = (function() {
+    const std = sectionScope.querySelector(
+      '.swiper-wrapper, ' +
+      '.slick-track, ' +
+      '.glide__slides, ' +
+      '.splide__list, ' +
+      '[class*="slider-track"], ' +
+      '[class*="slides-wrapper"], ' +
+      '[class*="carousel-wrapper"], ' +
+      '[class*="slider__wrapper"], ' +
+      '[class*="carousel__track"]'
+    );
+    if (std) return std;
+
+    // Check aria-controls on pagination/carousel buttons (e.g. bullets-carousel)
+    const ctrlBtn = sectionScope.querySelector('button[aria-controls], [role="button"][aria-controls]');
+    if (ctrlBtn) {
+      const ctrlId = ctrlBtn.getAttribute('aria-controls');
+      const ctrlTarget = ctrlId ? document.getElementById(ctrlId) : null;
+      if (ctrlTarget) {
+        if (ctrlTarget.children.length > 1) return ctrlTarget;
+        const inner = Array.from(ctrlTarget.children).find(function(c) { return c.children.length > 1; });
+        if (inner) return inner;
+      }
+    }
+
+    // Check elements with carousel/slider IDs or classes
+    const carEl = sectionScope.querySelector('[id*="carousel" i], [class*="carousel" i], [id*="slider" i], [class*="slider" i]');
+    if (carEl && !carEl.matches('button, a')) {
+      if (carEl.children.length > 1) return carEl;
+      const inner = Array.from(carEl.children).find(function(c) { return c.children.length > 1 && !c.matches('button, a'); });
+      if (inner) return inner;
+    }
+
+    return Array.from(sectionScope.querySelectorAll('div, ul, ol')).find(function(el) {
+      const cls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
+      if (cls.includes('container') && !cls.includes('wrapper')) return false;
+      const kids = Array.from(el.children);
+      return kids.length > 1 && kids.some(function(k) {
+        const kCls = (typeof k.className === 'string' ? k.className : (k.getAttribute && k.getAttribute('class')) || '').toLowerCase();
+        return kCls.includes('slide');
+      });
+    }) || null;
+  })();
 
   if (transformTrack) {
     const allSlides = Array.from(transformTrack.children).filter(function(el) {
       const elCls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
-      return el.nodeType === 1 && (el.offsetWidth > 0 || elCls.includes('slide'));
+      return el.nodeType === 1 && (el.offsetWidth > 0 || elCls.includes('slide') || el.children.length > 0);
     });
 
     const nonDupSlides = allSlides.filter(function(s) {
@@ -1513,11 +1544,22 @@ export class JsSynthesizer {
 
     // Previous and Next buttons (query ALL matching buttons so both desktop & mobile controls are wired)
     const prevBtns = Array.from(sectionScope.querySelectorAll(
-      'button[class*="prev"], [class*="navigator__button--prev"], .swiper-button-prev, .slick-prev, [class*="arrow-prev"], [aria-label*="prev" i], [class*="indicator--prev"], [class*="indicator__arrow"][class*="prev"]'
-    ));
+      'button[class*="prev"], [class*="navigator__button--prev"], .swiper-button-prev, .slick-prev, [class*="arrow-prev"], [aria-label*="prev" i], [class*="indicator--prev"], [class*="indicator__arrow"][class*="prev"], button[data-testid*="prev" i], button[data-testid*="previous" i], button[aria-label*="left" i]'
+    )).concat(Array.from(sectionScope.querySelectorAll('button[aria-controls]')).filter(function(b) {
+      const txt = (b.textContent || '').toLowerCase();
+      const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
+      const tid = (b.getAttribute('data-testid') || '').toLowerCase();
+      return txt.includes('left') || txt.includes('prev') || lbl.includes('left') || lbl.includes('prev') || tid.includes('prev');
+    })).filter(function(b, idx, arr) { return arr.indexOf(b) === idx; });
+
     const nextBtns = Array.from(sectionScope.querySelectorAll(
-      'button[class*="next"], [class*="navigator__button--next"], .swiper-button-next, .slick-next, [class*="arrow-next"], [aria-label*="next" i], [class*="indicator--next"], [class*="indicator__arrow"][class*="next"]'
-    ));
+      'button[class*="next"], [class*="navigator__button--next"], .swiper-button-next, .slick-next, [class*="arrow-next"], [aria-label*="next" i], [class*="indicator--next"], [class*="indicator__arrow"][class*="next"], button[data-testid*="next" i], button[aria-label*="right" i]'
+    )).concat(Array.from(sectionScope.querySelectorAll('button[aria-controls]')).filter(function(b) {
+      const txt = (b.textContent || '').toLowerCase();
+      const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
+      const tid = (b.getAttribute('data-testid') || '').toLowerCase();
+      return txt.includes('right') || txt.includes('next') || lbl.includes('right') || lbl.includes('next') || tid.includes('next');
+    })).filter(function(b, idx, arr) { return arr.indexOf(b) === idx; });
 
     // Progress bar fill elements
     const progressFills = Array.from(sectionScope.querySelectorAll(
@@ -2113,13 +2155,20 @@ export class JsSynthesizer {
       ast.archetype === 'features' ||
       ast.archetype === 'pricing' ||
       ast.archetype === 'generic-section' ||
+      ast.archetype === 'navbar' ||
       Boolean(
         ast.rawSectionHtml &&
           (ast.rawSectionHtml.includes('input') ||
             ast.rawSectionHtml.includes('filter') ||
             ast.rawSectionHtml.includes('sort') ||
             ast.rawSectionHtml.includes('dropdown') ||
-            ast.rawSectionHtml.includes('option'))
+            ast.rawSectionHtml.includes('option') ||
+            ast.rawSectionHtml.includes('aria-haspopup') ||
+            ast.rawSectionHtml.includes('aria-expanded') ||
+            ast.rawSectionHtml.includes('data-baseweb="menu"') ||
+            ast.rawSectionHtml.includes('data-baseweb="popover"') ||
+            ast.rawSectionHtml.includes('data-toggle') ||
+            ast.rawSectionHtml.includes('role="menu"'))
       );
 
     if (hasInteractiveFormsOrCards) {
@@ -2141,17 +2190,30 @@ export class JsSynthesizer {
       sib.getAttribute('role') === 'menu' ||
       sib.getAttribute('role') === 'listbox' ||
       sib.getAttribute('role') === 'dialog' ||
+      sib.getAttribute('data-baseweb') === 'menu' ||
+      sib.getAttribute('data-baseweb') === 'popover' ||
       /(?:menu|option|dropdown|popover|content|panel|list)/i.test(sib.className || '')
     )) {
       return sib;
     }
-    // Check inside immediate container
+    // Check inside immediate container (parent li, parent div, parent container)
     const parentBox = trigger.closest('[class*="item"], [class*="container"], [class*="wrap"], [role="listitem"], li, div');
     if (parentBox) {
       const panel = Array.from(parentBox.querySelectorAll(
-        '[role="menu"], [role="listbox"], [role="dialog"], [class*="menu"], [class*="option"], [class*="dropdown"], [class*="popover"], [class*="content"]'
+        '[role="menu"], [role="listbox"], [role="dialog"], [data-baseweb="menu"], [data-baseweb="popover"], [class*="menu"], [class*="option"], [class*="dropdown"], [class*="popover"], [class*="content"]'
       )).find(function(p) { return p !== trigger && !trigger.contains(p); });
       if (panel) return panel;
+    }
+    // Check parent's next sibling or adjacent container
+    if (trigger.parentElement) {
+      const nextSib = trigger.parentElement.nextElementSibling;
+      if (nextSib && (
+        nextSib.getAttribute('role') === 'menu' ||
+        nextSib.getAttribute('data-baseweb') === 'menu' ||
+        nextSib.querySelector('[role="menu"], [data-baseweb="menu"]')
+      )) {
+        return nextSib.querySelector('[role="menu"], [data-baseweb="menu"]') || nextSib;
+      }
     }
     return null;
   }
@@ -2224,7 +2286,15 @@ export class JsSynthesizer {
     const cls = (b.className || '').toLowerCase();
     const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
     const txt = (b.textContent || '').trim().toLowerCase();
-    if (cls.includes('hamburger') || lbl.includes('navigation') || b.closest('nav, [role="navigation"]')) return false;
+    const isMobileNavToggle =
+      cls.includes('hamburger') ||
+      cls.includes('universal-nav-toggle') ||
+      cls.includes('nav-toggle') ||
+      cls.includes('mobile-menu') ||
+      cls.includes('menu-toggle') ||
+      lbl === 'open menu' ||
+      lbl === 'toggle navigation';
+    if (isMobileNavToggle) return false;
     if (txt === 'clear all' || txt === 'apply filters' || txt === 'apply sort' || txt === 'close' || txt === 'view more') return false;
     if (cls.includes('clear') || cls.includes('close') || cls.includes('apply') || cls.includes('view-more')) return false;
     return true;

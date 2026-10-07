@@ -671,11 +671,30 @@ export function createServer(): express.Application {
         res.sendFile(assetBaseNamePath);
         return;
       }
-      // If asset is not stored in full-page, redirect to original target origin
+      // If asset is not stored in full-page, proxy directly from original target origin to bypass CORS for fonts and assets
       if (targetUrl) {
         try {
           const origin = new URL(targetUrl).origin;
-          res.redirect(302, `${origin}${req.originalUrl}`);
+          const targetAssetUrl = `${origin}${req.originalUrl}`;
+          fetch(targetAssetUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+              'Referer': targetUrl,
+            },
+            signal: AbortSignal.timeout(5000),
+          }).then(async (remoteResp) => {
+            if (remoteResp.ok) {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              const contentType = remoteResp.headers.get('content-type');
+              if (contentType) res.setHeader('Content-Type', contentType);
+              const buffer = Buffer.from(await remoteResp.arrayBuffer());
+              res.send(buffer);
+            } else {
+              res.redirect(302, targetAssetUrl);
+            }
+          }).catch(() => {
+            res.redirect(302, targetAssetUrl);
+          });
           return;
         } catch {}
       }
@@ -890,6 +909,7 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
                     'Referer': sourceUrl,
                   },
+                  signal: AbortSignal.timeout(3000),
                 });
                 if (resp.ok) {
                   return await resp.text();
@@ -924,9 +944,27 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
       const defaultSelector = isNavbarTarget
         ? 'header, nav, [role="banner"], [role="navigation"]'
         : isHeroTarget
-        ? '[class*="hero"], [class*="banner"], main > section:first-of-type, body > section:first-of-type, section:first-of-type'
+        ? '[class*="hero"], [class*="banner"], main > section:first-of-type, [role="main"] > section:first-of-type, main > div:first-of-type, [role="main"] > div:first-of-type, body > section:first-of-type, section:first-of-type'
         : 'section';
       const effectiveSelector = job.options.sectionSelector || defaultSelector;
+
+      // Universal Navbar & Rich Component Enrichment:
+      // If htmlSnapshot contains the target element with richer interactive menus or dropdown panels,
+      // prefer the snapshot version over a truncated or un-interacted sectionHtml snippet
+      if (hasSnapshot && job.options.htmlSnapshot) {
+        try {
+          const $snap = cheerio.load(job.options.htmlSnapshot);
+          const snapTarget = $snap(effectiveSelector).first();
+          if (snapTarget.length > 0) {
+            const snapMenus = snapTarget.find('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+            const $cur = cheerio.load(targetHtml || '');
+            const curMenus = $cur('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+            if (snapMenus > curMenus) {
+              targetHtml = $snap.html(snapTarget);
+            }
+          }
+        } catch {}
+      }
 
       // Safeguard: If targetHtml is a single leaf node, empty button/layer, or lacks meaningful content,
       // ascend to the true enclosing section container from htmlSnapshot
