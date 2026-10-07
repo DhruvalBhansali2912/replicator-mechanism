@@ -385,6 +385,8 @@ export class PageExtractor {
         // Embedded stylesheets from rules if accessible, or fetch in page context if cross-origin
         for (let i = 0; i < document.styleSheets.length; i++) {
           const sheet = document.styleSheets[i];
+          const media = sheet.media ? sheet.media.mediaText.trim().toLowerCase() : '';
+          if (media === 'print') continue;
           const baseHref = sheet.href || document.baseURI || window.location.href;
           let sheetText = '';
           try {
@@ -444,6 +446,8 @@ export class PageExtractor {
       const $ = cheerio.load(renderedHtml);
       const externalCssLinks: string[] = [];
       $('link[rel="stylesheet"]').each((_, el) => {
+        const media = $(el).attr('media');
+        if (media && media.toLowerCase().trim() === 'print') return;
         const href = $(el).attr('href');
         if (href) {
           try {
@@ -496,10 +500,43 @@ export class PageExtractor {
       onProgress?.('Detecting and analyzing page sections...', 60);
       let rawSections = await this.detectSections(page, options.targetArchetype);
 
-      if (options.targetArchetype === 'navbar') {
+      if (options.sectionSelector && options.sectionSelector.trim() && options.sectionSelector !== 'section') {
+        const matchedSection = rawSections.find((s) => s.selector === options.sectionSelector);
+        if (matchedSection) {
+          rawSections = [matchedSection];
+        }
+      } else if (options.targetArchetype === 'navbar') {
         const navSection = rawSections.find((s) => s.tagName === 'header' || s.tagName === 'nav' || s.selector.includes('header') || s.selector.includes('nav'));
         if (navSection) {
           rawSections = [navSection];
+        }
+      } else if (options.targetArchetype === 'hero') {
+        // Universal Hero Isolation:
+        // Score candidate sections using classifier heuristics (H1, hero classes, CTA, media, top position)
+        let bestHeroCandidate = rawSections.find((s, idx) => {
+          if (s.tagName === 'header' || s.tagName === 'nav' || s.selector.includes('header') || s.selector.includes('nav')) return false;
+          const meta = this.classifier.classify({
+            id: `s${idx + 1}`,
+            index: idx,
+            totalSections: rawSections.length,
+            selector: s.selector,
+            tagName: s.tagName,
+            rect: { x: s.rect.x, y: s.rect.y, width: s.rect.width, height: s.rect.height },
+            html: s.html,
+          });
+          return meta.archetype === 'hero';
+        });
+
+        if (!bestHeroCandidate) {
+          // Fallback: first non-nav section with height >= 200 and top <= 800
+          bestHeroCandidate = rawSections.find((s) => {
+            const isNav = s.tagName === 'header' || s.tagName === 'nav' || s.selector.includes('header') || s.selector.includes('nav');
+            return !isNav && s.rect.height >= 200 && s.rect.y <= 800;
+          });
+        }
+
+        if (bestHeroCandidate) {
+          rawSections = [bestHeroCandidate];
         }
       }
 
@@ -806,14 +843,13 @@ export class PageExtractor {
 
       // 1. Locate Header / Nav landmarks
       const candidateElements: Element[] = [];
-      const header =
-        document.querySelector('header, [role="banner"]') ||
-        Array.from(document.querySelectorAll('nav, [role="navigation"], [class*="header"]')).find((el) => {
-          const r = el.getBoundingClientRect();
-          return isElementVisible(el) && r.top <= 15 && r.height >= 20 && r.width >= 200;
-        });
+      const allHeaders = Array.from(document.querySelectorAll('header, [role="banner"], nav, [role="navigation"], [class*="header"]'));
+      const header = allHeaders.find((el) => {
+        const r = el.getBoundingClientRect();
+        return isElementVisible(el) && r.top <= 50 && r.height >= 20 && r.width >= 200;
+      });
 
-      if (header && isElementVisible(header)) {
+      if (header) {
         candidateElements.push(header);
       }
 
@@ -886,22 +922,24 @@ export class PageExtractor {
       const uniqueElements = Array.from(new Set(candidateElements));
 
       // Filter and collect geometry
-      uniqueElements.forEach((el, idx) => {
+      let validSectionIndex = 0;
+      uniqueElements.forEach((el) => {
         const rect = el.getBoundingClientRect();
         const tag = el.tagName.toLowerCase();
         const isHeaderOrNav = tag === 'header' || tag === 'nav';
 
         // Must have reasonable visible size: headers/nav can be as thin as 20px, body sections >= 45px
         if (
-          (isHeaderOrNav && rect.height < 20) ||
+          (isHeaderOrNav && (rect.height < 20 || rect.width < 200)) ||
           (!isHeaderOrNav && (rect.height < 45 || rect.width < 200))
         ) {
           return;
         }
 
         // Stamp deterministic tracking attribute to ensure 100% selector fidelity
-        el.setAttribute('data-rep-section', String(idx));
-        const sel = `[data-rep-section="${idx}"]`;
+        el.setAttribute('data-rep-section', String(validSectionIndex));
+        const sel = `[data-rep-section="${validSectionIndex}"]`;
+        validSectionIndex++;
 
         results.push({
           selector: sel,

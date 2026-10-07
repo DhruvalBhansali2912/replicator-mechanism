@@ -327,8 +327,8 @@
     "siteName": "Ola Electric",
     "siteUrl": "https://www.olaelectric.com",
     "category": "Automotive & EV Platforms",
-    "sectionIndex": 21,
-    "selector": "[data-rep-section=\"21\"]",
+    "sectionIndex": 19,
+    "selector": "[data-rep-section=\"19\"]",
     "tagName": "footer",
     "className": "page-footer",
     "rect": {
@@ -337,15 +337,15 @@
       "width": 1440,
       "height": 597
     },
-    "htmlSnippet": "<footer class=\"page-footer\" data-rep-section=\"21\"><div class=\"footer content\">  <div class=\"breadcrumbs\"><ul class=\"items\">  <li class=\"item home\"> <a href=\"/\" title=\"home\"><img src=\"https://cdn.olaelectric.com/ev-discovery-platform/wysiwyg/logo_dark"
+    "htmlSnippet": "<footer class=\"page-footer\" data-rep-section=\"19\"><div class=\"footer content\">  <div class=\"breadcrumbs\"><ul class=\"items\">  <li class=\"item home\"> <a href=\"/\" title=\"home\"><img src=\"https://cdn.olaelectric.com/ev-discovery-platform/wysiwyg/logo_dark"
   },
   {
     "siteId": "auto-02",
     "siteName": "Ola Electric",
     "siteUrl": "https://www.olaelectric.com",
     "category": "Automotive & EV Platforms",
-    "sectionIndex": 22,
-    "selector": "[data-rep-section=\"22\"]",
+    "sectionIndex": 20,
+    "selector": "[data-rep-section=\"20\"]",
     "tagName": "div",
     "className": "srgxwo3 mgz-element mgz-element-row page-footer new-sletter full_width_row_conte",
     "rect": {
@@ -354,465 +354,414 @@
       "width": 1440,
       "height": 197
     },
-    "htmlSnippet": "<div class=\"srgxwo3 mgz-element mgz-element-row page-footer new-sletter full_width_row_content_no_paddings\" data-rep-section=\"22\"><div class=\"mgz-element-inner srgxwo3-s\"><div class=\"inner-content \"><div class=\"cdvhtwg mgz-element mgz-element-column "
+    "htmlSnippet": "<div class=\"srgxwo3 mgz-element mgz-element-row page-footer new-sletter full_width_row_content_no_paddings\" data-rep-section=\"20\"><div class=\"mgz-element-inner srgxwo3-s\"><div class=\"inner-content \"><div class=\"cdvhtwg mgz-element mgz-element-column "
   },
   {
-    "siteId": "ecom-09",
-    "siteName": "Lululemon",
-    "siteUrl": "https://shop.lululemon.com",
-    "category": "Global E-Commerce & Retail",
+    "siteId": "cms-06",
+    "siteName": "Oracle",
+    "siteUrl": "https://www.oracle.com",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
     "sectionIndex": 0,
     "selector": "[data-rep-section=\"0\"]",
-    "tagName": "pre",
+    "tagName": "table",
     "className": "",
     "rect": {
-      "x": 0,
-      "y": 13,
-      "width": 1440,
-      "height": 80
+      "x": 496,
+      "y": 42,
+      "width": 449,
+      "height": 404
     },
-    "htmlSnippet": "<pre data-rep-section=\"0\">{\n\"message\": \"Bad Request.\", \n\"errorCode\": \"GE401001\"\n}</pre>"
+    "htmlSnippet": "<table width=\"449\" align=\"center\" border=\"0\" data-rep-section=\"0\">\n    <tbody>\n        <tr>\n            <td width=\"68%\" valign=\"top\">\n            <div align=\"center\">\n\t    <p><img alt=\"\" src=\"https://www.oracle.com/splash/oralogo_small.gif\" width=\"15"
   },
   {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
+    "siteId": "design-05",
+    "siteName": "Active Theory",
+    "siteUrl": "https://activetheory.net",
+    "category": "Creative Agencies, Portfolios & Design Studios",
     "sectionIndex": 0,
     "selector": "[data-rep-section=\"0\"]",
-    "tagName": "header",
-    "className": "TZTsQG_header TZTsQG_header",
+    "tagName": "div",
+    "className": "Container",
     "rect": {
       "x": 0,
       "y": 0,
       "width": 1440,
-      "height": 73
+      "height": 904
     },
-    "htmlSnippet": "<header class=\"TZTsQG_header TZTsQG_header\" data-rep-section=\"0\"><nav class=\"TZTsQG_menuRoot\"><div class=\"TZTsQG_innerWrapper\"><ul aria-label=\"Site navigation\" class=\"TZTsQG_list\"><li class=\"TZTsQG_logoItem TZTsQG_item\"><div style=\"-webkit-touch-call"
+    "htmlSnippet": "<div class=\"Container\" data-rep-section=\"0\" style=\"position: static;\"><div class=\"LoaderView\" style=\"position: absolute; width: 100%; height: 100%; z-index: 10000;\"><div class=\"behind\" font-size=\"13\" fontcolor=\"#81ecfe\" style=\"font-family: nbarchitek"
   },
   {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
+    "siteId": "design-05",
+    "siteName": "Active Theory",
+    "siteUrl": "https://activetheory.net",
+    "category": "Creative Agencies, Portfolios & Design Studios",
     "sectionIndex": 1,
     "selector": "[data-rep-section=\"1\"]",
     "tagName": "div",
-    "className": "",
-    "rect": {
-      "x": 48,
-      "y": 271,
-      "width": 1344,
-      "height": 1024
-    },
-    "htmlSnippet": "<div data-rep-section=\"1\"><div class=\"hide-laptop _5mGmSq_root\" style=\"--height:200px\"></div><div class=\"show-laptop hide-desktop _5mGmSq_root\" style=\"--height:124px\"></div><div class=\"show-laptop hide-mobile _5mGmSq_root\" style=\"--height:92px\"></div"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 7,
-    "selector": "[data-rep-section=\"7\"]",
-    "tagName": "h2",
-    "className": "sc-KOGVz jaIwvI Fzcv4W_inset Fzcv4W_insetLarge",
-    "rect": {
-      "x": 46,
-      "y": 1596,
-      "width": 1250,
-      "height": 144
-    },
-    "htmlSnippet": "<h2 style=\"max-width:1250px\" class=\"sc-KOGVz jaIwvI Fzcv4W_inset Fzcv4W_insetLarge\" data-rep-section=\"7\"><strong class=\"sc-KOGVz jUzSbG\">A new species of product tool.</strong> <!-- -->Purpose-built for modern teams with AI workflows at its core, Lin"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 9,
-    "selector": "[data-rep-section=\"9\"]",
-    "tagName": "div",
-    "className": "GJ9TEa_benefits hide-laptop _9PBFba_root",
-    "rect": {
-      "x": 48,
-      "y": 1876,
-      "width": 1344,
-      "height": 468
-    },
-    "htmlSnippet": "<div class=\"GJ9TEa_benefits hide-laptop _9PBFba_root\" style=\"gap:0;--grid-areas-default:&quot;a a a a b b b b c c c c&quot;;--grid-areas-desktop:&quot;a a a a a a a a&quot;\n\t\t\t\t&quot;b b b b b b b b&quot;\n\t\t\t\t&quot;c c c c c c c c&quot;;--grid-areas-"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 13,
-    "selector": "[data-rep-section=\"13\"]",
-    "tagName": "section",
-    "className": "b-30Va_root b-30Va_rootHomepage",
-    "rect": {
-      "x": 48,
-      "y": 2546,
-      "width": 1344,
-      "height": 1226
-    },
-    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"13\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">Intake<br>and integrat"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 16,
-    "selector": "[data-rep-section=\"16\"]",
-    "tagName": "section",
-    "className": "b-30Va_root b-30Va_rootHomepage",
-    "rect": {
-      "x": 48,
-      "y": 3782,
-      "width": 1344,
-      "height": 1229
-    },
-    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"16\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">Planning<br>and monito"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 19,
-    "selector": "[data-rep-section=\"19\"]",
-    "tagName": "section",
-    "className": "b-30Va_root b-30Va_rootHomepage",
-    "rect": {
-      "x": 48,
-      "y": 5021,
-      "width": 1344,
-      "height": 1232
-    },
-    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"19\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">AI and<br>automations<"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 22,
-    "selector": "[data-rep-section=\"22\"]",
-    "tagName": "section",
-    "className": "b-30Va_root b-30Va_rootHomepage",
-    "rect": {
-      "x": 48,
-      "y": 6263,
-      "width": 1344,
-      "height": 1220
-    },
-    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"22\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">Build, review,<br>and "
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 25,
-    "selector": "[data-rep-section=\"25\"]",
-    "tagName": "div",
-    "className": "hide-mobile",
-    "rect": {
-      "x": 48,
-      "y": 7644,
-      "width": 1344,
-      "height": 422
-    },
-    "htmlSnippet": "<div class=\"hide-mobile\" data-rep-section=\"25\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge ImRUSq_root ImRUSq_align-baseline ImRUSq_justify-space-between\"><h2 class=\"sc-KOGVz anihd\">Changelog</h2></div><div class=\"_5mGmSq_root\" style=\"--height:72px\"><"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 27,
-    "selector": "[data-rep-section=\"27\"]",
-    "tagName": "section",
-    "className": "Dc5tqa_container hide-laptop",
-    "rect": {
-      "x": 48,
-      "y": 8226,
-      "width": 1344,
-      "height": 564
-    },
-    "htmlSnippet": "<section class=\"Dc5tqa_container hide-laptop\" id=\"customers\" data-rep-section=\"27\"><div class=\"Dc5tqa_customerCards\"><a href=\"/customers/openai\" style=\"background:linear-gradient(0deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) 100%), line"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 28,
-    "selector": "[data-rep-section=\"28\"]",
-    "tagName": "section",
-    "className": "dYXc1G_homepagePrefooter",
-    "rect": {
-      "x": 48,
-      "y": 9014,
-      "width": 1344,
-      "height": 228
-    },
-    "htmlSnippet": "<section class=\"dYXc1G_homepagePrefooter\" data-rep-section=\"28\"><h2 style=\"max-width:16ch\" class=\"sc-KOGVz fkCphf dYXc1G_heading\">Built for the future. Available today.</h2><div class=\"ImRUSq_root\" style=\"gap:12px\"><a href=\"/signup\" role=\"button\" tab"
-  },
-  {
-    "siteId": "saas-04",
-    "siteName": "Linear",
-    "siteUrl": "https://linear.app",
-    "category": "Modern Developer Tools & SaaS",
-    "sectionIndex": 29,
-    "selector": "[data-rep-section=\"29\"]",
-    "tagName": "footer",
-    "className": "Jmh1Wq_footer",
+    "className": "FXScroll",
     "rect": {
       "x": 0,
-      "y": 9466,
+      "y": 0,
       "width": 1440,
-      "height": 494
+      "height": 900
     },
-    "htmlSnippet": "<footer class=\"Jmh1Wq_footer\" data-rep-section=\"29\"><div class=\"Jmh1Wq_wrapper\"><div class=\"Jmh1Wq_inner\"><div class=\"hide-mobile Jmh1Wq_logoColumn\"><a href=\"/\" class=\"Jmh1Wq_logoWrapper I_mUeq_root I_mUeq_variant-fade\" rel=\"noopener\"><svg width=\"20\""
+    "htmlSnippet": "<div class=\"FXScroll\" data-rep-section=\"1\" style=\"position: fixed; top: 0px; left: 0px; width: 100%; height: 100%; z-index: 2; overflow: hidden scroll;\"></div>"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "edu-05",
+    "siteName": "MIT",
+    "siteUrl": "https://www.mit.edu",
+    "category": "Science, Education, Healthcare & Government",
     "sectionIndex": 0,
     "selector": "[data-rep-section=\"0\"]",
     "tagName": "nav",
-    "className": "NavigationDesktop_navigation_root Navigation_navigation_primary--visible",
+    "className": "site-nav js-site-nav",
     "rect": {
       "x": 0,
       "y": 0,
       "width": 1440,
-      "height": 76
+      "height": 84
     },
-    "htmlSnippet": "<nav aria-label=\"Main\" data-orientation=\"horizontal\" dir=\"ltr\" class=\"NavigationDesktop_navigation_root Navigation_navigation_primary--visible\" data-rep-section=\"0\"><div class=\"np-theme-personal np-theme-personal--bright-green NavigationDesktop_navig"
+    "htmlSnippet": "<nav class=\"site-nav js-site-nav\" data-rep-section=\"0\">\n  <div class=\"site-nav__width\">\n\n    <a class=\"site-nav__logo-link\" href=\"/\">\n      \n<svg class=\"mit-logo\" xmlns=\"http://www.w3.org/2000/svg\" width=\"867.217\" height=\"200\" viewBox=\"0 0 867.217 20"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "edu-05",
+    "siteName": "MIT",
+    "siteUrl": "https://www.mit.edu",
+    "category": "Science, Education, Healthcare & Government",
     "sectionIndex": 1,
     "selector": "[data-rep-section=\"1\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-b-0 mw-m-t-0 mw-m-b-0 Section_cropped__tjB3X Section_cr",
+    "tagName": "div",
+    "className": "es-search-mod",
     "rect": {
       "x": 0,
-      "y": 76,
-      "width": 1440,
-      "height": 1309
+      "y": 84,
+      "width": 410,
+      "height": 816
     },
-    "htmlSnippet": "<section id=\"hero-section\" class=\"Section_root__wxCP6 mw-p-b-0 mw-m-t-0 mw-m-b-0 Section_cropped__tjB3X Section_cropped--default__Lf_Ni\" foregroundtheme=\"bright-green\" data-rep-section=\"1\"><div class=\"np-theme-personal np-theme-personal--bright-green"
+    "htmlSnippet": "<div id=\"search-app\" class=\"es-search-mod\" data-rep-section=\"1\"><div class=\"es-search__overflow\"><a href=\"#\" class=\"scroll-top js-scroll-top\">Menu</a> <div class=\"es-search__width js-search-terms\"><form method=\"GET\" action=\"/search\" id=\"es-search-for"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "edu-05",
+    "siteName": "MIT",
+    "siteUrl": "https://www.mit.edu",
+    "category": "Science, Education, Healthcare & Government",
     "sectionIndex": 2,
     "selector": "[data-rep-section=\"2\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12",
+    "tagName": "article",
+    "className": "spotlight reveal",
     "rect": {
-      "x": 0,
-      "y": 1441,
-      "width": 1440,
-      "height": 392
+      "x": 445,
+      "y": 119,
+      "width": 960,
+      "height": 847
     },
-    "htmlSnippet": "<section id=\"maxitrust-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12\" data-rep-section=\"2\"><div><div class=\"mw-container\"><div class=\"eds-flex eds-align-items-center eds-gap-8 eds-flex-direction-column eds-m-b-8\"><div cl"
+    "htmlSnippet": "<article class=\"spotlight reveal\" data-rep-section=\"2\">\n\n        <div class=\"spotlight-inner\">\n          \n\n                       \n                \n       <div class=\"spotlight__media spotlight__media--youtube spotlight__media--full-width\">\n  <figure"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "edu-05",
+    "siteName": "MIT",
+    "siteUrl": "https://www.mit.edu",
+    "category": "Science, Education, Healthcare & Government",
     "sectionIndex": 3,
     "selector": "[data-rep-section=\"3\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12",
+    "tagName": "div",
+    "className": "spotlight-addl-content",
     "rect": {
-      "x": 0,
-      "y": 1889,
-      "width": 1440,
-      "height": 1245
+      "x": 445,
+      "y": 966,
+      "width": 960,
+      "height": 1769
     },
-    "htmlSnippet": "<section id=\"feature-section\" class=\"Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12\" data-rep-section=\"3\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-gap-8 eds-cluster-template-areas eds-cluster-templa"
+    "htmlSnippet": "<div class=\"spotlight-addl-content\" data-rep-section=\"3\">\n                    <h2 class=\"spotlight-addl-content--title\">\n            \n            Research and Education that Matter\n      \n          </h2>\n                    <div class=\"spotlight-addl"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "edu-05",
+    "siteName": "MIT",
+    "siteUrl": "https://www.mit.edu",
+    "category": "Science, Education, Healthcare & Government",
     "sectionIndex": 4,
     "selector": "[data-rep-section=\"4\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-0 mw-m-b-0 np-theme-personal np-t",
+    "tagName": "div",
+    "className": "",
     "rect": {
-      "x": 0,
-      "y": 3191,
-      "width": 1440,
-      "height": 692
+      "x": 410,
+      "y": 2734,
+      "width": 1030,
+      "height": 129
     },
-    "htmlSnippet": "<section id=\"transfer-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-0 mw-m-b-0 np-theme-personal np-theme-personal--bright-green\" data-rep-section=\"4\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-"
+    "htmlSnippet": "<div id=\"node-spotlight\" data-viewingspotlight=\"Safer travels for UAVs\" data-rep-section=\"4\"><div class=\"spotlight-newsletter-cta\"><div class=\"spotlight-newsletter-cta-inner\"><h4 class=\"spotlight-newsletter-cta__h\">Want more about MIT?</h4> <p class="
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "edu-05",
+    "siteName": "MIT",
+    "siteUrl": "https://www.mit.edu",
+    "category": "Science, Education, Healthcare & Government",
     "sectionIndex": 5,
     "selector": "[data-rep-section=\"5\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12",
+    "tagName": "footer",
+    "className": "site-footer",
     "rect": {
       "x": 0,
-      "y": 3939,
-      "width": 1440,
-      "height": 519
+      "y": 802,
+      "width": 410,
+      "height": 98
     },
-    "htmlSnippet": "<section id=\"security-section-in\" class=\"Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12\" data-rep-section=\"5\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-gap-8 eds-cluster-template-areas eds-cluster-te"
+    "htmlSnippet": "<footer class=\"site-footer\" data-rep-section=\"5\">\n  <a href=\"/\" class=\"site-footer__logo-link\">\n  <svg xmlns=\"http://www.w3.org/2000/svg\" width=\"377.778\" height=\"200\" viewBox=\"0 0 377.778 200\" class=\"mit-logo site-footer__logo\">\n  <path class=\"logo-c"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 0,
+    "selector": "[data-rep-section=\"0\"]",
+    "tagName": "nav",
+    "className": "css-EuaFB",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 64
+    },
+    "htmlSnippet": "<nav data-baseweb=\"header-navigation\" role=\"navigation\" class=\"css-EuaFB\" data-rep-section=\"0\"><div class=\"css-jpTJNR\"><div class=\"css-hWkSKL\" data-testid=\"nav-grid\" tabindex=\"-1\"><a data-baseweb=\"link\" aria-label=\"Uber homepage\" data-testid=\"wcb3-na"
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 1,
+    "selector": "[data-rep-section=\"1\"]",
+    "tagName": "div",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 64
+    },
+    "htmlSnippet": "<div data-block-content-id=\"79e70995-edbc-4fed-b2ca-3904aba7ac2d\" data-block-id=\"Navigation\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"1\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-id=\"__"
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 2,
+    "selector": "[data-rep-section=\"2\"]",
+    "tagName": "div",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 64,
+      "width": 1440,
+      "height": 587
+    },
+    "htmlSnippet": "<div data-block-content-id=\"b67dc0dd-680b-44d1-beea-f792a7e185bf\" data-block-id=\"CROMapHero\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"2\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-testid=\"b67dc0dd-680b"
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 3,
+    "selector": "[data-rep-section=\"3\"]",
+    "tagName": "div",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 651,
+      "width": 1440,
+      "height": 434
+    },
+    "htmlSnippet": "<div data-block-content-id=\"d0570719-62b0-4cc4-9623-2d33f71c5b6f\" data-block-id=\"CROProductSuggestions\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"3\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-testid=\"d0"
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 4,
+    "selector": "[data-rep-section=\"4\"]",
+    "tagName": "div",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 1085,
+      "width": 1440,
+      "height": 398
+    },
+    "htmlSnippet": "<div data-block-content-id=\"e44c3cef-361d-40af-8821-9972d470ef6c\" data-block-id=\"ContentItems\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"4\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-id=\""
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 5,
+    "selector": "[data-rep-section=\"5\"]",
+    "tagName": "div",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 1483,
+      "width": 1440,
+      "height": 611
+    },
+    "htmlSnippet": "<div data-block-content-id=\"b22f428d-1328-4892-b126-de3707648d13\" data-block-id=\"BulletsCarousel\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"5\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-i"
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
     "sectionIndex": 6,
     "selector": "[data-rep-section=\"6\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-0 mw-m-t-12 mw-m-b-12",
+    "tagName": "div",
+    "className": "",
     "rect": {
       "x": 0,
-      "y": 4514,
+      "y": 2094,
       "width": 1440,
-      "height": 598
+      "height": 446
     },
-    "htmlSnippet": "<section id=\"social-trust-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-0 mw-m-t-12 mw-m-b-12\" data-rep-section=\"6\"><div><div class=\"mw-container\"><div class=\"eds-carousel eds-carousel--scrollable\" role=\"region\" aria-roledescription=\"carousel\""
+    "htmlSnippet": "<div data-block-content-id=\"e091c5ae-9558-41bc-9c21-5bacb5be569a\" data-block-id=\"CROCitySelectorHighlight\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"6\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
     "sectionIndex": 7,
     "selector": "[data-rep-section=\"7\"]",
-    "tagName": "section",
-    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12",
+    "tagName": "div",
+    "className": "",
     "rect": {
       "x": 0,
-      "y": 5169,
+      "y": 2540,
       "width": 1440,
-      "height": 540
+      "height": 604
     },
-    "htmlSnippet": "<section id=\"app-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12\" data-rep-section=\"7\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-gap-8 eds-cluster-template-areas eds-cluster-template"
+    "htmlSnippet": "<div data-block-content-id=\"9157df24-eb4e-45ce-9588-197f68b74148\" data-block-id=\"BulletsCarousel\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"7\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-i"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
     "sectionIndex": 8,
     "selector": "[data-rep-section=\"8\"]",
-    "tagName": "h2",
-    "className": "mw-heading-2 m-b-5",
+    "tagName": "div",
+    "className": "",
     "rect": {
-      "x": 100,
-      "y": 5822,
-      "width": 1240,
-      "height": 57
+      "x": 0,
+      "y": 3144,
+      "width": 1440,
+      "height": 398
     },
-    "htmlSnippet": "<h2 class=\"mw-heading-2 m-b-5\" data-rep-section=\"8\">Wise works nearly everywhere</h2>"
+    "htmlSnippet": "<div data-block-content-id=\"51f111ae-d4a2-493a-b893-199a082e0962\" data-block-id=\"ContentItems\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"8\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-kYlfFL\"><div data-hydrate-module-id=\""
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
     "sectionIndex": 9,
     "selector": "[data-rep-section=\"9\"]",
     "tagName": "div",
-    "className": "row",
+    "className": "",
     "rect": {
-      "x": 88,
-      "y": 5919,
-      "width": 1264,
-      "height": 3622
+      "x": 0,
+      "y": 3542,
+      "width": 1440,
+      "height": 535
     },
-    "htmlSnippet": "<div class=\"row\" data-rep-section=\"9\"><div class=\"col-xs-12\"><div class=\"np-chips d-flex Coverage_chips__g3vVq Coverage_chipsBrightGreen__MYQ0E p-t-1 p-b-1\" aria-label=\"Choose category\" role=\"radiogroup\"><div role=\"radio\" tabindex=\"0\" aria-checked=\"t"
+    "htmlSnippet": "<div data-block-content-id=\"3f0fc726-5f87-4746-b9af-14cfe5824fc1\" data-block-id=\"BulletsCarousel\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"9\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-i"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
     "sectionIndex": 10,
     "selector": "[data-rep-section=\"10\"]",
     "tagName": "div",
-    "className": "np-theme-personal",
+    "className": "",
     "rect": {
       "x": 0,
-      "y": 9597,
+      "y": 4076,
       "width": 1440,
-      "height": 1329
+      "height": 558
     },
-    "htmlSnippet": "<div class=\"np-theme-personal\" data-rep-section=\"10\"><footer class=\"Footer_navigation_footer__wrapper section--pad-md\"><div class=\"eds-container mw-container\"><div class=\"Footer_navigation_footer__content\"><div id=\"gn-footer-top\" class=\"Footer_naviga"
+    "htmlSnippet": "<div data-block-content-id=\"c70a6391-1b26-4056-82ee-1af785a5d362\" data-block-id=\"Highlight\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"10\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-id=\"__"
   },
   {
-    "siteId": "fin-02",
-    "siteName": "Wise",
-    "siteUrl": "https://wise.com",
-    "category": "Fintech, Banking & Crypto",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
     "sectionIndex": 11,
     "selector": "[data-rep-section=\"11\"]",
-    "tagName": "footer",
-    "className": "Footer_navigation_footer__wrapper section--pad-md",
+    "tagName": "div",
+    "className": "",
     "rect": {
       "x": 0,
-      "y": 9597,
+      "y": 4634,
       "width": 1440,
-      "height": 1329
+      "height": 406
     },
-    "htmlSnippet": "<footer class=\"Footer_navigation_footer__wrapper section--pad-md\" data-rep-section=\"11\"><div class=\"eds-container mw-container\"><div class=\"Footer_navigation_footer__content\"><div id=\"gn-footer-top\" class=\"Footer_navigation_footer__section Footer_nav"
+    "htmlSnippet": "<div data-block-content-id=\"78e84d13-1eaa-46a7-a798-757329ff7528\" data-block-id=\"MultiLink\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"11\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-id=\"__"
   },
   {
-    "siteId": "ecom-02",
-    "siteName": "Zara",
-    "siteUrl": "https://www.zara.com",
-    "category": "Global E-Commerce & Retail",
-    "sectionIndex": 0,
-    "selector": "[data-rep-section=\"0\"]",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 12,
+    "selector": "[data-rep-section=\"12\"]",
     "tagName": "div",
-    "className": "worldwide__content",
+    "className": "",
     "rect": {
-      "x": 112,
-      "y": 197,
-      "width": 1216,
-      "height": 1350
+      "x": 0,
+      "y": 5040,
+      "width": 1440,
+      "height": 686
     },
-    "htmlSnippet": "<div class=\"worldwide__content\" data-rep-section=\"0\"><div class=\"worldwide__store-selector-container\"><h1 class=\"worldwide__title\"><span>Select your location</span></h1><form class=\"store-selector worldwide__store-selector\"><div class=\"store-selector"
+    "htmlSnippet": "<div data-block-content-id=\"4692739d-b2f0-4c85-99ec-f7d6afddb486\" data-block-id=\"Highlight\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"12\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-id=\"__"
   },
   {
-    "siteId": "ecom-02",
-    "siteName": "Zara",
-    "siteUrl": "https://www.zara.com",
-    "category": "Global E-Commerce & Retail",
-    "sectionIndex": 1,
-    "selector": "[data-rep-section=\"1\"]",
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 13,
+    "selector": "[data-rep-section=\"13\"]",
     "tagName": "div",
-    "className": "worldwide-button-cookies-config",
+    "className": "",
     "rect": {
-      "x": 112,
-      "y": 1547,
-      "width": 1216,
-      "height": 48
+      "x": 0,
+      "y": 5726,
+      "width": 1440,
+      "height": 941
     },
-    "htmlSnippet": "<div class=\"worldwide-button-cookies-config\" data-rep-section=\"1\"><button class=\"worldwide-button-cookies-config__button\" data-qa-id=\"worldwide-cookies-settings\" type=\"button\">Cookies Settings</button></div>"
+    "htmlSnippet": "<div data-block-content-id=\"eec9ad33-2623-400f-8403-f7e01c3c18d4\" data-block-id=\"Footer\" style=\"display:inline\" tabindex=\"-1\" data-rep-section=\"13\"><div data-testid=\"responsive.visibility.wrapper\" class=\"css-dmafOG\"><div data-hydrate-module-id=\"__fus"
+  },
+  {
+    "siteId": "travel-01",
+    "siteName": "Uber",
+    "siteUrl": "https://www.uber.com",
+    "category": "Travel, Mobility & Hospitality",
+    "sectionIndex": 14,
+    "selector": "[data-rep-section=\"14\"]",
+    "tagName": "footer",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 5726,
+      "width": 1440,
+      "height": 941
+    },
+    "htmlSnippet": "<footer data-rep-section=\"14\"><section data-baseweb=\"block\" class=\"css-hBnhgZ\"><div data-baseweb=\"block\" class=\"css-hazmlH\"><div class=\"css-jOhJVe\" tabindex=\"-1\"><div class=\"css-dGnFJR\"><div data-baseweb=\"block\" data-testid=\"block-container\" class=\"c"
   }
 ]

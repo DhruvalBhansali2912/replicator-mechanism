@@ -26,6 +26,7 @@ import { v1ApiRouter } from './api/v1/index.js';
 import * as cheerio from 'cheerio';
 import archiver from 'archiver';
 import { synthesisEngine } from './synthesis/engine.js';
+import { resolveTargetSectionFromSnapshot } from './classifier/section-resolver.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -884,6 +885,8 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
         if (hasSnapshot && job.options.htmlSnapshot) {
           const $snap = cheerio.load(job.options.htmlSnapshot);
           $snap('link[rel="stylesheet"]').each((_, el) => {
+            const media = $snap(el).attr('media');
+            if (media && media.toLowerCase().trim() === 'print') return;
             const href = $snap(el).attr('href');
             if (href && !href.startsWith('chrome-extension://')) {
               try {
@@ -941,145 +944,38 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
       job.currentStep = 'Synthesizing isolated target section...';
       job.progress = 35;
       let targetHtml = job.options.sectionHtml;
-      const defaultSelector = isNavbarTarget
-        ? 'header, nav, [role="banner"], [role="navigation"]'
-        : isHeroTarget
-        ? '[class*="hero"], [class*="banner"], main > section:first-of-type, [role="main"] > section:first-of-type, main > div:first-of-type, [role="main"] > div:first-of-type, body > section:first-of-type, section:first-of-type'
-        : 'section';
-      const effectiveSelector = job.options.sectionSelector || defaultSelector;
+      const effectiveSelector = job.options.sectionSelector || (isNavbarTarget ? 'header, nav' : isHeroTarget ? 'hero' : 'section');
 
-      // Universal Navbar & Rich Component Enrichment:
-      // If htmlSnapshot contains the target element with richer interactive menus or dropdown panels,
-      // prefer the snapshot version over a truncated or un-interacted sectionHtml snippet
       if (hasSnapshot && job.options.htmlSnapshot) {
         try {
           const $snap = cheerio.load(job.options.htmlSnapshot);
-          const snapTarget = $snap(effectiveSelector).first();
-          if (snapTarget.length > 0) {
-            const snapMenus = snapTarget.find('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
-            const $cur = cheerio.load(targetHtml || '');
-            const curMenus = $cur('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
-            if (snapMenus > curMenus) {
-              targetHtml = $snap.html(snapTarget);
-            }
-          }
-        } catch {}
-      }
-
-      // Safeguard: If targetHtml is a single leaf node, empty button/layer, or lacks meaningful content,
-      // ascend to the true enclosing section container from htmlSnapshot
-      if (targetHtml && hasSnapshot && job.options.htmlSnapshot) {
-        try {
-          const $check = cheerio.load(targetHtml);
-          const firstTag = ($check.root().children().first().get(0) as any)?.tagName?.toLowerCase() || '';
-          const checkText = $check.text().trim();
-          const hasMedia = $check('img, picture, video, canvas, svg').length > 0;
-          const isLeafOrEmpty =
-            ['button', 'a', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'input'].includes(firstTag) ||
-            (!hasMedia && checkText.length === 0);
-
-          if (isLeafOrEmpty) {
-            const $snap = cheerio.load(job.options.htmlSnapshot);
-            const targetEl = $snap(effectiveSelector).first();
-            if (targetEl.length > 0) {
-              const enclosingSection = targetEl.closest(
-                'section, article, [role="region"], [class*="hero"], [class*="banner"], [class*="section"], main > div, body > div'
-              );
-              if (enclosingSection.length > 0) {
-                targetHtml = $snap.html(enclosingSection);
+          const resolvedTarget = resolveTargetSectionFromSnapshot($snap, job.options.targetArchetype, job.options.sectionSelector);
+          if (resolvedTarget && resolvedTarget.length > 0) {
+            if (isNavbarTarget) {
+              const parentNavWrapper = resolvedTarget.closest('#mega-menu, .mega-menu, [class*="site-header-wrapper"], [class*="header-wrapper"], [class*="header_wrapper"]');
+              if (parentNavWrapper.length > 0 && parentNavWrapper.find('dialog, [class*="mega-menu-panel"], [class*="header-panel"]').length > 0) {
+                targetHtml = $snap.html(parentNavWrapper);
+              } else {
+                targetHtml = $snap.html(resolvedTarget);
+                const associatedPanels = $snap('dialog, [role="dialog"], [class*="header-panel"], [class*="mega-menu-panel"], [class*="megamenu-panel"]')
+                  .filter((_, el) => {
+                    const cls = ($snap(el).attr('class') || '').toLowerCase();
+                    return !cls.includes('popup') && !cls.includes('chat') && !cls.includes('alert') && !cls.includes('review');
+                  });
+                if (associatedPanels.length > 0) {
+                  targetHtml += '\n' + $snap.html(associatedPanels);
+                }
               }
-            }
-          }
-        } catch {}
-      }
-
-      // Composite Section Boundary Expansion:
-      // If the targeted element (or provided sectionHtml) is a sub-section of a composite multi-part component
-      // (e.g. Title sub-section + Layered visual artwork sub-section), expand to the enclosing component container
-      if (hasSnapshot && job.options.htmlSnapshot && !isNavbarTarget) {
-        try {
-          const $snap = cheerio.load(job.options.htmlSnapshot);
-          let targetEl = $snap(effectiveSelector).first();
-          if (targetEl.length === 0 && targetHtml) {
-            const $t = cheerio.load(targetHtml);
-            const tRoot = $t.root().children().first();
-            const tId = tRoot.attr('id');
-            const tClass = (tRoot.attr('class') || '').trim().split(/\s+/)[0];
-            const tDataSec = tRoot.attr('data-section');
-            if (tId) {
-              targetEl = $snap(`#${tId}`).first();
-            } else if (tDataSec) {
-              targetEl = $snap(`[data-section="${tDataSec}"]`).first();
-            } else if (tClass) {
-              targetEl = $snap(`.${tClass}`).first();
-            }
-          }
-
-          if (targetEl.length > 0) {
-            const parent = targetEl.parent();
-            const parentTag = parent.get(0)?.tagName?.toLowerCase();
-            const parentId = parent.attr('id') || '';
-            const parentClass = parent.attr('class') || '';
-            const parentTestId = parent.attr('data-testid') || '';
-
-            const isNotTopLevel =
-              !['body', 'html', '#document', 'main'].includes(parentTag || '') &&
-              !['__next', 'root', 'app', 'layout', 'page-wrapper'].includes(parentId);
-
-            if (isNotTopLevel) {
-              const siblingSections = parent.children('section, [data-section]');
-              const totalChildren = parent.children().length;
-
-              const isCompositeSectionWrapper =
-                /section/i.test(parentTestId) ||
-                /(?:section[_-]?wrapper|wrapper[_-]?section|Section_wrapper)/i.test(parentClass) ||
-                (siblingSections.length >= 2 && totalChildren <= 5);
-
-              if (isCompositeSectionWrapper) {
-                targetHtml = $snap.html(parent);
-              }
-            }
-          }
-        } catch {}
-      }
-
-      if (!targetHtml && hasSnapshot && job.options.htmlSnapshot) {
-        const $snap = cheerio.load(job.options.htmlSnapshot);
-        const targetEl = $snap(effectiveSelector).first();
-        if (targetEl.length > 0) {
-          if (isNavbarTarget) {
-            // Check if nav has an immediate wrapper containing mega-menu panels
-            const parentNavWrapper = targetEl.closest('#mega-menu, .mega-menu, [class*="site-header-wrapper"], [class*="header-wrapper"]');
-            if (parentNavWrapper.length > 0 && parentNavWrapper.find('dialog, [class*="mega-menu-panel"], [class*="header-panel"]').length > 0) {
-              targetHtml = $snap.html(parentNavWrapper);
             } else {
-              targetHtml = $snap.html(targetEl);
-              // Only attach specifically associated header panels, strictly excluding popups and modals
-              const associatedPanels = $snap('dialog, [role="dialog"], [class*="header-panel"], [class*="mega-menu-panel"], [class*="megamenu-panel"]')
-                .filter((_, el) => {
-                  const cls = ($snap(el).attr('class') || '').toLowerCase();
-                  return !cls.includes('popup') && !cls.includes('chat') && !cls.includes('alert') && !cls.includes('review');
-                });
-              if (associatedPanels.length > 0) {
-                targetHtml += '\n' + $snap.html(associatedPanels);
-              }
-            }
-          } else {
-            // If targetEl is a leaf node, ascend to enclosing section container
-            const firstTag = (targetEl.get(0) as any)?.tagName?.toLowerCase() || '';
-            if (['button', 'a', 'span', 'p', 'img'].includes(firstTag)) {
-              const enc = targetEl.closest('section, article, [class*="hero"], [class*="banner"], [class*="section"], main > div');
-              targetHtml = enc.length > 0 ? $snap.html(enc) : $snap.html(targetEl);
-            } else {
-              targetHtml = $snap.html(targetEl);
+              targetHtml = $snap.html(resolvedTarget);
             }
           }
-        }
+        } catch {}
       }
-      if (!targetHtml && hasSnapshot) {
-        const $ = cheerio.load(job.options.htmlSnapshot!);
-        const target = $(effectiveSelector).first();
-        if (target.length > 0) targetHtml = $.html(target);
+
+      // Fallback if targetHtml is still empty
+      if (!targetHtml && job.options.sectionHtml) {
+        targetHtml = job.options.sectionHtml;
       }
       if (!targetHtml) {
         targetHtml = job.options.htmlSnapshot || `<section><div class="container"><h2>${sourceUrl}</h2></div></section>`;

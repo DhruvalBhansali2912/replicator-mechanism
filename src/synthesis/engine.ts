@@ -6,6 +6,7 @@ import { JsSynthesizer } from './js-synthesizer.js';
 import { QualityScorer } from './scorer.js';
 import { SynthesizedSectionResult, SectionAST } from './types.js';
 import { RecordedInteraction } from '../types.js';
+import { resolveTargetSectionFromSnapshot } from '../classifier/section-resolver.js';
 
 export class GroundUpSynthesisEngine {
   private inspector = new SectionInspector();
@@ -34,25 +35,23 @@ export class GroundUpSynthesisEngine {
     if (htmlSnapshot && htmlSnapshot.length > 50) {
       try {
         const $snap = cheerio.load(htmlSnapshot);
-        const defaultSelector = targetArchetypeHint === 'navbar'
-          ? 'header, nav, [role="banner"], [role="navigation"]'
-          : targetArchetypeHint === 'hero'
-          ? '[class*="hero"], [class*="banner"], main > section:first-of-type, [role="main"] > section:first-of-type, main > div:first-of-type, [role="main"] > div:first-of-type, body > section:first-of-type, section:first-of-type'
-          : 'section';
-        const effectiveSelector = sourceSelector || defaultSelector;
-        const snapTarget = $snap(effectiveSelector).first();
-        if (snapTarget.length > 0) {
-          const snapMenus = snapTarget.find('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
+        const resolvedTarget = resolveTargetSectionFromSnapshot($snap, targetArchetypeHint, sourceSelector);
+        if (resolvedTarget && resolvedTarget.length > 0) {
+          const snapMenus = resolvedTarget.find('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
           const $cur = cheerio.load(sectionHtml || '');
           const curMenus = $cur('[role="menu"], [data-baseweb="menu"], [class*="menu"], [class*="dropdown"], [class*="submenu"]').length;
-          if (snapMenus > curMenus) {
-            sectionHtml = $snap.html(snapTarget) || sectionHtml;
+          const curText = $cur.text().trim();
+          const curMedia = $cur('img, video, picture, canvas, svg').length;
+
+          // If current sectionHtml is empty, lacks content, or snapshot has richer menus/structure
+          if (!sectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus) {
+            sectionHtml = $snap.html(resolvedTarget) || sectionHtml;
           }
         }
 
         // Universal Portal & Navigation Drawer Enrichment:
         // When reconstructing a navbar/header, look for associated portal drawers, dialogs, and language pickers
-        if (targetArchetypeHint === 'navbar' || effectiveSelector.includes('nav') || effectiveSelector.includes('header')) {
+        if (targetArchetypeHint === 'navbar' || (sourceSelector && (sourceSelector.includes('nav') || sourceSelector.includes('header')))) {
           const associatedDrawers = $snap(
             '[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]'
           );

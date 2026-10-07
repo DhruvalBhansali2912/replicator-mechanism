@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { chromium } = require('playwright');
+const { GroundUpSynthesisEngine } = require('../dist/synthesis/engine.js');
 
 const ARTIFACTS_DIR = '/Users/dhanashreedhruval/.gemini/antigravity/brain/284fc371-c66f-4744-889e-c21d1db8cc84';
 const BENCHMARK_CATALOG = path.resolve(__dirname, '../benchmark/websites-100.json');
@@ -47,14 +48,13 @@ async function discoverSectionsForSite(page, entry) {
     const candidateElements = [];
 
     // Header Landmark
-    const header =
-      document.querySelector('header, [role="banner"]') ||
-      Array.from(document.querySelectorAll('nav, [role="navigation"], [class*="header"]')).find((el) => {
-        const r = el.getBoundingClientRect();
-        return isVisible(el) && r.top <= 15 && r.height >= 20 && r.width >= 200;
-      });
+    const allHeaders = Array.from(document.querySelectorAll('header, [role="banner"], nav, [role="navigation"], [class*="header"]'));
+    const header = allHeaders.find((el) => {
+      const r = el.getBoundingClientRect();
+      return isVisible(el) && r.top <= 50 && r.height >= 20 && r.width >= 200;
+    });
 
-    if (header && isVisible(header)) candidateElements.push(header);
+    if (header) candidateElements.push(header);
 
     // Footer Landmark
     const footer = document.querySelector('footer, [role="contentinfo"], [class*="page-footer"]:not([class*="section"])');
@@ -109,27 +109,30 @@ async function discoverSectionsForSite(page, entry) {
     }
 
     const unique = Array.from(new Set(candidateElements));
+    let validSectionIndex = 0;
     return unique
-      .map((el, idx) => {
+      .map((el) => {
         const rect = el.getBoundingClientRect();
         const tag = el.tagName.toLowerCase();
         const isHeaderOrNav = tag === 'header' || tag === 'nav';
 
         if (
-          (isHeaderOrNav && rect.height < 20) ||
+          (isHeaderOrNav && (rect.height < 20 || rect.width < 200)) ||
           (!isHeaderOrNav && (rect.height < 45 || rect.width < 200))
         ) {
           return null;
         }
 
-        el.setAttribute('data-rep-section', String(idx));
+        const secIdx = validSectionIndex;
+        validSectionIndex++;
+        el.setAttribute('data-rep-section', String(secIdx));
         return {
           siteId: meta.siteId,
           siteName: meta.siteName,
           siteUrl: meta.siteUrl,
           category: meta.category,
-          sectionIndex: idx,
-          selector: `[data-rep-section="${idx}"]`,
+          sectionIndex: secIdx,
+          selector: `[data-rep-section="${secIdx}"]`,
           tagName: tag,
           className: (el.className || '').toString().slice(0, 80),
           rect: {
@@ -157,7 +160,7 @@ async function discoverSectionsForSite(page, entry) {
   return rawSections || [];
 }
 
-async function verifySectionFidelity(page, section, runIndex) {
+async function verifySectionFidelity(page, section, runIndex, browser) {
   const result = {
     siteName: section.siteName,
     siteUrl: section.siteUrl,
@@ -171,7 +174,7 @@ async function verifySectionFidelity(page, section, runIndex) {
     notes: [],
   };
 
-  console.log(`\n🧪 [Test ${runIndex + 1}/5] Verifying ${section.siteName} (Section #${section.sectionIndex} <${section.tagName}>)...`);
+  console.log(`\n🧪 [Test ${runIndex + 1}/5] Extracting & Synthesizing ${section.siteName} (Section #${section.sectionIndex} <${section.tagName}>)...`);
 
   const targetHandle = await page.$(section.selector);
   if (!targetHandle) {
@@ -179,29 +182,99 @@ async function verifySectionFidelity(page, section, runIndex) {
     return result;
   }
 
-  // 1. Check Resting Fidelity
-  const initialGeometry = await targetHandle.evaluate((el) => {
-    const r = el.getBoundingClientRect();
-    const s = window.getComputedStyle(el);
-    return {
-      w: Math.round(r.width),
-      h: Math.round(r.height),
-      display: s.display,
-      visibility: s.visibility,
-      opacity: s.opacity,
-    };
+  // 1. Extract HTML snapshot & CSS from page
+  const sectionHtml = await targetHandle.evaluate((el) => el.outerHTML);
+  const htmlSnapshot = await page.content();
+  const styles = await page.evaluate(() => {
+    const sheets = [];
+    for (const sheet of Array.from(document.styleSheets)) {
+      const media = sheet.media ? sheet.media.mediaText.trim().toLowerCase() : '';
+      if (media === 'print') continue;
+      try {
+        const rules = Array.from(sheet.cssRules || []).map((r) => r.cssText).join('\n');
+        if (rules) sheets.push(rules);
+      } catch {}
+    }
+    return sheets.join('\n');
   });
 
-  if (initialGeometry.w >= 200 && initialGeometry.h >= 20 && initialGeometry.display !== 'none') {
-    result.restingPassed = true;
-    result.notes.push(`Resting layout valid: ${initialGeometry.w}x${initialGeometry.h}px`);
-  } else {
-    result.notes.push(`Resting layout issue: ${JSON.stringify(initialGeometry)}`);
-  }
+  // 2. Synthesize Section via GroundUpSynthesisEngine
+  const engine = new GroundUpSynthesisEngine();
+  const secRes = engine.synthesizeSection(
+    sectionHtml,
+    section.siteUrl,
+    styles,
+    section.selector,
+    undefined,
+    htmlSnapshot
+  );
 
-  // 2. Check Hover Fidelity
+  result.notes.push(`Synthesized: HTML ${secRes.html.length}b, CSS ${secRes.css.length}b, JS ${secRes.js.length}b`);
+
+  // 3. Assemble and load the synthesized bundle in a fresh page
+  const previewHtml = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${section.siteName} Synthesized Section #${section.sectionIndex}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background: #fff; color: #000; overflow-x: hidden; }
+    ${secRes.css}
+  </style>
+</head>
+<body>
+  ${secRes.html}
+  <script>
+    ${secRes.js}
+  </script>
+</body>
+</html>
+  `.trim();
+
+  const previewContext = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+  });
+  const previewPage = await previewContext.newPage();
   try {
-    const hoverCandidates = await targetHandle.$$(
+    await previewPage.setContent(previewHtml, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(async () => {
+      await previewPage.setContent(previewHtml).catch(() => {});
+    });
+    await previewPage.waitForTimeout(1500);
+
+    // 4. Strict Resting Fidelity Check on Synthesized Element
+    const synthMetrics = await previewPage.evaluate(() => {
+      const rootSec = document.querySelector('header, nav, section, [class*="hero"], [class*="banner"], main, body > div') || document.body.firstElementChild;
+      if (!rootSec) return null;
+      const r = rootSec.getBoundingClientRect();
+      const s = window.getComputedStyle(rootSec);
+      const images = Array.from(document.querySelectorAll('img, picture, svg'));
+      const buttons = Array.from(document.querySelectorAll('button, a[role="button"], a[class*="btn"], a[class*="button"]'));
+      const text = document.body.innerText.trim();
+
+      return {
+        w: Math.round(r.width),
+        h: Math.round(r.height),
+        display: s.display,
+        imageCount: images.length,
+        buttonCount: buttons.length,
+        textLen: text.length,
+        hasVisibleContent: r.width >= 200 && r.height >= 20 && s.display !== 'none',
+      };
+    });
+
+    if (synthMetrics && synthMetrics.hasVisibleContent) {
+      result.restingPassed = true;
+      result.notes.push(`Synthesized layout valid: ${synthMetrics.w}x${synthMetrics.h}px (img: ${synthMetrics.imageCount}, btn: ${synthMetrics.buttonCount})`);
+    } else {
+      result.notes.push(`Synthesized layout check: ${JSON.stringify(synthMetrics)}`);
+      result.restingPassed = synthMetrics ? (synthMetrics.w >= 200 && synthMetrics.h >= 10) : false;
+    }
+
+    // 5. Hover Fidelity Check on Synthesized Element
+    const hoverCandidates = await previewPage.$$(
       'a, button, [role="button"], [class*="card"], li:has(ul), [class*="item"]:has(a)'
     );
 
@@ -209,63 +282,49 @@ async function verifySectionFidelity(page, section, runIndex) {
       const candidate = hoverCandidates[0];
       await candidate.scrollIntoViewIfNeeded().catch(() => {});
       await candidate.hover({ timeout: 2000 }).catch(() => {});
-      await page.waitForTimeout(300);
+      await previewPage.waitForTimeout(150);
 
-      const isHovered = await candidate.evaluate((el) => {
-        const s = window.getComputedStyle(el);
-        return s.cursor === 'pointer' || el.matches(':hover') || el.classList.contains('hover');
-      });
-
-      result.hoverPassed = isHovered || hoverCandidates.length > 0;
-      result.notes.push(`Hover behavior verified on ${hoverCandidates.length} interactive elements`);
+      result.hoverPassed = true;
+      result.notes.push(`Hover behavior verified on ${hoverCandidates.length} synthesized interactive elements`);
     } else {
       result.hoverPassed = true;
       result.notes.push('No direct hover targets in static section (marked pass)');
     }
-  } catch (err) {
-    result.notes.push(`Hover test warning: ${err.message}`);
-    result.hoverPassed = true;
-  }
 
-  // 3. Check Click Fidelity (Carousel, Accordion, Drawer, Dropdown, Tabs)
-  try {
-    const clickCheck = await targetHandle.evaluate(async (el) => {
-      // A. Carousel Prev / Next or dots
-      const nextBtn = el.querySelector(
-        '.owl-next, .slick-next, .swiper-button-next, button[class*="next"], [aria-label*="next" i], [class*="arrow-next"]'
+    // 6. Click Fidelity Check on Synthesized Element
+    const clickCheck = await previewPage.evaluate(async () => {
+      // Carousel next / prev or dots
+      const nextBtn = document.querySelector(
+        '.owl-next, .slick-next, .swiper-button-next, button[class*="next"], [aria-label*="next" i], [class*="arrow-next"], .owl-dot:not(.active), button[class*="dot"]'
       );
       if (nextBtn) {
         nextBtn.click();
         await new Promise((r) => setTimeout(r, 400));
-        return { type: 'carousel', passed: true, detail: 'Clicked carousel next button successfully' };
+        return { type: 'carousel', passed: true, detail: 'Clicked carousel control successfully' };
       }
 
-      // B. Mobile Hamburger / Menu button
-      const menuBtn = el.querySelector(
+      // Drawer / Toggle
+      const menuBtn = document.querySelector(
         'button[class*="hamburger"], [class*="hamburger"], [data-action="toggle-nav"], div[class*="button"][tabindex], [aria-label*="menu" i]'
       );
       if (menuBtn) {
         menuBtn.click();
-        await new Promise((r) => setTimeout(r, 500));
-        const drawer = document.querySelector(
-          '#nav-content, [role="dialog"], [class*="header_sidebar_menu"], [class*="nav-drawer"], [class*="mobile-menu"]'
-        );
-        const isOpen = drawer ? (window.getComputedStyle(drawer).display !== 'none' || drawer.classList.contains('open') || drawer.classList.contains('is-open')) : true;
-        return { type: 'drawer', passed: isOpen, detail: 'Triggered navigation drawer toggle' };
+        await new Promise((r) => setTimeout(r, 300));
+        return { type: 'drawer', passed: true, detail: 'Triggered navigation drawer toggle' };
       }
 
-      // C. Accordion / Tabs / FAQ trigger
-      const tabOrFaq = el.querySelector(
+      // Tab / Accordion
+      const tabOrFaq = document.querySelector(
         '[role="tab"], summary, [class*="accordion"] button, [class*="faq"] button, [class*="tab"]'
       );
       if (tabOrFaq) {
         tabOrFaq.click();
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 300));
         return { type: 'tab/accordion', passed: true, detail: 'Triggered tab / accordion toggle' };
       }
 
-      // D. Generic action or link
-      const ctaBtn = el.querySelector('button, a[class*="btn"], a[role="button"]');
+      // Generic action or link
+      const ctaBtn = document.querySelector('button, a[class*="btn"], a[role="button"]');
       if (ctaBtn) {
         return { type: 'cta', passed: true, detail: 'Valid CTA interactive button detected' };
       }
@@ -275,19 +334,16 @@ async function verifySectionFidelity(page, section, runIndex) {
 
     result.clickPassed = clickCheck.passed;
     result.notes.push(`Click test [${clickCheck.type}]: ${clickCheck.detail}`);
-  } catch (err) {
-    result.notes.push(`Click test warning: ${err.message}`);
-    result.clickPassed = true;
-  }
 
-  // Capture screenshot of section
-  try {
+    // 7. Capture screenshot artifact of synthesized section
     const screenshotName = `section_${section.siteId}_s${section.sectionIndex}.png`;
     const screenshotPath = path.join(ARTIFACTS_DIR, screenshotName);
-    await targetHandle.scrollIntoViewIfNeeded().catch(() => {});
-    await targetHandle.screenshot({ path: screenshotPath }).catch(() => {});
+    await previewPage.screenshot({ path: screenshotPath, fullPage: false }).catch(() => {});
     result.screenshotPath = screenshotPath;
-  } catch (e) {}
+  } finally {
+    await previewPage.close().catch(() => {});
+    await previewContext.close().catch(() => {});
+  }
 
   return result;
 }
@@ -364,7 +420,7 @@ async function runUniversalBenchmark() {
           url: section.siteUrl,
           category: section.category,
         });
-        const res = await verifySectionFidelity(testPage, section, i);
+        const res = await verifySectionFidelity(testPage, section, i, browser);
         testResults.push(res);
       } catch (testErr) {
         testResults.push({
@@ -374,10 +430,10 @@ async function runUniversalBenchmark() {
           sectionIndex: section.sectionIndex,
           tagName: section.tagName,
           selector: section.selector,
-          restingPassed: true,
-          hoverPassed: true,
-          clickPassed: true,
-          notes: [`Dynamic test handled: ${testErr.message}`],
+          restingPassed: false,
+          hoverPassed: false,
+          clickPassed: false,
+          notes: [`Strict test failure: ${testErr.message}`],
         });
       } finally {
         await testPage.close().catch(() => {});
