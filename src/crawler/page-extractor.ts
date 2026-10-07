@@ -109,7 +109,20 @@ export class PageExtractor {
     const totalCandidates = candidateElements.length;
 
     candidateElements.each((i, el) => {
-      const secHtml = $.html(el);
+      let secHtml = $.html(el);
+      if (isNavbarTarget && i === 0) {
+        const associatedDrawers = $(
+          '[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]'
+        );
+        if (associatedDrawers.length > 0) {
+          associatedDrawers.each((_, drw) => {
+            const drwHtml = $.html(drw);
+            if (drwHtml && !secHtml.includes(drwHtml)) {
+              secHtml += '\n' + drwHtml;
+            }
+          });
+        }
+      }
       if (secHtml && secHtml.length > 80) {
         const tag = (el as any).tagName ? (el as any).tagName.toLowerCase() : 'section';
         const meta = this.classifier.classify({

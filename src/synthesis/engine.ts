@@ -49,6 +49,22 @@ export class GroundUpSynthesisEngine {
             sectionHtml = $snap.html(snapTarget) || sectionHtml;
           }
         }
+
+        // Universal Portal & Navigation Drawer Enrichment:
+        // When reconstructing a navbar/header, look for associated portal drawers, dialogs, and language pickers
+        if (targetArchetypeHint === 'navbar' || effectiveSelector.includes('nav') || effectiveSelector.includes('header')) {
+          const associatedDrawers = $snap(
+            '[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]'
+          );
+          if (associatedDrawers.length > 0) {
+            associatedDrawers.each((_, drw) => {
+              const drwHtml = $snap.html(drw);
+              if (drwHtml && !sectionHtml.includes(drwHtml)) {
+                sectionHtml += '\n' + drwHtml;
+              }
+            });
+          }
+        }
       } catch {}
     }
 

@@ -407,6 +407,22 @@ export class JobQueue {
               targetSectionHtml = $snap.html(snapTarget) || targetSectionHtml;
             }
           }
+
+          // Universal Portal & Navigation Drawer Enrichment:
+          // When reconstructing a navbar/header, look for associated portal drawers, dialogs, and language pickers
+          if (options.targetArchetype === 'navbar' || effectiveSelector.includes('nav') || effectiveSelector.includes('header')) {
+            const associatedDrawers = $snap(
+              '[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]'
+            );
+            if (associatedDrawers.length > 0) {
+              associatedDrawers.each((_, drw) => {
+                const drwHtml = $snap.html(drw);
+                if (drwHtml && targetSectionHtml && !targetSectionHtml.includes(drwHtml)) {
+                  targetSectionHtml += '\n' + drwHtml;
+                }
+              });
+            }
+          }
         } catch {}
       }
 

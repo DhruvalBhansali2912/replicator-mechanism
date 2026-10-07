@@ -589,7 +589,18 @@ export class HtmlSynthesizer {
           }
         }
         if (targetEl && targetEl.length > 0) {
-          $.root().children().not(targetEl).remove();
+          const isNavHeader = ast.archetype === 'navbar' || targetEl.is('header, nav, [role="banner"], [role="navigation"]');
+          $.root().children().not(targetEl).each((_, sib) => {
+            const $sib = $(sib);
+            if (isNavHeader && (
+              $sib.is('dialog, [role="dialog"], [data-testid*="drawer"], [data-testid*="modal"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]') ||
+              $sib.find('dialog, [role="dialog"], [data-testid*="drawer"], [data-baseweb="drawer"], [data-baseweb="modal"], [lang]').length > 0
+            )) {
+              // Preserve associated navigation dialogs and drawers
+              return;
+            }
+            $sib.remove();
+          });
         }
       }
     }

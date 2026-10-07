@@ -2582,6 +2582,32 @@ div:has(> [aria-expanded="true"]) {
   overflow: visible !important;
 }
 
+/* Universal Detached Modal & Drawer Overlay */
+[data-testid*="drawer"].is-open,
+[data-testid*="drawer"].open,
+[role="dialog"].is-open,
+[role="dialog"].open,
+[data-baseweb="drawer"].is-open,
+[data-baseweb="drawer"].open {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #ffffff !important;
+  z-index: 99999 !important;
+  overflow-y: auto !important;
+}
+[data-testid*="drawer"]:not(.is-open):not(.open),
+[data-baseweb="drawer"]:not(.is-open):not(.open),
+[role="dialog"]:not(.is-open):not(.open):not([open]) {
+  display: none;
+}
+
 /* Universal popovers / dropdowns controlled by a closed trigger (resting state only, never blocking hover) */
 [aria-expanded="false"]:not(:hover) + [class*="dropdown"]:not(button):not(a):not(:hover),
 [aria-expanded="false"]:not(:hover) + [class*="submenu"]:not(button):not(a):not(:hover),

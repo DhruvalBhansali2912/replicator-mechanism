@@ -2319,6 +2319,29 @@ export class JsSynthesizer {
         return nextSib.querySelector('[role="menu"], [data-baseweb="menu"]') || nextSib;
       }
     }
+
+    // Detached / Portal Drawer, Modal, or Dialog resolution:
+    const trgText = (trigger.innerText || '').toLowerCase().trim();
+    const trgLabel = (trigger.getAttribute('aria-label') || trigger.getAttribute('title') || '').toLowerCase();
+    const isLangTrigger = ['language', 'locale', 'region', 'country', 'globe'].some(function(k) {
+      return trgLabel.includes(k) || trgText.includes(k);
+    }) || trgText === 'en' || !!trigger.querySelector('svg, .icon, [class*="globe"]');
+
+    if (isLangTrigger && (trigger.hasAttribute('aria-haspopup') || trigger.hasAttribute('aria-expanded') || trigger.tagName === 'BUTTON')) {
+      const langDrawer = (scope || document).querySelector(
+        '[data-testid*="drawer"]:has([lang]), [data-testid*="drawer"]:has([class*="language"]), [data-testid*="drawer"]:has(h2), [role="dialog"]:has([lang]), [class*="drawer"]:has([lang]), [data-testid="desktop-content-drawer"]'
+      ) || document.querySelector(
+        '[data-testid*="drawer"]:has([lang]), [data-testid*="drawer"]:has([class*="language"]), [data-testid*="drawer"]:has(h2), [role="dialog"]:has([lang]), [class*="drawer"]:has([lang]), [data-testid="desktop-content-drawer"]'
+      );
+      if (langDrawer) return langDrawer;
+    }
+
+    if (trigger.hasAttribute('aria-haspopup') || trigger.getAttribute('data-toggle') === 'modal') {
+      const genericDrawer = (scope || document).querySelector('[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"]') ||
+                            document.querySelector('[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"]');
+      if (genericDrawer && genericDrawer !== trigger && !trigger.contains(genericDrawer)) return genericDrawer;
+    }
+
     return null;
   }
 
@@ -2353,54 +2376,103 @@ export class JsSynthesizer {
       }
     }
     if (panel) {
-      // Toggle panel and all intermediate container wrappers between parentBox and panel
-      const elementsToToggle = [panel];
-      let anc = panel.parentElement;
-      while (anc && anc !== parentBox && anc !== document.body) {
-        elementsToToggle.push(anc);
-        anc = anc.parentElement;
-      }
+      const isDrawer = panel.matches('[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [class*="drawer"], [class*="modal"]') ||
+                       !!panel.querySelector('[data-testid*="drawer"], [role="dialog"]');
 
-      elementsToToggle.forEach(function(el) {
+      if (isDrawer) {
+        panel.classList.toggle('is-open', open);
+        panel.classList.toggle('open', open);
         if (open) {
-          el.classList.add('is-open', 'open', 'show', 'active');
-          el.style.removeProperty('display');
-          el.style.removeProperty('opacity');
-          el.style.removeProperty('visibility');
-          el.style.removeProperty('pointer-events');
-          el.style.removeProperty('transform');
-          if (window.getComputedStyle(el).display === 'none') {
-            el.style.setProperty('display', 'block', 'important');
-          }
-          if (window.getComputedStyle(el).visibility === 'hidden') {
-            el.style.setProperty('visibility', 'visible', 'important');
-          }
-          if (window.getComputedStyle(el).opacity === '0') {
-            el.style.setProperty('opacity', '1', 'important');
-          }
-          const cs = window.getComputedStyle(el);
-          if (cs.position === 'static') {
-            el.style.setProperty('position', 'absolute', 'important');
-            el.style.setProperty('top', '100%', 'important');
-            const triggerRect = trigger.getBoundingClientRect();
-            if (triggerRect.right > window.innerWidth * 0.75) {
-              el.style.setProperty('right', '0', 'important');
-              el.style.setProperty('left', 'auto', 'important');
-            } else {
-              el.style.setProperty('left', '0', 'important');
-              el.style.setProperty('right', 'auto', 'important');
+          panel.style.setProperty('display', 'block', 'important');
+          panel.style.setProperty('visibility', 'visible', 'important');
+          panel.style.setProperty('opacity', '1', 'important');
+          panel.style.setProperty('pointer-events', 'auto', 'important');
+          panel.style.setProperty('position', 'fixed', 'important');
+          panel.style.setProperty('top', '0', 'important');
+          panel.style.setProperty('left', '0', 'important');
+          panel.style.setProperty('width', '100vw', 'important');
+          panel.style.setProperty('height', '100vh', 'important');
+          panel.style.setProperty('background', '#ffffff', 'important');
+          panel.style.setProperty('z-index', '99999', 'important');
+          panel.style.setProperty('overflow-y', 'auto', 'important');
+
+          panel.querySelectorAll('.is-open, [class*="css-"], div, section').forEach(function(el) {
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none') el.style.setProperty('display', 'block', 'important');
+            if (cs.visibility === 'hidden') el.style.setProperty('visibility', 'visible', 'important');
+          });
+
+          panel.querySelectorAll('button[aria-label*="close" i], button[aria-label="Close"], .close, [class*="close"]').forEach(function(closeBtn) {
+            closeBtn.onclick = function(e) {
+              e.stopPropagation();
+              e.preventDefault();
+              setDropdownVisible(trigger, false);
+            };
+          });
+
+          const escHandler = function(e) {
+            if (e.key === 'Escape') {
+              setDropdownVisible(trigger, false);
+              window.removeEventListener('keydown', escHandler);
             }
-          }
-          el.style.setProperty('pointer-events', 'auto', 'important');
-          el.style.setProperty('z-index', '1000', 'important');
+          };
+          window.addEventListener('keydown', escHandler);
+          document.body.style.setProperty('overflow', 'hidden');
         } else {
-          el.classList.remove('is-open', 'open', 'show', 'active');
-          el.style.setProperty('display', 'none', 'important');
-          el.style.setProperty('opacity', '0', 'important');
-          el.style.setProperty('visibility', 'hidden', 'important');
-          el.style.setProperty('pointer-events', 'none', 'important');
+          panel.style.setProperty('display', 'none', 'important');
+          panel.style.setProperty('visibility', 'hidden', 'important');
+          document.body.style.removeProperty('overflow');
         }
-      });
+      } else {
+        // Toggle panel and all intermediate container wrappers between parentBox and panel
+        const elementsToToggle = [panel];
+        let anc = panel.parentElement;
+        while (anc && anc !== parentBox && anc !== document.body) {
+          elementsToToggle.push(anc);
+          anc = anc.parentElement;
+        }
+
+        elementsToToggle.forEach(function(el) {
+          if (open) {
+            el.classList.add('is-open', 'open', 'show', 'active');
+            el.style.removeProperty('display');
+            el.style.removeProperty('opacity');
+            el.style.removeProperty('visibility');
+            el.style.removeProperty('pointer-events');
+            el.style.removeProperty('transform');
+            if (window.getComputedStyle(el).display === 'none') {
+              el.style.setProperty('display', 'block', 'important');
+            }
+            if (window.getComputedStyle(el).visibility === 'hidden') {
+              el.style.setProperty('visibility', 'visible', 'important');
+            }
+            if (window.getComputedStyle(el).opacity === '0') {
+              el.style.setProperty('opacity', '1', 'important');
+            }
+            const cs = window.getComputedStyle(el);
+            if (cs.position === 'static') {
+              el.style.setProperty('position', 'absolute', 'important');
+              el.style.setProperty('top', '100%', 'important');
+              const triggerRect = trigger.getBoundingClientRect();
+              if (triggerRect.right > window.innerWidth * 0.75) {
+                el.style.setProperty('right', '0', 'important');
+                el.style.setProperty('left', 'auto', 'important');
+              } else {
+                el.style.setProperty('left', '0', 'important');
+                el.style.setProperty('right', 'auto', 'important');
+              }
+            }
+            el.style.setProperty('pointer-events', 'auto', 'important');
+            el.style.setProperty('z-index', '1000', 'important');
+          } else {
+            el.classList.remove('is-open', 'open', 'show', 'active');
+            el.style.setProperty('display', 'none', 'important');
+            el.style.setProperty('opacity', '0', 'important');
+            el.style.setProperty('visibility', 'hidden', 'important');
+            el.style.setProperty('pointer-events', 'none', 'important');
+          }
+        });
+      }
 
       if (open) {
         panel.querySelectorAll('[role="menu"], [data-baseweb="menu"], ul').forEach(function(m) {
