@@ -312,8 +312,10 @@ export class JsSynthesizer {
   // Navigation & Dropdown Mega-Menu Controller
   const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header, #globalnav');
   const menuBtn = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], button[class*="menu-btn" i], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i]'
-  )).find(function(el) {
+    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], button[class*="menu-btn" i], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"]'
+  )).map(function(el) {
+    return el.classList.contains('icon-bar') ? (el.closest('div[tabindex], button, [role="button"], a') || el) : el;
+  }).find(function(el) {
     const cls = (el.className || '').toLowerCase();
     const lbl = (el.getAttribute('aria-label') || '').toLowerCase();
     const parentCls = (el.parentElement ? el.parentElement.className : '').toLowerCase();
@@ -328,12 +330,12 @@ export class JsSynthesizer {
   }
   if (!drawer && navRoot) {
     drawer = navRoot.querySelector(
-      '[role="dialog"], [role="navigation"], [id*="mobile-menu" i], [class*="mobile-menu" i], [class*="menu-drawer" i], [class*="mobile-nav" i], [class*="drawer" i], [class*="sidebar" i], [class*="nav-drawer" i]'
+      '[role="dialog"], [role="navigation"], [id*="mobile-menu" i], [class*="mobile-menu" i], [class*="menu-drawer" i], [class*="mobile-nav" i], [class*="drawer" i], [class*="sidebar" i], [class*="nav-drawer" i], #nav-content, [class*="header_sidebar_menu"], [class*="nav-sections"]'
     );
   }
   if (!drawer) {
     drawer = document.querySelector(
-      '[role="dialog"][class*="menu" i], [role="dialog"][id*="menu" i], [id*="mobile-menu" i], [class*="mobile-menu" i], [class*="menu-drawer" i], [class*="drawer" i], [class*="sidebar" i], [class*="mobile-nav" i]'
+      '[role="dialog"][class*="menu" i], [role="dialog"][id*="menu" i], [id*="mobile-menu" i], [class*="mobile-menu" i], [class*="menu-drawer" i], [class*="drawer" i], [class*="sidebar" i], [class*="mobile-nav" i], #nav-content, [class*="header_sidebar_menu"], [class*="nav-sections"]'
     );
   }
   const menuBackBtn = navRoot ? navRoot.querySelector('.globalnav-menuback-button, [class*="menuback"]') : null;
@@ -605,7 +607,8 @@ export class JsSynthesizer {
       }
       drawer.style.display = '';
       if (drawer.getAttribute('data-offscreen-offset')) {
-        drawer.style.transform = '';
+        drawer.style.removeProperty('transform');
+        drawer.style.removeProperty('left');
         drawer.removeAttribute('data-offscreen-offset');
       }
       applyFrameworkStateClasses(drawer, false);
@@ -695,12 +698,10 @@ export class JsSynthesizer {
           // Viewport geometry safety net: If drawer is positioned offscreen by CSS transforms or offsets, bring it on-screen
           try {
             const rect = drawer.getBoundingClientRect();
-            if (rect.left >= window.innerWidth) {
-              drawer.setAttribute('data-offscreen-offset', 'right');
-              drawer.style.transform = 'translateX(-100%)';
-            } else if (rect.right <= 0) {
-              drawer.setAttribute('data-offscreen-offset', 'left');
-              drawer.style.transform = 'translateX(100%)';
+            if (rect.left >= window.innerWidth || rect.right <= 0 || drawer.id === 'nav-content' || (drawer.className || '').includes('header_sidebar_menu')) {
+              drawer.setAttribute('data-offscreen-offset', 'active');
+              drawer.style.setProperty('transform', 'translateX(0px)', 'important');
+              drawer.style.setProperty('left', '0px', 'important');
             }
           } catch (_) {}
         }
@@ -718,7 +719,7 @@ export class JsSynthesizer {
 
   // Bind close buttons inside drawer
   const drawerCloseBtns = drawer ? Array.from(drawer.querySelectorAll(
-    'button[class*="close" i], button[aria-label*="close" i], [class*="closeButton" i], [class*="close-button" i], .close-btn, [id*="close" i]'
+    'button[class*="close" i], button[aria-label*="close" i], [class*="closeButton" i], [class*="close-button" i], .close-btn, [id*="close" i], [class*="menu_close"], [class*="menu-close"], [class*="nav-close"], a[class*="close" i]'
   )) : [];
   drawerCloseBtns.forEach(function(cb) {
     if (cb.hasAttribute('data-close-bound')) return;
@@ -1562,18 +1563,21 @@ export class JsSynthesizer {
   // Universal Carousel: Transform/Translate, Horizontal Scroll-Snap & Stacked Slide Controllers
   const sectionScope = document.getElementById('${ast.id}') || document.querySelector('section, [class*="hero"], [class*="carousel"]') || document;
 
-  // 1. Detect Universal Transform / Translate Slider (Swiper, Slick, Glide, Splide, Embla, CSS transform tracks)
+  // 1. Detect Universal Transform / Translate Slider (Swiper, Slick, OwlCarousel, Glide, Splide, Embla, CSS transform tracks)
   const transformTrack = (function() {
     const std = sectionScope.querySelector(
       '.swiper-wrapper, ' +
       '.slick-track, ' +
+      '.owl-stage, ' +
       '.glide__slides, ' +
       '.splide__list, ' +
       '[class*="slider-track"], ' +
       '[class*="slides-wrapper"], ' +
       '[class*="carousel-wrapper"], ' +
       '[class*="slider__wrapper"], ' +
-      '[class*="carousel__track"]'
+      '[class*="carousel__track"], ' +
+      '[class*="mgz-carousel"] .owl-stage, ' +
+      '[class*="slick-slider"] .slick-track'
     );
     if (std) return std;
 
@@ -1603,7 +1607,7 @@ export class JsSynthesizer {
       const kids = Array.from(el.children);
       return kids.length > 1 && kids.some(function(k) {
         const kCls = (typeof k.className === 'string' ? k.className : (k.getAttribute && k.getAttribute('class')) || '').toLowerCase();
-        return kCls.includes('slide');
+        return kCls.includes('slide') || kCls.includes('owl-item');
       });
     }) || null;
   })();
@@ -1611,7 +1615,7 @@ export class JsSynthesizer {
   if (transformTrack) {
     const allSlides = Array.from(transformTrack.children).filter(function(el) {
       const elCls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
-      return el.nodeType === 1 && (el.offsetWidth > 0 || elCls.includes('slide') || el.children.length > 0);
+      return el.nodeType === 1 && (el.offsetWidth > 0 || elCls.includes('slide') || elCls.includes('owl-item') || el.children.length > 0);
     });
 
     const nonDupSlides = allSlides.filter(function(s) {
@@ -1626,6 +1630,10 @@ export class JsSynthesizer {
       'button[class*="bar"], ' +
       'button[class*="bullet"], ' +
       'button[class*="dot"], ' +
+      '.owl-dot, ' +
+      '.owl-dots button, ' +
+      '.slick-dots li, ' +
+      '.slick-dots button, ' +
       'button[class*="indicator"], ' +
       '.swiper-pagination-bullet, ' +
       '[class*="pagination"] button, ' +
@@ -1638,7 +1646,7 @@ export class JsSynthesizer {
 
     // Previous and Next buttons (query ALL matching buttons so both desktop & mobile controls are wired)
     const prevBtns = Array.from(sectionScope.querySelectorAll(
-      'button[class*="prev"], [class*="navigator__button--prev"], .swiper-button-prev, .slick-prev, [class*="arrow-prev"], [aria-label*="prev" i], [class*="indicator--prev"], [class*="indicator__arrow"][class*="prev"], button[data-testid*="prev" i], button[data-testid*="previous" i], button[aria-label*="left" i]'
+      'button[class*="prev"], .owl-prev, [class*="owl-prev"], [class*="navigator__button--prev"], .swiper-button-prev, .slick-prev, [class*="arrow-prev"], [aria-label*="prev" i], [class*="indicator--prev"], [class*="indicator__arrow"][class*="prev"], button[data-testid*="prev" i], button[data-testid*="previous" i], button[aria-label*="left" i]'
     )).concat(Array.from(sectionScope.querySelectorAll('button[aria-controls]')).filter(function(b) {
       const txt = (b.textContent || '').toLowerCase();
       const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
@@ -1647,7 +1655,7 @@ export class JsSynthesizer {
     })).filter(function(b, idx, arr) { return arr.indexOf(b) === idx; });
 
     const nextBtns = Array.from(sectionScope.querySelectorAll(
-      'button[class*="next"], [class*="navigator__button--next"], .swiper-button-next, .slick-next, [class*="arrow-next"], [aria-label*="next" i], [class*="indicator--next"], [class*="indicator__arrow"][class*="next"], button[data-testid*="next" i], button[aria-label*="right" i]'
+      'button[class*="next"], .owl-next, [class*="owl-next"], [class*="navigator__button--next"], .swiper-button-next, .slick-next, [class*="arrow-next"], [aria-label*="next" i], [class*="indicator--next"], [class*="indicator__arrow"][class*="next"], button[data-testid*="next" i], button[aria-label*="right" i]'
     )).concat(Array.from(sectionScope.querySelectorAll('button[aria-controls]')).filter(function(b) {
       const txt = (b.textContent || '').toLowerCase();
       const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
@@ -1796,9 +1804,16 @@ export class JsSynthesizer {
         const isVisible = (sLeft >= offset - 5) && (sLeft < offset + containerWidth - 5);
         s.classList.toggle('swiper-slide-active', isActive);
         s.classList.toggle('is-active', isActive);
-        if ((s.className || '').includes('recommended-product-carousel__item')) {
-          s.classList.add('co78-recommended-product-carousel--active');
-        }
+        s.classList.toggle('active', isActive);
+        s.classList.toggle('slick-active', isActive);
+        s.classList.toggle('slick-current', isActive);
+        // Universal BEM modifier reflection: reflect active state to any element-specific active modifier
+        Array.from(s.classList).forEach(function(c) {
+          if (c.endsWith('--item') || c.endsWith('__item') || c.endsWith('-item')) {
+            const activeMod = c.replace(/[-_]item$/, '') + (c.includes('--') ? '--active' : '-active');
+            s.classList.toggle(activeMod, isActive);
+          }
+        });
         s.setAttribute('aria-hidden', String(!isVisible));
       });
 

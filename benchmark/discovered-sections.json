@@ -1,0 +1,818 @@
+[
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 0,
+    "selector": "[data-rep-section=\"0\"]",
+    "tagName": "header",
+    "className": "page-header",
+    "rect": {
+      "x": 0,
+      "y": 25,
+      "width": 1440,
+      "height": 25
+    },
+    "htmlSnippet": "<header class=\"page-header\" data-rep-section=\"0\"><div class=\"panel wrapper\"><div class=\"panel header\"> <a class=\"action skip contentarea\" href=\"#contentarea\"><span> Skip to Content</span></a>  <ul class=\"header links\">  <li class=\"greet welcome\" data"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 1,
+    "selector": "[data-rep-section=\"1\"]",
+    "tagName": "div",
+    "className": "pkxcesb mgz-element mgz-element-row home_banner_section s1_gen_pro_banner home_b",
+    "rect": {
+      "x": 0,
+      "y": 1,
+      "width": 1440,
+      "height": 920
+    },
+    "htmlSnippet": "<div class=\"pkxcesb mgz-element mgz-element-row home_banner_section s1_gen_pro_banner home_banner_section_slider banner_slider_v1 banner_slider_var_home_ipo full_width_row_content_no_paddings\" data-rep-section=\"1\"><div class=\"mgz-element-inner pkxces"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 2,
+    "selector": "[data-rep-section=\"2\"]",
+    "tagName": "div",
+    "className": "ne6tuhl mgz-element mgz-element-row scooters_feature_section feature_product_v1 ",
+    "rect": {
+      "x": 0,
+      "y": 921,
+      "width": 1440,
+      "height": 1123
+    },
+    "htmlSnippet": "<div class=\"ne6tuhl mgz-element mgz-element-row scooters_feature_section feature_product_v1 feature_product_ipo_var1_home hp_s1_gen3_product_section full_width_row_content_no_paddings\" data-rep-section=\"2\"><div class=\"mgz-element-inner ne6tuhl-s\"><di"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 3,
+    "selector": "[data-rep-section=\"3\"]",
+    "tagName": "div",
+    "className": "j46mqfc mgz-element mgz-element-row mrx_product_section full_width_row_content_n",
+    "rect": {
+      "x": 0,
+      "y": 2044,
+      "width": 1440,
+      "height": 781
+    },
+    "htmlSnippet": "<div id=\"product_section\" class=\"j46mqfc mgz-element mgz-element-row mrx_product_section full_width_row_content_no_paddings\" data-rep-section=\"3\"><div class=\"mgz-element-inner j46mqfc-s\"><div class=\"inner-content \"><div id=\"The future of motorcycling"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 4,
+    "selector": "[data-rep-section=\"4\"]",
+    "tagName": "div",
+    "className": "ufffqc2 mgz-element mgz-element-row ola_shakti_product_section home_product_sect",
+    "rect": {
+      "x": 0,
+      "y": 2825,
+      "width": 1440,
+      "height": 923
+    },
+    "htmlSnippet": "<div id=\"product_section\" class=\"ufffqc2 mgz-element mgz-element-row ola_shakti_product_section home_product_section_info two_product_section_v1 two_product_section_var2_s1_x full_width_row_content_no_paddings\" data-rep-section=\"4\"><div class=\"mgz-el"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 5,
+    "selector": "[data-rep-section=\"5\"]",
+    "tagName": "div",
+    "className": "vrdicey mgz-element mgz-element-row homepage_hyperservice_section full_width_row",
+    "rect": {
+      "x": 0,
+      "y": 3747,
+      "width": 1440,
+      "height": 926
+    },
+    "htmlSnippet": "<div class=\"vrdicey mgz-element mgz-element-row homepage_hyperservice_section full_width_row_content_no_paddings\" data-rep-section=\"5\"><div class=\"mgz-element-inner vrdicey-s\"><div class=\"inner-content \"><div class=\"c363jxw mgz-element mgz-element-co"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 6,
+    "selector": "[data-rep-section=\"6\"]",
+    "tagName": "div",
+    "className": "goqj9pi mgz-element mgz-element-row emi-calc-container full_width_row_content_no",
+    "rect": {
+      "x": 0,
+      "y": 4674,
+      "width": 1440,
+      "height": 662
+    },
+    "htmlSnippet": "<div class=\"goqj9pi mgz-element mgz-element-row emi-calc-container full_width_row_content_no_paddings\" data-rep-section=\"6\"><div class=\"mgz-element-inner goqj9pi-s\"><div class=\"inner-content \"><div class=\"lq03ira mgz-element mgz-element-column mgz-co"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 7,
+    "selector": "[data-rep-section=\"7\"]",
+    "tagName": "div",
+    "className": "fbklyqp mgz-element mgz-element-row motorcycles_sankalp_highlights_section full_",
+    "rect": {
+      "x": 0,
+      "y": 5335,
+      "width": 1440,
+      "height": 1822
+    },
+    "htmlSnippet": "<div class=\"fbklyqp mgz-element mgz-element-row motorcycles_sankalp_highlights_section full_width_row_content_no_paddings\" data-rep-section=\"7\"><div class=\"mgz-element-inner fbklyqp-s\"><div class=\"inner-content \"><div id=\"The all-new Gen-3 platform\" "
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 8,
+    "selector": "[data-rep-section=\"8\"]",
+    "tagName": "div",
+    "className": "yh5a3fm mgz-element mgz-element-row whyev_tco_section tco_section_v1 tco_section",
+    "rect": {
+      "x": 0,
+      "y": 7157,
+      "width": 1440,
+      "height": 908
+    },
+    "htmlSnippet": "<div id=\"tco_section\" class=\"yh5a3fm mgz-element mgz-element-row whyev_tco_section tco_section_v1 tco_section_var2_s1_pro_2gen full_width_row_content_no_paddings\" data-rep-section=\"8\"><div class=\"mgz-element-inner yh5a3fm-s\"><div class=\"inner-content"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 9,
+    "selector": "[data-rep-section=\"9\"]",
+    "tagName": "div",
+    "className": "dfeb5gf mgz-element mgz-element-row product_experience_center_section full_width",
+    "rect": {
+      "x": 0,
+      "y": 8065,
+      "width": 1440,
+      "height": 811
+    },
+    "htmlSnippet": "<div class=\"dfeb5gf mgz-element mgz-element-row product_experience_center_section full_width_row_content_no_paddings\" data-rep-section=\"9\"><div class=\"mgz-element-inner dfeb5gf-s\"><div class=\"inner-content \"><div id=\"EC\" class=\"ir588r6 mgz-element mg"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 10,
+    "selector": "[data-rep-section=\"10\"]",
+    "tagName": "div",
+    "className": "vax3j1i mgz-element mgz-element-row section_our_community section_our_community_",
+    "rect": {
+      "x": 0,
+      "y": 8876,
+      "width": 1440,
+      "height": 804
+    },
+    "htmlSnippet": "<div class=\"vax3j1i mgz-element mgz-element-row section_our_community section_our_community_v1 section_our_community_var2_s1_pro_2gen full_width_row_content_no_paddings\" data-rep-section=\"10\"><div class=\"mgz-element-inner vax3j1i-s\"><div class=\"inner"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 11,
+    "selector": "[data-rep-section=\"11\"]",
+    "tagName": "div",
+    "className": "ihsgxxh mgz-element mgz-element-row ola-electric-different full_width_row_conten",
+    "rect": {
+      "x": 0,
+      "y": 9680,
+      "width": 1440,
+      "height": 860
+    },
+    "htmlSnippet": "<div class=\"ihsgxxh mgz-element mgz-element-row ola-electric-different full_width_row_content_no_paddings\" data-rep-section=\"11\"><div class=\"mgz-element-inner ihsgxxh-s\"><div class=\"inner-content \"><div id=\"Newsroom\" class=\"b8e1x49 mgz-element mgz-el"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 12,
+    "selector": "[data-rep-section=\"12\"]",
+    "tagName": "div",
+    "className": "ge5kyt2 mgz-element mgz-element-row sustainable_mobility expanding_horizons_var_",
+    "rect": {
+      "x": 0,
+      "y": 10540,
+      "width": 1440,
+      "height": 1137
+    },
+    "htmlSnippet": "<div class=\"ge5kyt2 mgz-element mgz-element-row sustainable_mobility expanding_horizons_var_home home_sustainability_mobility full_width_row_content_no_paddings\" data-rep-section=\"12\"><div class=\"mgz-element-inner ge5kyt2-s\"><div class=\"inner-content"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 13,
+    "selector": "[data-rep-section=\"13\"]",
+    "tagName": "div",
+    "className": "x6oblj9 mgz-element mgz-element-row ev_hub_our_facilities_section home_ev_hub_ou",
+    "rect": {
+      "x": 0,
+      "y": 11677,
+      "width": 1440,
+      "height": 446
+    },
+    "htmlSnippet": "<div class=\"x6oblj9 mgz-element mgz-element-row ev_hub_our_facilities_section home_ev_hub_our_facilities_section full_width_row_content_no_paddings\" data-rep-section=\"13\"><div class=\"mgz-element-inner x6oblj9-s\"><div class=\"inner-content \"><div id=\"G"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 14,
+    "selector": "[data-rep-section=\"14\"]",
+    "tagName": "div",
+    "className": "iahp7hk mgz-element mgz-element-row join_revolution_v1 join_revolution_var_home ",
+    "rect": {
+      "x": 0,
+      "y": 12219,
+      "width": 1440,
+      "height": 937
+    },
+    "htmlSnippet": "<div class=\"iahp7hk mgz-element mgz-element-row join_revolution_v1 join_revolution_var_home driving_change_together_var_home full_width_row_content_no_paddings\" data-rep-section=\"14\"><div class=\"mgz-element-inner iahp7hk-s\"><div class=\"inner-content "
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 15,
+    "selector": "[data-rep-section=\"15\"]",
+    "tagName": "div",
+    "className": "oyonw8l mgz-element mgz-element-row aboutus_newsroom_section homepage_newsroom_s",
+    "rect": {
+      "x": 0,
+      "y": 13156,
+      "width": 1440,
+      "height": 719
+    },
+    "htmlSnippet": "<div class=\"oyonw8l mgz-element mgz-element-row aboutus_newsroom_section homepage_newsroom_section full_width_row_content_no_paddings\" data-rep-section=\"15\"><div class=\"mgz-element-inner oyonw8l-s\"><div class=\"inner-content \"><div id=\"Newsroom\" class"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 16,
+    "selector": "[data-rep-section=\"16\"]",
+    "tagName": "div",
+    "className": "ikkgisl mgz-element mgz-element-row aboutus_blog_himalaya_section seo_latest_blo",
+    "rect": {
+      "x": 0,
+      "y": 13875,
+      "width": 1440,
+      "height": 791
+    },
+    "htmlSnippet": "<div class=\"ikkgisl mgz-element mgz-element-row aboutus_blog_himalaya_section seo_latest_blog_section full_width_row_content_no_paddings\" data-rep-section=\"16\"><div class=\"mgz-element-inner ikkgisl-s\"><div class=\"inner-content \"><div id=\"Savings\" cla"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 17,
+    "selector": "[data-rep-section=\"17\"]",
+    "tagName": "div",
+    "className": "ud2mpj1 mgz-element mgz-element-row about-manufacturing full_width_row_content_n",
+    "rect": {
+      "x": 0,
+      "y": 14667,
+      "width": 1440,
+      "height": 602
+    },
+    "htmlSnippet": "<div class=\"ud2mpj1 mgz-element mgz-element-row about-manufacturing full_width_row_content_no_paddings\" data-rep-section=\"17\"><div class=\"mgz-element-inner ud2mpj1-s\"><div class=\"inner-content \"><div id=\"Savings\" class=\"wmokc9i mgz-element mgz-elemen"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 18,
+    "selector": "[data-rep-section=\"18\"]",
+    "tagName": "div",
+    "className": "d3i2kg7 mgz-element mgz-element-row homepage-faq full_width_row_content_no_paddi",
+    "rect": {
+      "x": 0,
+      "y": 15268,
+      "width": 1440,
+      "height": 1233
+    },
+    "htmlSnippet": "<div class=\"d3i2kg7 mgz-element mgz-element-row homepage-faq full_width_row_content_no_paddings\" data-rep-section=\"18\"><div class=\"mgz-element-inner d3i2kg7-s\"><div class=\"inner-content \"><div id=\"Newsroom\" class=\"kk3cp3b mgz-element mgz-element-colu"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 21,
+    "selector": "[data-rep-section=\"21\"]",
+    "tagName": "footer",
+    "className": "page-footer",
+    "rect": {
+      "x": 0,
+      "y": 16700,
+      "width": 1440,
+      "height": 597
+    },
+    "htmlSnippet": "<footer class=\"page-footer\" data-rep-section=\"21\"><div class=\"footer content\">  <div class=\"breadcrumbs\"><ul class=\"items\">  <li class=\"item home\"> <a href=\"/\" title=\"home\"><img src=\"https://cdn.olaelectric.com/ev-discovery-platform/wysiwyg/logo_dark"
+  },
+  {
+    "siteId": "auto-02",
+    "siteName": "Ola Electric",
+    "siteUrl": "https://www.olaelectric.com",
+    "category": "Automotive & EV Platforms",
+    "sectionIndex": 22,
+    "selector": "[data-rep-section=\"22\"]",
+    "tagName": "div",
+    "className": "srgxwo3 mgz-element mgz-element-row page-footer new-sletter full_width_row_conte",
+    "rect": {
+      "x": 0,
+      "y": 16501,
+      "width": 1440,
+      "height": 197
+    },
+    "htmlSnippet": "<div class=\"srgxwo3 mgz-element mgz-element-row page-footer new-sletter full_width_row_content_no_paddings\" data-rep-section=\"22\"><div class=\"mgz-element-inner srgxwo3-s\"><div class=\"inner-content \"><div class=\"cdvhtwg mgz-element mgz-element-column "
+  },
+  {
+    "siteId": "ecom-09",
+    "siteName": "Lululemon",
+    "siteUrl": "https://shop.lululemon.com",
+    "category": "Global E-Commerce & Retail",
+    "sectionIndex": 0,
+    "selector": "[data-rep-section=\"0\"]",
+    "tagName": "pre",
+    "className": "",
+    "rect": {
+      "x": 0,
+      "y": 13,
+      "width": 1440,
+      "height": 80
+    },
+    "htmlSnippet": "<pre data-rep-section=\"0\">{\n\"message\": \"Bad Request.\", \n\"errorCode\": \"GE401001\"\n}</pre>"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 0,
+    "selector": "[data-rep-section=\"0\"]",
+    "tagName": "header",
+    "className": "TZTsQG_header TZTsQG_header",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 73
+    },
+    "htmlSnippet": "<header class=\"TZTsQG_header TZTsQG_header\" data-rep-section=\"0\"><nav class=\"TZTsQG_menuRoot\"><div class=\"TZTsQG_innerWrapper\"><ul aria-label=\"Site navigation\" class=\"TZTsQG_list\"><li class=\"TZTsQG_logoItem TZTsQG_item\"><div style=\"-webkit-touch-call"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 1,
+    "selector": "[data-rep-section=\"1\"]",
+    "tagName": "div",
+    "className": "",
+    "rect": {
+      "x": 48,
+      "y": 271,
+      "width": 1344,
+      "height": 1024
+    },
+    "htmlSnippet": "<div data-rep-section=\"1\"><div class=\"hide-laptop _5mGmSq_root\" style=\"--height:200px\"></div><div class=\"show-laptop hide-desktop _5mGmSq_root\" style=\"--height:124px\"></div><div class=\"show-laptop hide-mobile _5mGmSq_root\" style=\"--height:92px\"></div"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 7,
+    "selector": "[data-rep-section=\"7\"]",
+    "tagName": "h2",
+    "className": "sc-KOGVz jaIwvI Fzcv4W_inset Fzcv4W_insetLarge",
+    "rect": {
+      "x": 46,
+      "y": 1596,
+      "width": 1250,
+      "height": 144
+    },
+    "htmlSnippet": "<h2 style=\"max-width:1250px\" class=\"sc-KOGVz jaIwvI Fzcv4W_inset Fzcv4W_insetLarge\" data-rep-section=\"7\"><strong class=\"sc-KOGVz jUzSbG\">A new species of product tool.</strong> <!-- -->Purpose-built for modern teams with AI workflows at its core, Lin"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 9,
+    "selector": "[data-rep-section=\"9\"]",
+    "tagName": "div",
+    "className": "GJ9TEa_benefits hide-laptop _9PBFba_root",
+    "rect": {
+      "x": 48,
+      "y": 1876,
+      "width": 1344,
+      "height": 468
+    },
+    "htmlSnippet": "<div class=\"GJ9TEa_benefits hide-laptop _9PBFba_root\" style=\"gap:0;--grid-areas-default:&quot;a a a a b b b b c c c c&quot;;--grid-areas-desktop:&quot;a a a a a a a a&quot;\n\t\t\t\t&quot;b b b b b b b b&quot;\n\t\t\t\t&quot;c c c c c c c c&quot;;--grid-areas-"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 13,
+    "selector": "[data-rep-section=\"13\"]",
+    "tagName": "section",
+    "className": "b-30Va_root b-30Va_rootHomepage",
+    "rect": {
+      "x": 48,
+      "y": 2546,
+      "width": 1344,
+      "height": 1226
+    },
+    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"13\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">Intake<br>and integrat"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 16,
+    "selector": "[data-rep-section=\"16\"]",
+    "tagName": "section",
+    "className": "b-30Va_root b-30Va_rootHomepage",
+    "rect": {
+      "x": 48,
+      "y": 3782,
+      "width": 1344,
+      "height": 1229
+    },
+    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"16\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">Planning<br>and monito"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 19,
+    "selector": "[data-rep-section=\"19\"]",
+    "tagName": "section",
+    "className": "b-30Va_root b-30Va_rootHomepage",
+    "rect": {
+      "x": 48,
+      "y": 5021,
+      "width": 1344,
+      "height": 1232
+    },
+    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"19\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">AI and<br>automations<"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 22,
+    "selector": "[data-rep-section=\"22\"]",
+    "tagName": "section",
+    "className": "b-30Va_root b-30Va_rootHomepage",
+    "rect": {
+      "x": 48,
+      "y": 6263,
+      "width": 1344,
+      "height": 1220
+    },
+    "htmlSnippet": "<section class=\"b-30Va_root b-30Va_rootHomepage\" data-rep-section=\"22\"><div class=\"b-30Va_header\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge b-30Va_titleContainer\"><h2 class=\"sc-KOGVz lmPTvT b-30Va_title\" style=\"max-width:18ch\">Build, review,<br>and "
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 25,
+    "selector": "[data-rep-section=\"25\"]",
+    "tagName": "div",
+    "className": "hide-mobile",
+    "rect": {
+      "x": 48,
+      "y": 7644,
+      "width": 1344,
+      "height": 422
+    },
+    "htmlSnippet": "<div class=\"hide-mobile\" data-rep-section=\"25\"><div class=\"Fzcv4W_inset Fzcv4W_insetLarge ImRUSq_root ImRUSq_align-baseline ImRUSq_justify-space-between\"><h2 class=\"sc-KOGVz anihd\">Changelog</h2></div><div class=\"_5mGmSq_root\" style=\"--height:72px\"><"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 27,
+    "selector": "[data-rep-section=\"27\"]",
+    "tagName": "section",
+    "className": "Dc5tqa_container hide-laptop",
+    "rect": {
+      "x": 48,
+      "y": 8226,
+      "width": 1344,
+      "height": 564
+    },
+    "htmlSnippet": "<section class=\"Dc5tqa_container hide-laptop\" id=\"customers\" data-rep-section=\"27\"><div class=\"Dc5tqa_customerCards\"><a href=\"/customers/openai\" style=\"background:linear-gradient(0deg, rgba(255, 255, 255, 0.4) 0%, rgba(255, 255, 255, 0.4) 100%), line"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 28,
+    "selector": "[data-rep-section=\"28\"]",
+    "tagName": "section",
+    "className": "dYXc1G_homepagePrefooter",
+    "rect": {
+      "x": 48,
+      "y": 9014,
+      "width": 1344,
+      "height": 228
+    },
+    "htmlSnippet": "<section class=\"dYXc1G_homepagePrefooter\" data-rep-section=\"28\"><h2 style=\"max-width:16ch\" class=\"sc-KOGVz fkCphf dYXc1G_heading\">Built for the future. Available today.</h2><div class=\"ImRUSq_root\" style=\"gap:12px\"><a href=\"/signup\" role=\"button\" tab"
+  },
+  {
+    "siteId": "saas-04",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app",
+    "category": "Modern Developer Tools & SaaS",
+    "sectionIndex": 29,
+    "selector": "[data-rep-section=\"29\"]",
+    "tagName": "footer",
+    "className": "Jmh1Wq_footer",
+    "rect": {
+      "x": 0,
+      "y": 9466,
+      "width": 1440,
+      "height": 494
+    },
+    "htmlSnippet": "<footer class=\"Jmh1Wq_footer\" data-rep-section=\"29\"><div class=\"Jmh1Wq_wrapper\"><div class=\"Jmh1Wq_inner\"><div class=\"hide-mobile Jmh1Wq_logoColumn\"><a href=\"/\" class=\"Jmh1Wq_logoWrapper I_mUeq_root I_mUeq_variant-fade\" rel=\"noopener\"><svg width=\"20\""
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 0,
+    "selector": "[data-rep-section=\"0\"]",
+    "tagName": "nav",
+    "className": "NavigationDesktop_navigation_root Navigation_navigation_primary--visible",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 1440,
+      "height": 76
+    },
+    "htmlSnippet": "<nav aria-label=\"Main\" data-orientation=\"horizontal\" dir=\"ltr\" class=\"NavigationDesktop_navigation_root Navigation_navigation_primary--visible\" data-rep-section=\"0\"><div class=\"np-theme-personal np-theme-personal--bright-green NavigationDesktop_navig"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 1,
+    "selector": "[data-rep-section=\"1\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-b-0 mw-m-t-0 mw-m-b-0 Section_cropped__tjB3X Section_cr",
+    "rect": {
+      "x": 0,
+      "y": 76,
+      "width": 1440,
+      "height": 1309
+    },
+    "htmlSnippet": "<section id=\"hero-section\" class=\"Section_root__wxCP6 mw-p-b-0 mw-m-t-0 mw-m-b-0 Section_cropped__tjB3X Section_cropped--default__Lf_Ni\" foregroundtheme=\"bright-green\" data-rep-section=\"1\"><div class=\"np-theme-personal np-theme-personal--bright-green"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 2,
+    "selector": "[data-rep-section=\"2\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12",
+    "rect": {
+      "x": 0,
+      "y": 1441,
+      "width": 1440,
+      "height": 392
+    },
+    "htmlSnippet": "<section id=\"maxitrust-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12\" data-rep-section=\"2\"><div><div class=\"mw-container\"><div class=\"eds-flex eds-align-items-center eds-gap-8 eds-flex-direction-column eds-m-b-8\"><div cl"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 3,
+    "selector": "[data-rep-section=\"3\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12",
+    "rect": {
+      "x": 0,
+      "y": 1889,
+      "width": 1440,
+      "height": 1245
+    },
+    "htmlSnippet": "<section id=\"feature-section\" class=\"Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12\" data-rep-section=\"3\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-gap-8 eds-cluster-template-areas eds-cluster-templa"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 4,
+    "selector": "[data-rep-section=\"4\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-0 mw-m-b-0 np-theme-personal np-t",
+    "rect": {
+      "x": 0,
+      "y": 3191,
+      "width": 1440,
+      "height": 692
+    },
+    "htmlSnippet": "<section id=\"transfer-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-0 mw-m-b-0 np-theme-personal np-theme-personal--bright-green\" data-rep-section=\"4\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 5,
+    "selector": "[data-rep-section=\"5\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12",
+    "rect": {
+      "x": 0,
+      "y": 3939,
+      "width": 1440,
+      "height": 519
+    },
+    "htmlSnippet": "<section id=\"security-section-in\" class=\"Section_root__wxCP6 mw-p-t-0 mw-p-b-0 mw-m-t-12 mw-m-b-12\" data-rep-section=\"5\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-gap-8 eds-cluster-template-areas eds-cluster-te"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 6,
+    "selector": "[data-rep-section=\"6\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-0 mw-m-t-12 mw-m-b-12",
+    "rect": {
+      "x": 0,
+      "y": 4514,
+      "width": 1440,
+      "height": 598
+    },
+    "htmlSnippet": "<section id=\"social-trust-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-0 mw-m-t-12 mw-m-b-12\" data-rep-section=\"6\"><div><div class=\"mw-container\"><div class=\"eds-carousel eds-carousel--scrollable\" role=\"region\" aria-roledescription=\"carousel\""
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 7,
+    "selector": "[data-rep-section=\"7\"]",
+    "tagName": "section",
+    "className": "Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12",
+    "rect": {
+      "x": 0,
+      "y": 5169,
+      "width": 1440,
+      "height": 540
+    },
+    "htmlSnippet": "<section id=\"app-section\" class=\"Section_root__wxCP6 mw-p-t-12 mw-p-b-12 mw-m-t-12 mw-m-b-12\" data-rep-section=\"7\"><div><div class=\"mw-container\"><div class=\"eds-cluster eds-align-items-center eds-gap-8 eds-cluster-template-areas eds-cluster-template"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 8,
+    "selector": "[data-rep-section=\"8\"]",
+    "tagName": "h2",
+    "className": "mw-heading-2 m-b-5",
+    "rect": {
+      "x": 100,
+      "y": 5822,
+      "width": 1240,
+      "height": 57
+    },
+    "htmlSnippet": "<h2 class=\"mw-heading-2 m-b-5\" data-rep-section=\"8\">Wise works nearly everywhere</h2>"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 9,
+    "selector": "[data-rep-section=\"9\"]",
+    "tagName": "div",
+    "className": "row",
+    "rect": {
+      "x": 88,
+      "y": 5919,
+      "width": 1264,
+      "height": 3622
+    },
+    "htmlSnippet": "<div class=\"row\" data-rep-section=\"9\"><div class=\"col-xs-12\"><div class=\"np-chips d-flex Coverage_chips__g3vVq Coverage_chipsBrightGreen__MYQ0E p-t-1 p-b-1\" aria-label=\"Choose category\" role=\"radiogroup\"><div role=\"radio\" tabindex=\"0\" aria-checked=\"t"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 10,
+    "selector": "[data-rep-section=\"10\"]",
+    "tagName": "div",
+    "className": "np-theme-personal",
+    "rect": {
+      "x": 0,
+      "y": 9597,
+      "width": 1440,
+      "height": 1329
+    },
+    "htmlSnippet": "<div class=\"np-theme-personal\" data-rep-section=\"10\"><footer class=\"Footer_navigation_footer__wrapper section--pad-md\"><div class=\"eds-container mw-container\"><div class=\"Footer_navigation_footer__content\"><div id=\"gn-footer-top\" class=\"Footer_naviga"
+  },
+  {
+    "siteId": "fin-02",
+    "siteName": "Wise",
+    "siteUrl": "https://wise.com",
+    "category": "Fintech, Banking & Crypto",
+    "sectionIndex": 11,
+    "selector": "[data-rep-section=\"11\"]",
+    "tagName": "footer",
+    "className": "Footer_navigation_footer__wrapper section--pad-md",
+    "rect": {
+      "x": 0,
+      "y": 9597,
+      "width": 1440,
+      "height": 1329
+    },
+    "htmlSnippet": "<footer class=\"Footer_navigation_footer__wrapper section--pad-md\" data-rep-section=\"11\"><div class=\"eds-container mw-container\"><div class=\"Footer_navigation_footer__content\"><div id=\"gn-footer-top\" class=\"Footer_navigation_footer__section Footer_nav"
+  },
+  {
+    "siteId": "ecom-02",
+    "siteName": "Zara",
+    "siteUrl": "https://www.zara.com",
+    "category": "Global E-Commerce & Retail",
+    "sectionIndex": 0,
+    "selector": "[data-rep-section=\"0\"]",
+    "tagName": "div",
+    "className": "worldwide__content",
+    "rect": {
+      "x": 112,
+      "y": 197,
+      "width": 1216,
+      "height": 1350
+    },
+    "htmlSnippet": "<div class=\"worldwide__content\" data-rep-section=\"0\"><div class=\"worldwide__store-selector-container\"><h1 class=\"worldwide__title\"><span>Select your location</span></h1><form class=\"store-selector worldwide__store-selector\"><div class=\"store-selector"
+  },
+  {
+    "siteId": "ecom-02",
+    "siteName": "Zara",
+    "siteUrl": "https://www.zara.com",
+    "category": "Global E-Commerce & Retail",
+    "sectionIndex": 1,
+    "selector": "[data-rep-section=\"1\"]",
+    "tagName": "div",
+    "className": "worldwide-button-cookies-config",
+    "rect": {
+      "x": 112,
+      "y": 1547,
+      "width": 1216,
+      "height": 48
+    },
+    "htmlSnippet": "<div class=\"worldwide-button-cookies-config\" data-rep-section=\"1\"><button class=\"worldwide-button-cookies-config__button\" data-qa-id=\"worldwide-cookies-settings\" type=\"button\">Cookies Settings</button></div>"
+  }
+]

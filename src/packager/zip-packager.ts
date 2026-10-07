@@ -681,8 +681,12 @@ export class ZipPackager {
       });
       finalHtml = $.html();
 
-      // Rewrite Apple navigation wwwDomain to relative so flyouts route through server proxy
-      finalHtml = finalHtml.replace(/"wwwDomain"\s*:\s*"www\.apple\.com"/g, `"wwwDomain":""`);
+      // Rewrite embedded origin domains in inline JSON configurations to relative
+      try {
+        const u = new URL(origin);
+        const hostRegex = new RegExp(`"(?:wwwDomain|apiDomain|host|domain)"\\s*:\\s*"${u.hostname.replace(/\\./g, '\\.')}"`, 'g');
+        finalHtml = finalHtml.replace(hostRegex, `"domain":""`);
+      } catch {}
 
       finalHtml = finalHtml.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
       finalCss = finalCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
@@ -915,20 +919,22 @@ function injectStylesAndScripts(html: string): string {
   $('.dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"]').remove();
 
   // Ensure header has a mobile menu button if not already present
-  if ($('#tds-site-header, .tds-site-header').length > 0 && $('.tds-mobile-nav-toggle').length === 0) {
-    const endNav = $('#tds-site-header ol.tds-align--end, .tds-site-header ol.tds-align--end');
-    if (endNav.length > 0) {
-      endNav.prepend(`<li><button type="button" class="tds-site-nav-item tds--product-name tds-mobile-nav-toggle" aria-label="Menu"><span>Menu</span></button></li>`);
+  const headerEl = $('header, nav, [role="banner"], [class*="site-header"], [class*="page-header"]').first();
+  if (headerEl.length > 0 && headerEl.find('button[class*="hamburger"], [class*="hamburger"], button[aria-label*="menu" i], [class*="menu-trigger"], [class*="nav-toggle"], [class*="icon-bar"]').length === 0) {
+    const endNav = headerEl.find('ol:last-child, ul:last-child, [class*="end"], [class*="right"]').first();
+    if (endNav.length > 0 && endNav.is('ul, ol')) {
+      endNav.append(`<li><button type="button" class="universal-nav-toggle mobile-menu-btn" aria-label="Menu" style="background:transparent;border:none;cursor:pointer;padding:8px;font-size:16px;">☰ Menu</button></li>`);
     } else {
-      $('#tds-site-header, .tds-site-header').append(`<button type="button" class="tds-site-nav-item tds--product-name tds-mobile-nav-toggle" aria-label="Menu"><span>Menu</span></button>`);
+      headerEl.append(`<button type="button" class="universal-nav-toggle mobile-menu-btn" aria-label="Menu" style="background:transparent;border:none;cursor:pointer;padding:8px;font-size:16px;">☰ Menu</button>`);
     }
   }
 
-  // Ensure mobile close button exists on mega-panel
-  if ($('.tds-site-header-panel, .dx-mega-menu-panel').length > 0 && $('.tds-panel-mobile-close').length === 0) {
-    $('.tds-site-header-panel, .dx-mega-menu-panel').prepend(`
-      <div class="tds-panel-mobile-header" style="display:flex;justify-content:flex-end;padding:8px 0;">
-        <button type="button" class="tds-panel-mobile-close" aria-label="Close menu" style="background:transparent;border:none;font-size:24px;line-height:1;cursor:pointer;padding:8px 12px;color:inherit;">✕</button>
+  // Ensure mobile close button exists on dialog / mobile drawer / mega-panel
+  const panelEl = $('dialog, [role="dialog"], [class*="mega-menu-panel"], [class*="nav-drawer"]').first();
+  if (panelEl.length > 0 && panelEl.find('[aria-label*="close" i], [class*="close"], .close-btn').length === 0) {
+    panelEl.prepend(`
+      <div class="universal-panel-mobile-header" style="display:flex;justify-content:flex-end;padding:8px 0;">
+        <button type="button" class="mobile-menu-close close-btn" aria-label="Close menu" style="background:transparent;border:none;font-size:24px;line-height:1;cursor:pointer;padding:8px 12px;color:inherit;">✕</button>
       </div>
     `);
   }
@@ -1002,7 +1008,7 @@ function injectStylesAndScripts(html: string): string {
     if (_origFetch) {
       window.fetch = function(url, options) {
         if (typeof url === 'string') {
-          if (url.includes('apple.com/api-www/')) {
+          if (url.includes('/api-www/') || url.includes('/api/v1/flyouts')) {
             url = url.replace(/^https?:\\/\\/[^\\/]+/, '');
           }
           if (
@@ -1328,15 +1334,18 @@ function injectStylesAndScripts(html: string): string {
         var target = e.target;
         if (!target || !(target instanceof Element)) return;
 
-        // A. Mobile Toggle Click (Tesla & Universal)
+        // A. Mobile Toggle Click (Universal)
         var toggleBtn = target.closest(
-          '.tds-mobile-nav-toggle, .mobile-menu-btn, button[class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"], [id*="menu-toggle"], [id*="nav-toggle"], [id*="mobile-menu"]'
+          '.mobile-menu-btn, button[class*="hamburger"], [class*="hamburger"], button[aria-label*="menu" i], button[aria-label*="navigation" i], [class*="menu-trigger"], [class*="nav-toggle"], [id*="menu-toggle"], [id*="nav-toggle"], [id*="mobile-menu"], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"]'
         );
-        if (!toggleBtn && target.closest('header, nav, [class*="site-header"]')) {
-          var candidate = target.closest('button, a');
+        if (!toggleBtn && target.closest('.icon-bar, [class*="hamburger-bar"]')) {
+          toggleBtn = target.closest('button, [role="button"], div[tabindex], div[class*="button"], a');
+        }
+        if (!toggleBtn && target.closest('header, nav, [class*="site-header"], [class*="page-header"]')) {
+          var candidate = target.closest('button, a, [role="button"], div[tabindex]');
           if (candidate) {
             var txt = (candidate.textContent || '').trim().toLowerCase();
-            if (txt === 'menu') {
+            if (txt === 'menu' || txt === 'toggle nav' || candidate.querySelector('.icon-bar, [class*="hamburger-bar"], svg')) {
               toggleBtn = candidate;
             }
           }
@@ -1349,7 +1358,7 @@ function injectStylesAndScripts(html: string): string {
           if (now - lastMobileToggleTime < 400) return;
           lastMobileToggleTime = now;
 
-          // Tesla specific panel
+          // Universal Mega / Portal Panels
           if (megaPanel) {
             var willOpenMega = !megaPanel.classList.contains('mobile-open');
             megaPanel.classList.toggle('mobile-open', willOpenMega);
@@ -1365,9 +1374,8 @@ function injectStylesAndScripts(html: string): string {
               megaPanel.style.setProperty('pointer-events', 'auto', 'important');
               document.body.classList.add('menu-open');
               document.body.style.setProperty('overflow', 'hidden', 'important');
-              const categories = Array.from(megaPanel.querySelectorAll('.tds-site-header-panel-content > .dx-mega-menu-panel-content'));
-              const catNames = ['Vehicles', 'Energy', 'Charging', 'Discover'];
-              categories.slice(0, 4).forEach(function(cat, idx) {
+              const categories = Array.from(megaPanel.querySelectorAll('[role="tabpanel"], [class*="panel-content"], [class*="menu-category"], [class*="panel-section"]'));
+              categories.forEach(function(cat, idx) {
                 cat.classList.add('active');
                 cat.style.setProperty('display', 'flex', 'important');
                 cat.style.setProperty('opacity', '1', 'important');
@@ -1376,11 +1384,14 @@ function injectStylesAndScripts(html: string): string {
                 cat.style.setProperty('margin-top', '0px', 'important');
 
                 if (!cat.querySelector('.rep-mobile-cat-header')) {
-                  const hdr = document.createElement('div');
-                  hdr.className = 'rep-mobile-cat-header';
-                  hdr.style.cssText = 'grid-column: 1 / -1; font-weight: 700; font-size: 18px; margin: 16px 0 8px 0; color: #171a20; text-transform: uppercase; letter-spacing: 0.5px;';
-                  hdr.textContent = catNames[idx] || ('Section ' + (idx + 1));
-                  cat.prepend(hdr);
+                  const title = cat.getAttribute('aria-label') || cat.getAttribute('data-title') || (cat.querySelector('h2, h3, h4, [class*="title"]') ? cat.querySelector('h2, h3, h4, [class*="title"]').textContent : '');
+                  if (title && title.trim()) {
+                    const hdr = document.createElement('div');
+                    hdr.className = 'rep-mobile-cat-header';
+                    hdr.style.cssText = 'grid-column: 1 / -1; font-weight: 700; font-size: 18px; margin: 16px 0 8px 0; color: #171a20; text-transform: uppercase; letter-spacing: 0.5px;';
+                    hdr.textContent = title.trim();
+                    cat.prepend(hdr);
+                  }
                 }
               });
             } else {
@@ -1395,22 +1406,41 @@ function injectStylesAndScripts(html: string): string {
             }
           }
 
-          // Universal mobile menus
-          var menus = getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]');
-          var overlays = getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]');
+          // Universal mobile menus and drawers
+          var menus = getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"], #nav-content, [class*="header_sidebar_menu"], [class*="nav-sections"]');
+          var overlays = getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"], .bg');
           var willOpen = !menus.some(function(m) {
-            return m.classList.contains('mobile-menu-open') || m.classList.contains('open');
+            return m.classList.contains('mobile-menu-open') || m.classList.contains('open') || m.classList.contains('active') || m.style.transform === 'translateX(0px)';
           });
 
           menus.forEach(function(m) {
             m.classList.toggle('mobile-menu-open', willOpen);
             m.classList.toggle('open', willOpen);
             m.classList.toggle('active', willOpen);
+            if (willOpen) {
+              m.style.setProperty('transform', 'translateX(0px)', 'important');
+              m.style.setProperty('left', '0px', 'important');
+              m.style.setProperty('visibility', 'visible', 'important');
+              m.style.setProperty('opacity', '1', 'important');
+              m.style.setProperty('pointer-events', 'auto', 'important');
+            } else {
+              m.style.removeProperty('transform');
+              m.style.removeProperty('left');
+            }
           });
           overlays.forEach(function(o) {
             o.classList.toggle('show', willOpen);
             o.classList.toggle('open', willOpen);
             o.classList.toggle('active', willOpen);
+            if (willOpen) {
+              o.style.setProperty('display', 'block', 'important');
+              o.style.setProperty('visibility', 'visible', 'important');
+              o.style.setProperty('opacity', '1', 'important');
+            } else {
+              o.style.removeProperty('display');
+              o.style.removeProperty('visibility');
+              o.style.removeProperty('opacity');
+            }
           });
           document.body.classList.toggle('menu-open', willOpen || (megaPanel && megaPanel.classList.contains('mobile-open')));
           toggleBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
@@ -1418,8 +1448,8 @@ function injectStylesAndScripts(html: string): string {
         }
 
         // B. Mobile Close Button or Overlay Click
-        var closeBtn = target.closest('.tds-panel-mobile-close, .mobile-menu-close, [aria-label*="close" i], [class*="close-menu"], .tds-modal-close');
-        var overlay = target.closest('.mobile-overlay, [class*="menu-overlay"], .tds-modal-backdrop, [class*="backdrop"]');
+        var closeBtn = target.closest('.mobile-menu-close, [aria-label*="close" i], [class*="close-menu"], [class*="menu_close"], [class*="nav-close"], [class*="closeButton" i], [class*="close-button" i], .close-btn, .rep-nav-close');
+        var overlay = target.closest('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"], .bg');
         if (closeBtn || (overlay && target === overlay)) {
           if (megaPanel) {
             megaPanel.classList.remove('mobile-open', 'open', 'tds-modal--open');
@@ -1430,11 +1460,16 @@ function injectStylesAndScripts(html: string): string {
             megaPanel.style.removeProperty('z-index');
             megaPanel.style.setProperty('display', 'none', 'important');
           }
-          getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"]').forEach(function(el) {
+          getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"], #nav-content, [class*="header_sidebar_menu"], [class*="nav-sections"]').forEach(function(el) {
             el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
+            el.style.removeProperty('transform');
+            el.style.removeProperty('left');
           });
-          getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"]').forEach(function(el) {
+          getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"], .bg').forEach(function(el) {
             el.classList.remove('show', 'open', 'active');
+            el.style.removeProperty('display');
+            el.style.removeProperty('visibility');
+            el.style.removeProperty('opacity');
           });
           document.body.classList.remove('menu-open', 'mobile-menu-open', 'overflow-hidden');
           document.body.style.removeProperty('overflow');
@@ -1502,7 +1537,7 @@ function injectStylesAndScripts(html: string): string {
 
         if (slides.length <= 1) return;
 
-        const isAppleGallery = carousel.classList.contains('media-gallery') || carousel.querySelector('.media-gallery-item');
+        const isMediaGallery = carousel.classList.contains('media-gallery') || carousel.querySelector('.media-gallery-item');
         const allTabLists = Array.from(carousel.querySelectorAll('.tds-tab-list--dots, .tcl-carousel__tab-list, .media-gallery-dotnav, [role="tablist"], [class*="dot-list"]'));
         const nextBtns = Array.from(carousel.querySelectorAll('.tcl-carousel__nav--inline-end, [aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
         const prevBtns = Array.from(carousel.querySelectorAll('.tcl-carousel__nav--inline-start, [aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
@@ -1531,7 +1566,7 @@ function injectStylesAndScripts(html: string): string {
             item.classList.toggle('active', isActive);
             item.setAttribute('aria-hidden', isActive ? 'false' : 'true');
 
-            if (isAppleGallery) {
+            if (isMediaGallery) {
               item.style.position = 'absolute';
               item.style.transition = 'transform 0.6s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.6s ease';
               item.style.transform = 'translate3d(' + (offset * 105) + '%, 0, 0)';

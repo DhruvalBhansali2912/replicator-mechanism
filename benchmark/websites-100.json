@@ -1,0 +1,602 @@
+[
+  {
+    "id": "saas-01",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Stripe",
+    "url": "https://stripe.com"
+  },
+  {
+    "id": "saas-02",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "GitHub",
+    "url": "https://github.com"
+  },
+  {
+    "id": "saas-03",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Vercel",
+    "url": "https://vercel.com"
+  },
+  {
+    "id": "saas-04",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Linear",
+    "url": "https://linear.app"
+  },
+  {
+    "id": "saas-05",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Supabase",
+    "url": "https://supabase.com"
+  },
+  {
+    "id": "saas-06",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Notion",
+    "url": "https://www.notion.so"
+  },
+  {
+    "id": "saas-07",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Figma",
+    "url": "https://www.figma.com"
+  },
+  {
+    "id": "saas-08",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Slack",
+    "url": "https://slack.com"
+  },
+  {
+    "id": "saas-09",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Raycast",
+    "url": "https://www.raycast.com"
+  },
+  {
+    "id": "saas-10",
+    "category": "Modern Developer Tools & SaaS",
+    "name": "Resend",
+    "url": "https://resend.com"
+  },
+  {
+    "id": "ecom-01",
+    "category": "Global E-Commerce & Retail",
+    "name": "Nike",
+    "url": "https://www.nike.com"
+  },
+  {
+    "id": "ecom-02",
+    "category": "Global E-Commerce & Retail",
+    "name": "Zara",
+    "url": "https://www.zara.com"
+  },
+  {
+    "id": "ecom-03",
+    "category": "Global E-Commerce & Retail",
+    "name": "IKEA",
+    "url": "https://www.ikea.com"
+  },
+  {
+    "id": "ecom-04",
+    "category": "Global E-Commerce & Retail",
+    "name": "Sephora",
+    "url": "https://www.sephora.com"
+  },
+  {
+    "id": "ecom-05",
+    "category": "Global E-Commerce & Retail",
+    "name": "Glossier",
+    "url": "https://www.glossier.com"
+  },
+  {
+    "id": "ecom-06",
+    "category": "Global E-Commerce & Retail",
+    "name": "Gymshark",
+    "url": "https://www.gymshark.com"
+  },
+  {
+    "id": "ecom-07",
+    "category": "Global E-Commerce & Retail",
+    "name": "Allbirds",
+    "url": "https://www.allbirds.com"
+  },
+  {
+    "id": "ecom-08",
+    "category": "Global E-Commerce & Retail",
+    "name": "Warby Parker",
+    "url": "https://www.warbyparker.com"
+  },
+  {
+    "id": "ecom-09",
+    "category": "Global E-Commerce & Retail",
+    "name": "Lululemon",
+    "url": "https://shop.lululemon.com"
+  },
+  {
+    "id": "ecom-10",
+    "category": "Global E-Commerce & Retail",
+    "name": "Target",
+    "url": "https://www.target.com"
+  },
+  {
+    "id": "auto-01",
+    "category": "Automotive & EV Platforms",
+    "name": "Tesla",
+    "url": "https://www.tesla.com"
+  },
+  {
+    "id": "auto-02",
+    "category": "Automotive & EV Platforms",
+    "name": "Ola Electric",
+    "url": "https://www.olaelectric.com"
+  },
+  {
+    "id": "auto-03",
+    "category": "Automotive & EV Platforms",
+    "name": "Rivian",
+    "url": "https://rivian.com"
+  },
+  {
+    "id": "auto-04",
+    "category": "Automotive & EV Platforms",
+    "name": "Lucid Motors",
+    "url": "https://www.lucidmotors.com"
+  },
+  {
+    "id": "auto-05",
+    "category": "Automotive & EV Platforms",
+    "name": "Polestar",
+    "url": "https://www.polestar.com"
+  },
+  {
+    "id": "auto-06",
+    "category": "Automotive & EV Platforms",
+    "name": "BMW",
+    "url": "https://www.bmw.com"
+  },
+  {
+    "id": "auto-07",
+    "category": "Automotive & EV Platforms",
+    "name": "Porsche",
+    "url": "https://www.porsche.com"
+  },
+  {
+    "id": "auto-08",
+    "category": "Automotive & EV Platforms",
+    "name": "Hyundai",
+    "url": "https://www.hyundai.com"
+  },
+  {
+    "id": "auto-09",
+    "category": "Automotive & EV Platforms",
+    "name": "Rimac Automobili",
+    "url": "https://www.rimac-automobili.com"
+  },
+  {
+    "id": "auto-10",
+    "category": "Automotive & EV Platforms",
+    "name": "NIO",
+    "url": "https://www.nio.com"
+  },
+  {
+    "id": "media-01",
+    "category": "Media, News & Editorial",
+    "name": "The Verge",
+    "url": "https://www.theverge.com"
+  },
+  {
+    "id": "media-02",
+    "category": "Media, News & Editorial",
+    "name": "TechCrunch",
+    "url": "https://techcrunch.com"
+  },
+  {
+    "id": "media-03",
+    "category": "Media, News & Editorial",
+    "name": "Wired",
+    "url": "https://www.wired.com"
+  },
+  {
+    "id": "media-04",
+    "category": "Media, News & Editorial",
+    "name": "Medium",
+    "url": "https://medium.com"
+  },
+  {
+    "id": "media-05",
+    "category": "Media, News & Editorial",
+    "name": "Substack",
+    "url": "https://substack.com"
+  },
+  {
+    "id": "media-06",
+    "category": "Media, News & Editorial",
+    "name": "Bloomberg",
+    "url": "https://www.bloomberg.com"
+  },
+  {
+    "id": "media-07",
+    "category": "Media, News & Editorial",
+    "name": "Reuters",
+    "url": "https://www.reuters.com"
+  },
+  {
+    "id": "media-08",
+    "category": "Media, News & Editorial",
+    "name": "BBC News",
+    "url": "https://www.bbc.com"
+  },
+  {
+    "id": "media-09",
+    "category": "Media, News & Editorial",
+    "name": "Ars Technica",
+    "url": "https://arstechnica.com"
+  },
+  {
+    "id": "media-10",
+    "category": "Media, News & Editorial",
+    "name": "The Guardian",
+    "url": "https://www.theguardian.com"
+  },
+  {
+    "id": "travel-01",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Uber",
+    "url": "https://www.uber.com"
+  },
+  {
+    "id": "travel-02",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Airbnb",
+    "url": "https://www.airbnb.com"
+  },
+  {
+    "id": "travel-03",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Booking.com",
+    "url": "https://www.booking.com"
+  },
+  {
+    "id": "travel-04",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Expedia",
+    "url": "https://www.expedia.com"
+  },
+  {
+    "id": "travel-05",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Lyft",
+    "url": "https://www.lyft.com"
+  },
+  {
+    "id": "travel-06",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "TripAdvisor",
+    "url": "https://www.tripadvisor.com"
+  },
+  {
+    "id": "travel-07",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Marriott",
+    "url": "https://www.marriott.com"
+  },
+  {
+    "id": "travel-08",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Delta Air Lines",
+    "url": "https://www.delta.com"
+  },
+  {
+    "id": "travel-09",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Skyscanner",
+    "url": "https://www.skyscanner.net"
+  },
+  {
+    "id": "travel-10",
+    "category": "Travel, Mobility & Hospitality",
+    "name": "Kayak",
+    "url": "https://www.kayak.com"
+  },
+  {
+    "id": "qcom-01",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "DoorDash",
+    "url": "https://www.doordash.com"
+  },
+  {
+    "id": "qcom-02",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Instacart",
+    "url": "https://www.instacart.com"
+  },
+  {
+    "id": "qcom-03",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Zomato",
+    "url": "https://www.zomato.com"
+  },
+  {
+    "id": "qcom-04",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Swiggy",
+    "url": "https://www.swiggy.com"
+  },
+  {
+    "id": "qcom-05",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Deliveroo",
+    "url": "https://deliveroo.co.uk"
+  },
+  {
+    "id": "qcom-06",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Uber Eats",
+    "url": "https://www.ubereats.com"
+  },
+  {
+    "id": "qcom-07",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Gopuff",
+    "url": "https://gopuff.com"
+  },
+  {
+    "id": "qcom-08",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Zepto",
+    "url": "https://www.zeptonow.com"
+  },
+  {
+    "id": "qcom-09",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Blinkit",
+    "url": "https://blinkit.com"
+  },
+  {
+    "id": "qcom-10",
+    "category": "Quick Commerce, Food & Delivery",
+    "name": "Just Eat",
+    "url": "https://www.just-eat.co.uk"
+  },
+  {
+    "id": "fin-01",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Revolut",
+    "url": "https://www.revolut.com"
+  },
+  {
+    "id": "fin-02",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Wise",
+    "url": "https://wise.com"
+  },
+  {
+    "id": "fin-03",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Monzo",
+    "url": "https://monzo.com"
+  },
+  {
+    "id": "fin-04",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Square Block",
+    "url": "https://squareup.com"
+  },
+  {
+    "id": "fin-05",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Brex",
+    "url": "https://www.brex.com"
+  },
+  {
+    "id": "fin-06",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Ramp",
+    "url": "https://ramp.com"
+  },
+  {
+    "id": "fin-07",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Robinhood",
+    "url": "https://robinhood.com"
+  },
+  {
+    "id": "fin-08",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Plaid",
+    "url": "https://plaid.com"
+  },
+  {
+    "id": "fin-09",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Coinbase",
+    "url": "https://www.coinbase.com"
+  },
+  {
+    "id": "fin-10",
+    "category": "Fintech, Banking & Crypto",
+    "name": "Klarna",
+    "url": "https://www.klarna.com"
+  },
+  {
+    "id": "edu-01",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "NASA",
+    "url": "https://www.nasa.gov"
+  },
+  {
+    "id": "edu-02",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Khan Academy",
+    "url": "https://www.khanacademy.org"
+  },
+  {
+    "id": "edu-03",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Duolingo",
+    "url": "https://www.duolingo.com"
+  },
+  {
+    "id": "edu-04",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Coursera",
+    "url": "https://www.coursera.org"
+  },
+  {
+    "id": "edu-05",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "MIT",
+    "url": "https://www.mit.edu"
+  },
+  {
+    "id": "edu-06",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Harvard University",
+    "url": "https://www.harvard.edu"
+  },
+  {
+    "id": "edu-07",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Mayo Clinic",
+    "url": "https://www.mayoclinic.org"
+  },
+  {
+    "id": "edu-08",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "World Health Organization",
+    "url": "https://www.who.int"
+  },
+  {
+    "id": "edu-09",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Wikipedia",
+    "url": "https://www.wikipedia.org"
+  },
+  {
+    "id": "edu-10",
+    "category": "Science, Education, Healthcare & Government",
+    "name": "Nature",
+    "url": "https://www.nature.com"
+  },
+  {
+    "id": "design-01",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Apple",
+    "url": "https://www.apple.com"
+  },
+  {
+    "id": "design-02",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Pentagram",
+    "url": "https://www.pentagram.com"
+  },
+  {
+    "id": "design-03",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Instrument",
+    "url": "https://www.instrument.com"
+  },
+  {
+    "id": "design-04",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "BASIC DEPT",
+    "url": "https://www.basicagency.com"
+  },
+  {
+    "id": "design-05",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Active Theory",
+    "url": "https://activetheory.net"
+  },
+  {
+    "id": "design-06",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Locomotive",
+    "url": "https://locomotive.ca"
+  },
+  {
+    "id": "design-07",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Metalab",
+    "url": "https://www.metalab.com"
+  },
+  {
+    "id": "design-08",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Fantasy",
+    "url": "https://fantasy.co"
+  },
+  {
+    "id": "design-09",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Huge Inc",
+    "url": "https://www.hugeinc.com"
+  },
+  {
+    "id": "design-10",
+    "category": "Creative Agencies, Portfolios & Design Studios",
+    "name": "Stink Studios",
+    "url": "https://www.stinkstudios.com"
+  },
+  {
+    "id": "cms-01",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "WordPress.org",
+    "url": "https://wordpress.org"
+  },
+  {
+    "id": "cms-02",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "Adobe",
+    "url": "https://www.adobe.com"
+  },
+  {
+    "id": "cms-03",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "Drupal.org",
+    "url": "https://www.drupal.org"
+  },
+  {
+    "id": "cms-04",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "Salesforce",
+    "url": "https://www.salesforce.com"
+  },
+  {
+    "id": "cms-05",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "IBM",
+    "url": "https://www.ibm.com"
+  },
+  {
+    "id": "cms-06",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "Oracle",
+    "url": "https://www.oracle.com"
+  },
+  {
+    "id": "cms-07",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "Cisco",
+    "url": "https://www.cisco.com"
+  },
+  {
+    "id": "cms-08",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "SAP",
+    "url": "https://www.sap.com"
+  },
+  {
+    "id": "cms-09",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "ServiceNow",
+    "url": "https://www.servicenow.com"
+  },
+  {
+    "id": "cms-10",
+    "category": "Enterprise Platforms & Traditional CMS / Page Builders",
+    "name": "HubSpot",
+    "url": "https://www.hubspot.com"
+  }
+]

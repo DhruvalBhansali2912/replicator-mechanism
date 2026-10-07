@@ -780,49 +780,104 @@ export class PageExtractor {
         html: string;
       }> = [];
 
-      // Look for semantic landmarks or containers
-      const candidateElements: Element[] = [];
+      const isElementVisible = (el: Element) => {
+        if (!el || el.nodeType !== 1) return false;
+        const s = window.getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        return (
+          s.display !== 'none' &&
+          s.visibility !== 'hidden' &&
+          parseFloat(s.opacity || '1') > 0 &&
+          r.height > 0 &&
+          r.width > 0
+        );
+      };
 
-      // Check header / nav
-      const header = document.querySelector('header, nav, [role="banner"], [role="navigation"]');
-      if (header) candidateElements.push(header);
+      const ignoredTags = new Set([
+        'script',
+        'style',
+        'noscript',
+        'svg',
+        'iframe',
+        'template',
+        'link',
+        'meta',
+      ]);
+
+      // 1. Locate Header / Nav landmarks
+      const candidateElements: Element[] = [];
+      const header =
+        document.querySelector('header, [role="banner"]') ||
+        Array.from(document.querySelectorAll('nav, [role="navigation"], [class*="header"]')).find((el) => {
+          const r = el.getBoundingClientRect();
+          return isElementVisible(el) && r.top <= 15 && r.height >= 20 && r.width >= 200;
+        });
+
+      if (header && isElementVisible(header)) {
+        candidateElements.push(header);
+      }
 
       if (targetArch === 'navbar') {
-        // If navbar is requested, only check navigation containers
         const otherNavs = document.querySelectorAll('header, nav, [role="banner"], [role="navigation"]');
         otherNavs.forEach((n) => {
-          if (!candidateElements.includes(n)) candidateElements.push(n);
+          if (!candidateElements.includes(n) && isElementVisible(n)) {
+            candidateElements.push(n);
+          }
         });
       } else {
-        // Check main wrapper children or direct body children
-        const main = document.querySelector('main, #__next, #app, #root, #main, .main-content');
-        const rootContainer = main || document.body;
+        // 2. Locate Footer landmark
+        const footer = document.querySelector('footer, [role="contentinfo"], [class*="page-footer"]:not([class*="section"])');
 
-      Array.from(rootContainer.children).forEach((child) => {
-        const tag = child.tagName.toLowerCase();
-        if (
-          tag === 'script' ||
-          tag === 'style' ||
-          tag === 'noscript' ||
-          tag === 'svg' ||
-          tag === 'iframe'
-        ) {
-          return;
-        }
-
-        // If main has sections inside, prefer those
-        if (child === main && child.children.length > 0) {
-          Array.from(child.children).forEach((grandchild) => {
-            candidateElements.push(grandchild);
+        // 3. Recursive unrolling of wrapper containers (Magento, Elementor, Shopify, Webflow, React root)
+        const unwrapToSections = (container: Element, depth = 0): Element[] => {
+          if (!container || depth > 8) return [];
+          const visibleChildren = Array.from(container.children).filter((c) => {
+            const tag = c.tagName.toLowerCase();
+            if (ignoredTags.has(tag)) return false;
+            if (c === header || c === footer) return false;
+            return isElementVisible(c);
           });
-        } else {
-          candidateElements.push(child);
-        }
-      });
 
-        // Footer
-        const footer = document.querySelector('footer, [role="contentinfo"]');
-        if (footer && !candidateElements.includes(footer)) {
+          if (visibleChildren.length === 0) return [];
+
+          // If single visible child and it's a wrapper tag, drill down
+          if (visibleChildren.length === 1) {
+            const only = visibleChildren[0];
+            const tag = only.tagName.toLowerCase();
+            if (['div', 'main', 'section', 'article'].includes(tag)) {
+              return unwrapToSections(only, depth + 1);
+            }
+            return [only];
+          }
+
+          // Multiple visible children. Check if any child is an abnormally tall wrapper (> 2500px) that contains sub-rows
+          const result: Element[] = [];
+          for (const child of visibleChildren) {
+            const r = child.getBoundingClientRect();
+            if (r.height > 2500) {
+              const sub = unwrapToSections(child, depth + 1);
+              if (sub.length > 1) {
+                result.push(...sub);
+                continue;
+              }
+            }
+            result.push(child);
+          }
+          return result;
+        };
+
+        const mainContainer =
+          document.querySelector('main, #__next, #app, #root, #main, .main-content, .page-wrapper') ||
+          document.body;
+
+        const bodySections = unwrapToSections(mainContainer);
+        bodySections.forEach((s) => {
+          if (!candidateElements.includes(s) && s !== footer) {
+            candidateElements.push(s);
+          }
+        });
+
+        if (footer && isElementVisible(footer) && !candidateElements.includes(footer)) {
           candidateElements.push(footer);
         }
       }
@@ -833,30 +888,24 @@ export class PageExtractor {
       // Filter and collect geometry
       uniqueElements.forEach((el, idx) => {
         const rect = el.getBoundingClientRect();
-        const style = window.getComputedStyle(el);
+        const tag = el.tagName.toLowerCase();
+        const isHeaderOrNav = tag === 'header' || tag === 'nav';
 
-        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+        // Must have reasonable visible size: headers/nav can be as thin as 20px, body sections >= 45px
+        if (
+          (isHeaderOrNav && rect.height < 20) ||
+          (!isHeaderOrNav && (rect.height < 45 || rect.width < 200))
+        ) {
           return;
         }
 
-        // Must have reasonable visible size
-        if (rect.height < 45 || rect.width < 250) {
-          return;
-        }
-
-        // Generate a unique CSS selector
-        let sel = '';
-        if (el.id) {
-          sel = `#${el.id}`;
-        } else if (el.tagName.toLowerCase() === 'header' || el.tagName.toLowerCase() === 'nav' || el.tagName.toLowerCase() === 'footer') {
-          sel = el.tagName.toLowerCase();
-        } else {
-          sel = `${el.tagName.toLowerCase()}:nth-of-type(${Array.from(el.parentElement?.children || []).indexOf(el) + 1})`;
-        }
+        // Stamp deterministic tracking attribute to ensure 100% selector fidelity
+        el.setAttribute('data-rep-section', String(idx));
+        const sel = `[data-rep-section="${idx}"]`;
 
         results.push({
           selector: sel,
-          tagName: el.tagName.toLowerCase(),
+          tagName: tag,
           rect: {
             x: Math.round(rect.x),
             y: Math.round(rect.y + window.scrollY),

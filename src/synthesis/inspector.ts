@@ -624,8 +624,8 @@ export class SectionInspector {
     // 1. Check for explicit top-level triggers first (e.g. Apple globalnav)
     if ($('[data-globalnav-item-name]').length > 0) {
       $('[data-globalnav-item-name]').each((_, el) => {
-        const name = $(el).attr('data-globalnav-item-name');
-        if (name === 'apple' || name === 'search' || name === 'bag') {
+        const name = ($(el).attr('data-globalnav-item-name') || '').toLowerCase();
+        if (/^(?:logo|brand|home|search|bag|cart|utility)$/i.test(name)) {
           return; // Brand logo or action icon, not a regular nav link
         }
         const text = $(el).find('.globalnav-link-text').text().trim() || $(el).attr('aria-label') || $(el).text().trim();
@@ -1049,7 +1049,7 @@ export class SectionInspector {
 
   private extractBrand($: cheerio.CheerioAPI, baseUrl: string): SectionAST['brand'] {
     const brandContainer = $(
-      '[class*="globalnav-item-apple"], [class*="navbar-brand"], [class*="nav-brand"], .brand, .logo, header a[href="/"], nav a[href="/"]'
+      '[class*="globalnav-item-logo"], [class*="globalnav-item-home"], [class*="navbar-brand"], [class*="nav-brand"], .brand, .logo, header a[href="/"], nav a[href="/"]'
     ).first();
     const brandLink = brandContainer.is('a')
       ? brandContainer
