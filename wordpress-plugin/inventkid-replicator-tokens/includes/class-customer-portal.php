@@ -168,7 +168,7 @@ class InventKid_Replicator_Customer_Portal {
         if (!$api_key) {
             ?>
             <div class="woocommerce-Message woocommerce-Message--info woocommerce-info">
-                <?php _e('You do not have an active Replicator License Key yet. Claim your 3 free credits or purchase a token package in our store to get started!', 'inventkid-replicator'); ?>
+                <?php _e('You do not have an active Replicator License Key yet. Claim your 10 free credits or purchase a token package in our store to get started!', 'inventkid-replicator'); ?>
             </div>
             <?php
             return;

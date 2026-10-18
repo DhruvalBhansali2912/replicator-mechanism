@@ -121,7 +121,7 @@ export function createServer(): express.Application {
     res.json({ record });
   });
 
-  // Auto-provision default trial key pre-credited with 3 tokens (called by Chrome Extension on first install/open)
+  // Auto-provision default trial key pre-credited with 10 tokens (called by Chrome Extension on first install/open)
   app.post('/api/keys/auto-trial', (req: Request, res: Response): void => {
     try {
       const deviceId = (req.body?.deviceId || req.headers['x-device-id']) as string;

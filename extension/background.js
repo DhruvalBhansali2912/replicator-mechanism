@@ -89,7 +89,7 @@ async function ensureTrialProvisioned() {
     if (res.ok && result.success && result.apiKey) {
       await chrome.storage.local.set({
         apiKey: result.apiKey,
-        balance: result.balance !== undefined ? result.balance : 3,
+        balance: result.balance !== undefined ? result.balance : 10,
         isFreeTrial: result.isFreeTrial !== undefined ? result.isFreeTrial : true,
       });
       return { success: true, apiKey: result.apiKey, balance: result.balance };

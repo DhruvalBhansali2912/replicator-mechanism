@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const apiUrl = (store.apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
   serverUrlDisplay.textContent = `Server: ${apiUrl.replace(/^https?:\/\//, '')}`;
 
-  // If no API key is present, auto-provision default 3-token trial key immediately
+  // If no API key is present, auto-provision default 10-token trial key immediately
   if (!store.apiKey) {
     try {
       const provRes = await new Promise((resolve) => {
@@ -368,12 +368,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       if (provRes && provRes.success && provRes.apiKey) {
         store.apiKey = provRes.apiKey;
-        store.balance = provRes.balance !== undefined ? provRes.balance : 3;
+        store.balance = provRes.balance !== undefined ? provRes.balance : 10;
         if (displayApiKey) {
           displayApiKey.value = provRes.apiKey;
         }
         updateBalanceDisplay(store.balance);
-        showAlert('🎉 3 Free Trial Tokens credited!', 'info');
+        showAlert('🎉 10 Free Trial Tokens credited!', 'info');
         setTimeout(() => {
           hideAlert();
           showView('ready');

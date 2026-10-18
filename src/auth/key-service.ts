@@ -128,7 +128,7 @@ export class KeyService {
   }
 
   /**
-   * Auto-provisions a default trial API key pre-credited with 3 tokens for a device.
+   * Auto-provisions a default trial API key pre-credited with 10 tokens for a device.
    * On first request, verifyAndBindDevice will lock this key to the device ID.
    * If the device has already claimed a trial, returns the existing key.
    */
@@ -176,7 +176,7 @@ export class KeyService {
       };
     }
 
-    // 3. Issue new default trial key with 3 tokens (unbound until first request)
+    // 3. Issue new default trial key with 10 tokens (unbound until first request)
     const newApiKey = `rep_live_${crypto.randomBytes(16).toString('hex')}`;
     const shortId = cleanDeviceId.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toLowerCase() || crypto.randomBytes(4).toString('hex');
     const trialEmail = `trial_${shortId}@trial.inventkid.com`;
@@ -185,7 +185,7 @@ export class KeyService {
       id: crypto.randomUUID(),
       apiKey: newApiKey,
       customerEmail: trialEmail,
-      tokensBalance: 3,
+      tokensBalance: 10,
       tokensUsed: 0,
       boundDeviceId: null, // Locked to device on first extraction request
       boundDeviceName: deviceName || null,
@@ -210,15 +210,15 @@ export class KeyService {
       id: crypto.randomUUID(),
       apiKey: newApiKey,
       action: 'credit',
-      delta: 3,
-      balanceAfter: 3,
+      delta: 10,
+      balanceAfter: 10,
       reason: `Auto-provisioned default trial key for device ${cleanDeviceId}`,
       timestamp: now,
     });
 
     return {
       apiKey: newApiKey,
-      balance: 3,
+      balance: 10,
       isNew: true,
       isFreeTrial: true,
       boundDeviceId: null,
