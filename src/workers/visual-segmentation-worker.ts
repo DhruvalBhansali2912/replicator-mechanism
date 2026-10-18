@@ -26,55 +26,135 @@ export class VisualSegmentationWorker {
     const $ = cheerio.load(html);
     const candidateNodes: { selector: string; tagName: string; html: string; rect: any }[] = [];
 
-    // Identify candidate root sections
-    const targetSelectors = [
-      'header',
-      'nav',
-      'main > section',
-      'main > div',
-      'body > section',
-      'body > div > section',
-      '[role="banner"]',
-      '[role="navigation"]',
-      '[role="main"]',
-      '[role="contentinfo"]',
-      'footer',
-    ];
-
     const seenElements = new Set<any>();
 
-    for (const sel of targetSelectors) {
-      $(sel).each((_, el) => {
-        if (!seenElements.has(el)) {
-          const elHtml = $(el).html() || '';
-          if (elHtml.trim().length > 30) {
-            seenElements.add(el);
-            const tag = (el as any).tagName ? (el as any).tagName.toLowerCase() : 'section';
-            candidateNodes.push({
-              selector: sel,
-              tagName: tag,
-              html: $.html(el),
-              rect: { x: 0, y: candidateNodes.length * 400, width: 1440, height: 400 },
-            });
-          }
+    const getUniqueSelector = (el: any): string => {
+      const $el = $(el);
+      const id = $el.attr('id');
+      if (id && /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(id)) {
+        return `#${id}`;
+      }
+      const dataBlock = $el.attr('data-block-id') || $el.attr('data-section') || $el.attr('data-testid');
+      if (dataBlock && !dataBlock.includes('"') && !dataBlock.includes('\n')) {
+        if ($el.attr('data-block-id')) return `[data-block-id="${$el.attr('data-block-id')}"]`;
+        if ($el.attr('data-section')) return `[data-section="${$el.attr('data-section')}"]`;
+        if ($el.attr('data-testid')) return `[data-testid="${$el.attr('data-testid')}"]`;
+      }
+      const rawTag = (el as any).tagName ? (el as any).tagName.toLowerCase() : 'section';
+      const tag = /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(rawTag) ? rawTag : 'section';
+      const parent = $el.parent();
+      const pEl = parent.length > 0 ? (parent.get(0) as any) : null;
+      if (pEl && pEl.tagName && pEl.tagName.toLowerCase() !== 'html') {
+        const siblings = parent.children(tag);
+        const idx = siblings.index(el) + 1;
+        const pRawTag = pEl.tagName.toLowerCase();
+        const pTag = /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(pRawTag) ? pRawTag : 'div';
+        const pId = parent.attr('id');
+        const parentSel = pId && /^[a-zA-Z][a-zA-Z0-9_-]*$/.test(pId) ? `#${pId}` : (pTag === 'body' ? 'body' : pTag);
+        return siblings.length > 1 ? `${parentSel} > ${tag}:nth-of-type(${idx})` : `${parentSel} > ${tag}`;
+      }
+      return tag;
+    };
+
+    const addCandidate = (el: any, sel?: string) => {
+      if (!el || seenElements.has(el)) return;
+      const $el = $(el);
+      const tag = (el as any).tagName ? (el as any).tagName.toLowerCase() : 'section';
+      const cls = ($el.attr('class') || '').toLowerCase();
+      const id = ($el.attr('id') || '').toLowerCase();
+
+      // Skip full page wrappers
+      if (
+        tag === 'body' || tag === 'html' ||
+        id === 'root' || id === '__next' || id === 'app' ||
+        cls.includes('page-wrapper') || cls.includes('columns') || cls.includes('main-wrapper')
+      ) {
+        return;
+      }
+
+      // A flow section must be a structural block element, not inline elements or list items
+      if (['a', 'span', 'p', 'li', 'button', 'input', 'label', 'i', 'svg', 'img'].includes(tag)) {
+        return;
+      }
+
+      // Never segment elements inside header, nav, or footer as separate flow sections
+      if ($el.parents('header, nav, footer, [role="banner"], [role="contentinfo"]').length > 0) {
+        return;
+      }
+
+      // Filter out utility overlays, cookies, dialogs/modals, or empty alerts
+      const text = $el.text()?.trim() || '';
+      const mediaCount = $el.find('img, video, picture, svg, canvas').length;
+      if (text.length < 15 && mediaCount === 0) return;
+      if (cls.includes('cookie') || cls.includes('alert-message') || cls.includes('toast') || cls.includes('popup')) return;
+      if (tag === 'dialog' || $el.attr('role') === 'dialog' || $el.attr('aria-modal') === 'true' || cls.includes('modal') || (cls.includes('dialog') && !cls.includes('catalogue')) || cls.includes('gnb-search') || cls.includes('search-layer')) return;
+
+      const elHtml = $.html(el) || '';
+      if (elHtml.trim().length > 30) {
+        seenElements.add(el);
+        const resolvedSel = sel || getUniqueSelector(el);
+        candidateNodes.push({
+          selector: resolvedSel,
+          tagName: tag,
+          html: elHtml,
+          rect: { x: 0, y: candidateNodes.length * 400, width: 1440, height: 400 },
+        });
+      }
+    };
+
+    // 1. Headers / Banners / Navigation Landmarks (exclude card headers inside sections)
+    $('header:not(section header):not(article header):not(li header):not(footer header), [role="banner"], .page-header, [class*="site-header"], nav:not(header nav):not(footer nav):not(section nav), [role="navigation"]:not(header [role="navigation"]):not(footer [role="navigation"]):not(section [role="navigation"])').each((_, el) => {
+      addCandidate(el);
+    });
+
+    // 2. Main content rows and sections
+    // Detect builder / layout rows and semantic sections across platforms (AEM, Next.js, Webflow, Shopify, WordPress, standard HTML5)
+    const majorRows = $('main > [data-block-id], [data-block-id], [data-block], [data-section], main [class*="element-row"], [class*="builder"] > [class*="row"], [class*="builder"] > div, main > section, main > article, main > div > section, main > div > div > section, body > section, body > article, [class*="site-section"], [id*="content"] > section, [class*="content"] > section, section:not(header section):not(footer section):not(nav section), article:not(header article):not(footer article):not(nav article)');
+    if (majorRows.length >= 2) {
+      majorRows.each((_, el) => {
+        const hasParentRow = $(el).parents().toArray().some((p) => majorRows.toArray().includes(p));
+        if (!hasParentRow) {
+          addCandidate(el);
         }
       });
+    } else {
+      // Fallback standard landmark selectors
+      const targetSelectors = [
+        'main > section',
+        'main > article',
+        'main > div',
+        'body > section',
+        'body > article',
+        'body > div > section',
+        '[role="main"] > section',
+        '[role="main"] > article',
+        '[role="main"] > div',
+        '#content section',
+        '[id*="content"] section',
+      ];
+      for (const sel of targetSelectors) {
+        $(sel).each((_, el) => addCandidate(el));
+      }
     }
 
-    // Fallback: If no distinct sections were discovered, treat body children as sections
+    // 3. Footers
+    $('footer, [role="contentinfo"], .page-footer, [class*="site-footer"]').each((_, el) => {
+      addCandidate(el);
+    });
+
+    // 4. Extreme Fallback: If no distinct sections discovered, look inside SPA root containers or body
     if (candidateNodes.length === 0) {
-      $('body > *').each((i, el) => {
-        const text = $(el).text()?.trim() || '';
-        if (text.length > 10) {
-          const tag = (el as any).tagName ? (el as any).tagName.toLowerCase() : 'div';
-          candidateNodes.push({
-            selector: `body > :nth-child(${i + 1})`,
-            tagName: tag,
-            html: $.html(el),
-            rect: { x: 0, y: i * 350, width: 1440, height: 350 },
-          });
-        }
-      });
+      const spaRoots = $('#root, #app, #__next, .page-wrapper, .main-wrapper');
+      if (spaRoots.length > 0) {
+        spaRoots.first().children().each((_, el) => {
+          addCandidate(el);
+        });
+      }
+      if (candidateNodes.length === 0) {
+        $('body > *').each((_, el) => {
+          addCandidate(el);
+        });
+      }
     }
 
     const sections: SegmentedSection[] = candidateNodes.map((item, index) => {

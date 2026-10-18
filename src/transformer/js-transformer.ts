@@ -56,6 +56,35 @@ export class JsTransformer {
 
     return modified;
   }
+
+  /**
+   * Sanitizes ES Module syntax (import/export/import.meta) so scripts can safely execute in standard classic scripts or function closures
+   */
+  public static sanitizeModuleSyntax(code: string): string {
+    if (!code || !code.trim()) return '';
+    return code
+      .replace(/import\.meta(?:\.[a-zA-Z0-9_$]+)*/g, '({ url: "" })')
+      // 1. Dynamic import: import('...') or import("...") -> Promise.resolve({})
+      .replace(/\bimport\s*\(([^)]*)\)/g, 'Promise.resolve({})')
+      // 2. Static import with 'from': import ... from '...'
+      .replace(/\bimport\s*(?:\{[^}]*\}|[^{};\n]*?)\s*from\s*['"][^'"]+['"];?/g, ';/* [import removed] */;')
+      // 3. Side-effect import: import '...' or import "..."
+      .replace(/\bimport\s*['"][^'"]+['"];?/g, ';/* [import removed] */;')
+      // 4. Any remaining import statements up to semicolon
+      .replace(/\bimport\s*[^;{\n]*?['"][^'"]+['"];?/g, ';/* [import removed] */;')
+      // 5. Export default
+      .replace(/(?:^|[;\n\r])\s*export\s+default\s+/g, ';/* export default */ ')
+      // 6. Export named declarations: export const/let/var/function/class
+      .replace(/(?:^|[;\n\r])\s*export\s+(const|let|var|function|class)\s+/g, ';$1 ')
+      // 7. Export specifiers: export { a, b } or export { a as b } from '...'
+      .replace(/(?:^|[;\n\r])\s*export\s*\{[^}]*\}\s*(?:from\s*['"][^'"]+['"])?;?/g, ';/* [export removed] */;')
+      // 8. Any remaining export statements
+      .replace(/\bexport\s+[^;{\n]*?;?/g, ';/* [export removed] */;')
+      // 9. Neutralize destructive navigation hiding scripts (e.g. webview hide-header logic)
+      .replace(/(?:document\.)?querySelector(?:All)?\s*\([^)]*(?:gnb|nav|header|navbar|menu)[^)]*\)[^;{}]*\.style\.display\s*=\s*['"]none['"]/gi, '/* [neutralized nav hiding] */ (()=>{})()')
+      // 10. Neutralize hostile page redirects
+      .replace(/\b(?:window\.)?location\.(?:replace|assign)\s*\(/g, '/* [redirect neutralized] */ (()=>{})(');
+  }
 }
 
 function basicJsBeautify(code: string): string {

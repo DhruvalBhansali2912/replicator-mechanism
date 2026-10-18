@@ -6,6 +6,7 @@ import { PNG } from 'pngjs';
 import { BrowserManager } from '../crawler/browser.js';
 import { VisualQAResult } from '../types.js';
 import { BaselineScreenshots } from '../crawler/page-extractor.js';
+import { fidelityGuard } from './fidelity-guard.js';
 
 export class VisualQAService {
   /**
@@ -134,14 +135,14 @@ export class VisualQAService {
 
       // Check desktop hover
       const desktopNav = await page.$(
-        'header nav li button, header nav li a, ol.tds-align--center > li > button, ol.tds-align--center > li > a, [role="navigation"] button, [role="navigation"] a'
+        'header nav li button, header nav li a, [role="navigation"] button, [role="navigation"] a, header nav > ul > li'
       );
       if (desktopNav) {
         await desktopNav.hover({ timeout: 1500 }).catch(() => {});
         await page.waitForTimeout(250);
         desktopHoverPassed = await page.evaluate(() => {
           const p = document.querySelector(
-            'dialog.open, dialog[open], .tds-site-header-panel[open], .tds-site-header-panel.open, [class*="mega-menu-panel"][open], [class*="mega-menu-panel"].open, [class*="dropdown-menu"].open, [class*="dropdown-menu"].show, .dropdown-menu.show'
+            'dialog.open, dialog[open], [role="dialog"], [class*="dropdown-menu"].open, [class*="dropdown-menu"].show, .dropdown-menu.show, [class*="mega-menu"].open'
           );
           if (!p) return false;
           const rect = p.getBoundingClientRect();
@@ -179,7 +180,7 @@ export class VisualQAService {
       const structural = await page.evaluate(() => {
         // Check carousel slide width
         const slides = document.querySelectorAll(
-          '.tcl-freeflow-carousel-container__slide-container, [class*="carousel-container__slide-container"], [class*="freeflow-carousel"] [class*="slide"]'
+          '[class*="carousel-container__slide-container"], [class*="freeflow-carousel"] [class*="slide"], [class*="carousel-slide"], [class*="slide"]'
         );
         let carouselOk = true;
         if (slides.length > 0) {
@@ -189,7 +190,7 @@ export class VisualQAService {
 
         // Check fallback container display
         const fallbacks = document.querySelectorAll(
-          '.charging-map-component__fallback-container, [class*="map-component__fallback-container"], [class*="fallback-container"]'
+          '[class*="map-component__fallback-container"], [class*="fallback-container"]'
         );
         let fallbackOk = true;
         if (fallbacks.length > 0) {
@@ -206,8 +207,6 @@ export class VisualQAService {
 
         // 1. Check for empty or collapsed map/locator/canvas containers
         const mapSelectors = [
-          '#charging-map-component',
-          '[class*="charging-map"]',
           '[class*="map-component"]',
           '[data-testid*="map"]',
           '.store-locator',
@@ -250,7 +249,7 @@ export class VisualQAService {
 
       // Check mobile menu toggle
       const mobileToggle = await page.$(
-        '.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i], [class*="menu-btn"]'
+        '[class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i], [class*="menu-btn"]'
       );
       if (mobileToggle) {
         await mobileToggle.click({ timeout: 1500 }).catch(() => {});
@@ -410,103 +409,53 @@ export class VisualQAService {
       }
     }
 
-    // 2. Scoped Universal Self-Healing CSS
-    let healingCss = '\n/* [REPLICATOR AUTO-HEALING PATCHES] */\n';
+    // 2. Authentic Website Rule Retrieval (Zero Guessing)
+    let healingCss = '\n/* [AUTHENTIC ORIGIN WEBSITE RULE RETRIEVAL (Zero Guessing)] */\n';
+    let healingJs = '';
 
-    if (!evalData.structuralChecks.carouselsResponsive) {
-      healingCss += `
-.tcl-freeflow-carousel-container__slide-container,
-[class*="carousel-container__slide-container"],
-[class*="freeflow-carousel"] [class*="slide"],
-[class*="carousel-container"] > * {
-  flex: 0 0 85vw !important;
-  width: 85vw !important;
-  min-width: 85vw !important;
-  flex-shrink: 0 !important;
-}
-`;
-    }
-
-    if (!evalData.structuralChecks.fallbacksVisible) {
-      healingCss += `
-.charging-map-component__fallback-container,
-[class*="map-component__fallback-container"],
-[class*="fallback-container"],
-#charging-map-component {
-  display: block !important;
-  width: 100% !important;
-  min-height: 450px !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-}
-.charging-map-component__fallback-image,
-[class*="fallback-container"] img,
-#charging-map-component img {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-`;
-    }
-
-    if (!evalData.menuInteractivity.desktopHoverPassed) {
-      healingCss += `
-header nav li:hover > .dropdown-menu,
-header nav li:hover > [class*="dropdown"],
-ol.tds-align--center > li:hover ~ dialog.tds-site-header-panel,
-ol.tds-align--center > li:hover ~ .tds-site-header-panel {
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-}
-`;
-    }
-
-    if (!evalData.menuInteractivity.mobileTogglePassed) {
-      healingCss += `
-.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i] {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  z-index: 9999 !important;
-}
-`;
-    }
-
-    // 3. Scoped Universal Self-Healing JS (for menu interaction & lazy hydration fallbacks)
-    const healingJs = `
-<script id="replicator-self-heal-script">
-(function() {
-  function initHeal() {
-    var toggles = document.querySelectorAll('.tds-mobile-nav-toggle, [class*="mobile-nav-toggle"], [class*="hamburger"], [aria-label*="menu" i]');
-    toggles.forEach(function(btn) {
-      btn.style.pointerEvents = 'auto';
-      btn.style.cursor = 'pointer';
-      btn.addEventListener('click', function(e) {
-        document.body.classList.toggle('menu-open');
-        var drawers = document.querySelectorAll('dialog, [class*="mobile-nav"], [class*="nav-drawer"]');
-        drawers.forEach(function(d) {
-          d.classList.toggle('open');
-          d.classList.toggle('mobile-open');
-          if (d.tagName === 'DIALOG' && typeof d.showModal === 'function') {
-            if (d.hasAttribute('open')) d.close(); else d.showModal();
-          }
-        });
+    if (rawSnapshotHtml) {
+      const $raw = cheerio.load(rawSnapshotHtml);
+      const rawStyles: string[] = [];
+      $raw('style').each((_, s) => {
+        const txt = $raw(s).text();
+        if (txt) rawStyles.push(txt);
       });
-    });
-    document.querySelectorAll('img[data-src]').forEach(function(img) {
-      if (!img.src && img.dataset.src) img.src = img.dataset.src;
-    });
-  }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initHeal);
-  } else {
-    initHeal();
-  }
-})();
-</script>
-`;
+      const rawWebsiteCss = rawStyles.join('\n');
+
+      if (evalData.defectiveSections && evalData.defectiveSections.length > 0) {
+        for (const defect of evalData.defectiveSections) {
+          const authenticRules = fidelityGuard.retrieveAuthenticCssForElement(
+            {
+              type: 'hidden_element',
+              selector: defect.selector,
+              tagName: (defect as any).tagName || 'div',
+              classes: ((defect as any).classes || []).concat(defect.selector.replace(/^[.#]/, '').split(/\s+/)),
+            },
+            rawWebsiteCss,
+            rawSnapshotHtml
+          );
+          if (authenticRules) {
+            healingCss += `\n${authenticRules}\n`;
+          }
+        }
+      }
+
+      if (!evalData.menuInteractivity.mobileTogglePassed) {
+        const authenticToggleJs = fidelityGuard.retrieveAuthenticToggleJs(
+          {
+            type: 'unresponsive_toggle',
+            selector: '#nav-container .button, .icon-bar, [aria-label*="menu"]',
+            tagName: 'button',
+            classes: ['button', 'icon-bar'],
+          },
+          rawSnapshotHtml,
+          rawWebsiteCss
+        );
+        if (authenticToggleJs) {
+          healingJs = `\n<script id="replicator-self-heal-script">\n${authenticToggleJs}\n</script>\n`;
+        }
+      }
+    }
 
     try {
       if (fs.existsSync(styleCssPath)) {

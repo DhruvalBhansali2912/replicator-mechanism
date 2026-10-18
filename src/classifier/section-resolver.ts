@@ -6,24 +6,94 @@ import * as cheerio from 'cheerio';
  * content prominence, and interactive indicators.
  */
 export function resolveTargetSectionFromSnapshot(
-  $snap: cheerio.CheerioAPI,
+  snapshotOrHtml: cheerio.CheerioAPI | string,
   targetArchetype?: string,
   sectionSelector?: string
 ): cheerio.Cheerio<any> | null {
-  if (!$snap) return null;
+  if (!snapshotOrHtml) return null;
+  const $snap: cheerio.CheerioAPI = typeof snapshotOrHtml === 'string'
+    ? cheerio.load(snapshotOrHtml)
+    : snapshotOrHtml;
 
   // 1. If an explicit sectionSelector is provided and is not a generic tag
   if (sectionSelector && sectionSelector.trim() && sectionSelector !== 'section' && sectionSelector !== 'div') {
     try {
-      const explicit = $snap(sectionSelector);
+      const explicit = $snap(sectionSelector).not('html, body');
       if (explicit.length > 0) {
         const first = explicit.first();
         const tag = (first.get(0) as any)?.tagName?.toLowerCase() || '';
-        // If matched element is an inline/leaf node, ascend to enclosing section container
-        if (['button', 'a', 'span', 'p', 'img', 'svg', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'input', 'li'].includes(tag)) {
-          const enc = first.closest('section, article, [class*="section"], [class*="hero"], [class*="banner"], [role="region"], [data-rep-section]');
+
+        // If the element is already an explicit top-level semantic container, do not ascend to page-level wrappers
+        if (tag === 'header' || tag === 'nav' || tag === 'footer' || first.attr('role') === 'banner' || first.attr('role') === 'contentinfo') {
+          return first;
+        }
+
+        const isLeafTag = ['button', 'a', 'span', 'p', 'img', 'svg', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'input', 'li', 'label', 'strong', 'em', 'small', 'b', 'i'].includes(tag);
+        const innerHtmlLen = (first.html() || '').length;
+
+        // If first is an explicit semantic section or article, preserve it directly!
+        if (tag === 'section' || tag === 'article') {
+          return first;
+        }
+
+        // If first is nested inside an actual semantic <section> or <article> on the page,
+        // ascend to that enclosing section so headings, tabs, and companion controls are never truncated!
+        const enclosingSection = first.closest('section, article');
+        if (enclosingSection.length > 0) {
+          const secTag = (enclosingSection.get(0) as any)?.tagName?.toLowerCase() || '';
+          const secId = (enclosingSection.attr('id') || '').toLowerCase();
+          const secCls = (enclosingSection.attr('class') || '').toLowerCase();
+          const isSecShell = secTag === 'body' || secTag === 'main' ||
+            ['root', 'app', '__next', '__nuxt', 'content', 'main'].includes(secId) ||
+            secCls.includes('page-wrapper') || secCls.includes('main-wrapper') || secCls.includes('site-wrapper');
+          if (!isSecShell) {
+            return enclosingSection;
+          }
+        }
+
+        // If user specifically targeted a standalone container/widget not inside a section tag, preserve it
+        if (!isLeafTag && (first.children().length > 1 || innerHtmlLen > 200)) {
+          return first;
+        }
+
+        // Universal section ancestor resolution for leaf/micro nodes:
+        // Ascend to the NEAREST (closest) enclosing section/container, never the outermost page wrapper!
+        const sectionSel = 'section, article, header, footer, [role="region"], [role="banner"], [role="contentinfo"], [class*="section"], [class*="hero"], [class*="banner"], [class*="slider"], [class*="carousel"], [class*="feature"], [id*="section"], [id*="hero"], [id*="banner"], [id*="feature"], [data-rep-section]';
+
+        const ancestors = first.parents(sectionSel).filter((_, el) => {
+          const t = el.tagName.toLowerCase();
+          const i = ($snap(el).attr('id') || '').toLowerCase();
+          const c = ($snap(el).attr('class') || '').toLowerCase();
+          if (t === 'body' || t === 'html' || t === 'main') return false;
+          if (i === 'root' || i === '__next' || i === 'app' || i === '__nuxt' || i === 'content' || i === 'main') return false;
+          if (
+            c.includes('page-wrapper') ||
+            c.includes('main-wrapper') ||
+            c.includes('layout-wrapper') ||
+            c.includes('section-wrap') ||
+            c.includes('all-sections') ||
+            c.includes('site-main') ||
+            c.includes('page-content') ||
+            c.includes('entry-content') ||
+            c.includes('site-content') ||
+            c.includes('content-area') ||
+            c.includes('columns') ||
+            c.includes('app-container')
+          ) return false;
+          return true;
+        });
+
+        if (ancestors.length > 0) {
+          // Nearest enclosing section container is the first in cheerio parents() array
+          return $snap(ancestors.first());
+        }
+
+        // If matched element is an inline/leaf node and had no explicit section ancestor, ascend to nearest container
+        if (isLeafTag) {
+          const enc = first.closest('div, section, article');
           if (enc.length > 0) return enc;
         }
+
         return first;
       }
     } catch {}
@@ -35,7 +105,7 @@ export function resolveTargetSectionFromSnapshot(
   // 2. Navigation Header Resolution
   if (isNav) {
     const navCandidates = $snap(
-      'header, [role="banner"], nav:not(header nav):not(footer nav), [role="navigation"]:not(header [role="navigation"]), [class*="navbar"], [class*="site-header"]'
+      'header, [role="banner"], [class*="location-header"], [class*="site-header"], [class*="header-top"], [class*="header-wrapper"], [class*="header_wrapper"], [class*="navbar"], nav:not(header nav):not(footer nav), [role="navigation"]:not(header [role="navigation"])'
     );
     let bestNav: cheerio.Cheerio<any> | null = null;
     let bestNavScore = -1;
@@ -60,9 +130,22 @@ export function resolveTargetSectionFromSnapshot(
       let score = 10;
       if (tag === 'header') score += 25;
       if ($el.attr('role') === 'banner') score += 20;
-      if ($el.find('a, button').length >= 3) score += 25;
+      if (cls.includes('header')) score += 30;
+      if (cls.includes('nav')) score += 15;
+      if ($el.find('a, button').length >= 1) score += 20;
       if ($el.find('img, svg').length > 0) score += 15;
-      if (cls.includes('header') || cls.includes('nav')) score += 15;
+      // Header containing a hamburger, menu toggle, or bars icon
+      if ($el.find('[class*="burger"], [class*="hamburger"], [class*="menu"], [class*="toggle"], .fa-bars, [data-action="toggle-nav"]').length > 0) {
+        score += 35;
+      }
+      // Top-level containers (direct child of body or main layout shell) get priority
+      if ($el.parent().is('body, main, #__next, #root, #app, [class*="page-wrapper"]')) {
+        score += 20;
+      }
+      // Elements inside a popup, modal, or offcanvas dialog are companion drawers, NOT the primary header
+      if ($el.closest('[data-elementor-type="popup"], [class*="popup"], [class*="dialog"], [role="dialog"], [class*="offcanvas"]').length > 0) {
+        score -= 50;
+      }
 
       if (score > bestNavScore) {
         bestNavScore = score;
@@ -128,10 +211,14 @@ export function resolveTargetSectionFromSnapshot(
 
       // Disqualifiers:
       // A. Inside header, nav, footer
-      if ($el.parents('header, nav, footer, [role="banner"], [role="contentinfo"]').length > 0) {
+      const isHeroNamed = cls.includes('hero') || id.includes('hero');
+      if ($el.parents('nav, footer, [role="contentinfo"]').length > 0) {
         continue;
       }
-      if (tag === 'header' || tag === 'nav' || tag === 'footer') {
+      if ($el.parents('header, [role="banner"]').length > 0 && !isHeroNamed) {
+        continue;
+      }
+      if ((tag === 'header' && !isHeroNamed) || tag === 'nav' || tag === 'footer') {
         continue;
       }
 
@@ -251,3 +338,218 @@ export function resolveTargetSectionFromSnapshot(
   const defSec = $snap('section, main > div, article').first();
   return defSec.length > 0 ? defSec : null;
 }
+
+/**
+ * Universally captures companion off-canvas drawers, modal menus, and detached slide-out panels
+ * that belong to the resolved section (e.g. mobile menus, hamburger drawers, Elementor popups).
+ */
+export function enrichSectionWithCompanions(
+  targetHtml: string,
+  $snap: cheerio.CheerioAPI,
+  targetArchetype?: string,
+  sourceSelector?: string
+): string {
+  if (!targetHtml || !$snap) return targetHtml;
+
+  const isNav =
+    targetArchetype === 'navbar' ||
+    (sourceSelector && (sourceSelector.includes('nav') || sourceSelector.includes('header'))) ||
+    targetHtml.includes('<header') ||
+    targetHtml.includes('<nav') ||
+    targetHtml.includes('site-header') ||
+    targetHtml.includes('location-header');
+
+  if (!isNav) return targetHtml;
+
+  try {
+    const $target = cheerio.load(targetHtml);
+    const addedOuterHtmls = new Set<string>();
+    const addedIds = new Set<string>();
+
+    function addCompanion(el: any) {
+      if (!el) return;
+      const $el = $snap(el);
+      const outer = $snap.html($el);
+      const id = ($el.attr('id') || '').trim();
+      if (!outer) return;
+      if (id && (addedIds.has(id) || targetHtml.includes(`id="${id}"`) || targetHtml.includes(`id='${id}'`) || $target(`[id="${id}"]`).length > 0)) return;
+      if (addedOuterHtmls.has(outer) || targetHtml.includes(outer)) return;
+
+      // If el is an internal descendant of any element in targetHtml, do not duplicate it
+      if (sourceSelector) {
+        try {
+          const snapRoot = $snap(sourceSelector).first();
+          if (snapRoot.length > 0 && (snapRoot.is(el) || snapRoot.find(el).length > 0)) {
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Check if el is already inside target nav or header
+      try {
+        const snapNav = $snap('nav, header').filter((_, n) => targetHtml.includes($snap(n).attr('id') || '___never___') || targetHtml.includes($snap(n).attr('class') || '___never___')).first();
+        if (snapNav.length > 0 && (snapNav.is(el) || snapNav.find(el).length > 0)) {
+          return;
+        }
+      } catch (_) {}
+
+      // Safety check: do not append full page wrappers or root containers
+      const tag = (el.tagName || '').toLowerCase();
+      const cls = ($el.attr('class') || '').toLowerCase();
+      if (['html', 'body', 'main', 'head', 'script', 'style'].includes(tag)) return;
+      if (['root', 'app', '__next', '__nuxt', 'maincontent'].includes(id.toLowerCase())) return;
+      if (
+        cls.includes('page-wrapper') ||
+        cls.includes('main-wrapper') ||
+        cls.includes('site-wrapper') ||
+        cls.includes('layout-wrapper')
+      ) return;
+
+      // Sanitize companion to resting closed state
+      const $clone = cheerio.load(outer, { xmlMode: false }, false);
+      $clone.root().children().each((_, ch) => {
+        const $ch = $clone(ch);
+        $ch.removeAttr('data-open');
+        if ($ch.attr('data-state') === 'open') $ch.attr('data-state', 'closed');
+        if ($ch.attr('aria-expanded') === 'true') $ch.attr('aria-expanded', 'false');
+      });
+      const sanitizedOuter = $clone.html() || outer;
+
+      if (id) addedIds.add(id);
+      addedOuterHtmls.add(outer);
+      addedOuterHtmls.add(sanitizedOuter);
+      targetHtml += '\n' + sanitizedOuter;
+    }
+
+    // 1. Declarative Target Inspection:
+    // Look at all buttons, links, toggles, icons inside targetHtml
+    $target(
+      'button, a, [role="button"], [class*="toggle"], [class*="burger"], [class*="hamburger"], [class*="menu-btn"], [class*="icon"], [aria-controls], [data-target], [data-bs-target], [data-elementor-open-popup]'
+    ).each((_, trg) => {
+      const $trg = $target(trg);
+      const ariaCtrl = $trg.attr('aria-controls');
+      const ariaOwns = $trg.attr('aria-owns');
+      const dataTarget = $trg.attr('data-target') || $trg.attr('data-bs-target');
+      const href = $trg.attr('href') || '';
+      const elemPopup = $trg.attr('data-elementor-open-popup') || $trg.attr('data-popup-id');
+
+      // A. aria-controls & aria-owns
+      [ariaCtrl, ariaOwns].forEach((id) => {
+        if (id && id.trim()) {
+          const cleanId = id.trim();
+          const match = $snap('[id="' + cleanId + '"]');
+          if (match.length > 0) addCompanion(match.get(0));
+        }
+      });
+
+      // B. data-target / data-bs-target
+      if (dataTarget && dataTarget.trim() && dataTarget.startsWith('#')) {
+        const cleanTarget = dataTarget.trim().slice(1);
+        const match = $snap('[id="' + cleanTarget + '"]');
+        if (match.length > 0) addCompanion(match.get(0));
+      }
+
+      // C. Elementor action popup links: #elementor-action:action=popup:open&settings=...
+      if (href && (href.includes('elementor-action') || href.includes('popup'))) {
+        try {
+          const decoded = decodeURIComponent(href);
+          const m = decoded.match(/settings=([A-Za-z0-9+/=]+)/);
+          if (m && m[1]) {
+            const jsonStr = Buffer.from(m[1], 'base64').toString('utf8');
+            const parsed = JSON.parse(jsonStr);
+            if (parsed && parsed.id) {
+              const popup = $snap(`[data-elementor-id="${parsed.id}"], .elementor-${parsed.id}, [id="elementor-popup-modal-${parsed.id}"]`);
+              if (popup.length > 0) addCompanion(popup.get(0));
+            }
+          }
+        } catch {}
+      }
+
+      // D. Direct data-elementor-open-popup
+      if (elemPopup && elemPopup.trim()) {
+        const popup = $snap(`[data-elementor-id="${elemPopup.trim()}"], .elementor-${elemPopup.trim()}, [id="elementor-popup-modal-${elemPopup.trim()}"]`);
+        if (popup.length > 0) addCompanion(popup.get(0));
+      }
+
+      // E. Plain hash links pointing to dialogs/drawers: href="#site-navigation", href="#mobile-menu", etc.
+      if (href && href.startsWith('#') && href.length > 2 && !href.includes('elementor-action')) {
+        const hashTarget = href.slice(1);
+        if (hashTarget !== 'content' && hashTarget !== 'top' && hashTarget !== 'main') {
+          const match = $snap('[id="' + hashTarget + '"]');
+          if (match.length > 0) {
+            const mCls = (match.attr('class') || '').toLowerCase();
+            const mId = (match.attr('id') || '').toLowerCase();
+            const mRole = (match.attr('role') || '').toLowerCase();
+            if (
+              mCls.includes('menu') || mCls.includes('nav') || mCls.includes('drawer') || mCls.includes('sidebar') || mCls.includes('offcanvas') ||
+              mId.includes('menu') || mId.includes('nav') || mId.includes('drawer') || mId.includes('sidebar') || mId.includes('offcanvas') ||
+              mRole === 'dialog' || mRole === 'navigation'
+            ) {
+              addCompanion(match.get(0));
+            }
+          }
+        }
+      }
+    });
+
+    // 2. Semantic Companion Search:
+    // If target section has a hamburger/menu toggle OR user targeted a navbar, scan for detached navigation drawers
+    const hasMenuIndicator =
+      $target(
+        '[class*="burger"], [class*="hamburger"], [class*="menu-toggle"], [class*="nav-toggle"], [aria-label*="menu" i], [aria-label*="navigation" i], [class*="icon-bars"], .fa-bars, [data-action="toggle-nav"], a[href*="popup"], button[class*="menutrigger"]'
+      ).length > 0;
+
+    if (hasMenuIndicator || isNav) {
+      const companionSelectors = [
+        '[data-elementor-type="popup"]',
+        '[class*="location-popup"]',
+        '[id*="elementor-popup"]',
+        'nav[class*="popup"]',
+        '[class*="popup"]:not([class*="cookie"]):not([class*="cart"]):not([class*="modal"]):not([class*="toast"]):not([class*="alert"])',
+        '[class*="mobile-nav-drawer"]',
+        '[class*="mobile-menu"]',
+        '[class*="menu-drawer"]',
+        '[class*="nav-drawer"]',
+        '[class*="header_sidebar_menu"]',
+        '[class*="offcanvas"]',
+        '[class*="off-canvas"]',
+        '[class*="drawer"]:not([class*="cart"]):not([class*="product"])',
+        '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
+        '[class*="side-nav"]',
+        '[class*="site-menu"]',
+        '[class*="header-panel"]',
+        '[class*="mega-menu-panel"]',
+        '[role="dialog"]:not([class*="search"]):not([class*="video"]):not([class*="cookie"]):not([class*="login"])',
+        '#nav-content',
+        '#mobile-menu'
+      ];
+
+      $snap(companionSelectors.join(', ')).each((_, el) => {
+        const $el = $snap(el);
+        const cls = ($el.attr('class') || '').toLowerCase();
+        const id = ($el.attr('id') || '').toLowerCase();
+
+        // Reject utility / non-navigation popups
+        if (
+          cls.includes('cookie') || cls.includes('consent') || cls.includes('gdpr') ||
+          cls.includes('newsletter') || cls.includes('toast') || cls.includes('alert') ||
+          cls.includes('chat') || cls.includes('review') || cls.includes('feedback') ||
+          cls.includes('login') || cls.includes('cart') || cls.includes('filter') ||
+          id.includes('cookie') || id.includes('consent') || id.includes('cart')
+        ) {
+          return;
+        }
+
+        // Must have meaningful interactive menu content: at least 1 nav, or at least 2 a links
+        const linkCount = $el.find('a').length;
+        const hasNavOrList = $el.find('nav, ul, [role="menu"]').length > 0;
+        if (linkCount >= 2 || (linkCount >= 1 && hasNavOrList)) {
+          addCompanion(el);
+        }
+      });
+    }
+  } catch {}
+
+  return targetHtml;
+}
+

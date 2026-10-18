@@ -119,7 +119,14 @@ export class SectionInspector {
         navStyle.includes('background: rgb(255, 255, 255)') ||
         navStyle.includes('background-color: rgb(255, 255, 255)');
 
-      if (isExplicitDarkNav) {
+      const snapshotHasDarkTheme = htmlSnapshot ? (
+        htmlSnapshot.includes('data-theme="dark"') ||
+        htmlSnapshot.includes("data-theme='dark'") ||
+        htmlSnapshot.includes('data-color-mode="dark"') ||
+        /<html[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot)
+      ) : false;
+
+      if (isExplicitDarkNav || snapshotHasDarkTheme) {
         theme = 'dark';
       } else if (isExplicitLightNav) {
         theme = 'light';
@@ -161,11 +168,55 @@ export class SectionInspector {
       }
     }
 
+    const snapshotHasDarkTheme = htmlSnapshot ? (
+      htmlSnapshot.includes('data-theme="dark"') ||
+      htmlSnapshot.includes("data-theme='dark'") ||
+      htmlSnapshot.includes('data-color-mode="dark"') ||
+      /<html[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot) ||
+      /<body[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot)
+    ) : false;
+
+    const rootVarsIndicateDark = rootCssVariables ? (
+      rootCssVariables['--color-bg-primary'] === '#08090a' ||
+      rootCssVariables['--color-bg'] === '#08090a' ||
+      rootCssVariables['--color-bg-primary'] === '#000000' ||
+      rootCssVariables['--color-bg'] === '#000000' ||
+      rootCssVariables['--color-text-primary'] === '#f7f8f8' ||
+      rootCssVariables['--color-text-primary'] === '#ffffff'
+    ) : false;
+
+    const rootEl = $.root().children().first();
+    const rootClassList = (rootEl.attr('class') || '').toLowerCase();
+    const rootStyleAttr = (rootEl.attr('style') || '').toLowerCase();
+    const hasMultipleCards = $('[class*="tile"], [class*="card"], [class*="item"], [class*="product"], article').length >= 2;
+
+    const isRootDarkTheme =
+      rootClassList.includes('scrim--black') ||
+      rootClassList.includes('theme--dark') ||
+      rootClassList.includes('theme-dark') ||
+      rootClassList.includes('bg-dark') ||
+      rootClassList.includes('bg-black') ||
+      rootEl.attr('data-theme') === 'dark' ||
+      rootEl.attr('data-color-mode') === 'dark' ||
+      rootStyleAttr.includes('background: #000') ||
+      rootStyleAttr.includes('background-color: #000') ||
+      rootStyleAttr.includes('background:#000') ||
+      rootStyleAttr.includes('background-color:#000') ||
+      rootStyleAttr.includes('background: rgb(0, 0, 0)') ||
+      rootStyleAttr.includes('background-color: rgb(0, 0, 0)');
+
     if (
-      lower.includes('scrim--black') ||
-      lower.includes('theme--dark') ||
-      lower.includes('theme-dark') ||
-      lower.includes('bg-dark') ||
+      isRootDarkTheme ||
+      (!hasMultipleCards && (
+        lower.includes('scrim--black') ||
+        lower.includes('theme--dark') ||
+        lower.includes('theme-dark') ||
+        lower.includes('bg-dark') ||
+        lower.includes('data-theme="dark"') ||
+        lower.includes("data-theme='dark'")
+      )) ||
+      snapshotHasDarkTheme ||
+      rootVarsIndicateDark ||
       tokens.colors.background === '#000000' ||
       tokens.colors.textPrimary === '#ffffff'
     ) {
@@ -266,11 +317,17 @@ export class SectionInspector {
 
   private detectArchetype($: cheerio.CheerioAPI, html: string, hint?: string): SectionArchetype {
     const lower = html.toLowerCase();
-    // Ignore screen-reader headings (.sr-only, .visually-hidden, etc.) and headings inside modals or header/nav
+    // Ignore screen-reader headings (.sr-only, .visually-hidden, etc.) and headings inside modals or non-hero header/nav
     const visibleHeroH1 = $('h1').filter((_, el) => {
       const $el = $(el);
       if ($el.is('.screen-reader-text, .visually-hidden, .sr-only, .blind, [aria-hidden="true"]')) return false;
-      if ($el.parents('.screen-reader-text, .visually-hidden, .sr-only, .blind, [aria-hidden="true"], dialog, [class*="modal"], [class*="popup"], body > header, header.site-header, header.globalnav, header.nav, [role="banner"]').length > 0) return false;
+      if ($el.parents('.screen-reader-text, .visually-hidden, .sr-only, .blind, [aria-hidden="true"], dialog, [class*="modal"], [class*="popup"]').length > 0) return false;
+      const headerAnc = $el.closest('header, nav, [role="banner"]');
+      if (headerAnc.length > 0) {
+        const hCls = (headerAnc.attr('class') || '').toLowerCase();
+        const hId = (headerAnc.attr('id') || '').toLowerCase();
+        if (!hCls.includes('hero') && !hId.includes('hero')) return false;
+      }
       return true;
     }).length > 0;
     const hasH1 = $('h1').length > 0;
@@ -284,7 +341,7 @@ export class SectionInspector {
       const normalizedHint = hint.toLowerCase();
       if (normalizedHint === 'testimonials' && hasFilterOrCatalog) {
         // Do not force testimonials if section has product cards or filters
-      } else if (['footer', 'pricing', 'testimonials', 'faq'].includes(normalizedHint)) {
+      } else if (['footer', 'pricing', 'testimonials', 'faq', 'carousel', 'hero', 'cta', 'features', 'card-grid', 'stats', 'contact', 'gallery', 'content', 'navbar'].includes(normalizedHint)) {
         return normalizedHint as SectionArchetype;
       }
     }
@@ -298,22 +355,34 @@ export class SectionInspector {
     }
 
     // 2. Explicit Navbar check:
-    // If the element has #globalnav, nav, header, mega-menu, or .navbar and no large content H1 hero heading
-    const isTopLevelHeader = $('body > header, nav.nav, nav.navbar, [role="banner"], header.site-header, header.globalnav, header.nav').length > 0;
+    // If the element has nav, header, mega-menu, or .navbar and no large content H1 hero heading
+    const isTopLevelHeader = $('body > header, nav.nav, nav.navbar, [role="banner"], header.site-header, header.nav').length > 0;
     const hasNavTag = $('nav').length > 0;
-    const hasGlobalNav = lower.includes('globalnav');
     const hasMegaMenu = lower.includes('mega-menu') || $('[class*="mega-menu"], [id*="mega-menu"]').length > 0;
     const navLinksCount = $('nav a, header a, ul > li > a, ol > li > button, nav button, header button').length;
     const hasNavbarClass = lower.includes('navbar') || lower.includes('header-nav') || lower.includes('site-header') || lower.includes('masthead');
     const isArticleOrMain = $('article, main').length > 0;
+    const isHeroSection = $('[class*="hero"], [id*="hero"]').length > 0 || lower.includes('hero_wrap');
 
-    if (!isArticleOrMain && (hasGlobalNav || isTopLevelHeader || hasMegaMenu || (hasNavTag && navLinksCount >= 2) || hasNavbarClass) && !visibleHeroH1) {
+    if (!isArticleOrMain && !isHeroSection && (isTopLevelHeader || hasMegaMenu || (hasNavTag && navLinksCount >= 2) || hasNavbarClass) && !visibleHeroH1) {
       return 'navbar';
+    }
+
+    // 2.5 Carousel / Slider / Interactive Gallery check
+    const isCarousel =
+      $('[class*="swiper"], [class*="slick"], [class*="glide"], [class*="splide"], [class*="carousel"], [class*="slider"], [class*="gallery-items"], [class*="gallery-item-container"], [class*="media-gallery-item-container"], [class*="dotnav"], [class*="paddlenav"]').length > 0 ||
+      lower.includes('media-gallery') ||
+      lower.includes('carousel') ||
+      lower.includes('swiper') ||
+      lower.includes('slick');
+
+    if (isCarousel && !hasFilterOrCatalog) {
+      return 'carousel';
     }
 
     if (hint) {
       const normalizedHint = hint.toLowerCase();
-      if (['navbar', 'hero', 'features'].includes(normalizedHint)) {
+      if (['navbar', 'hero', 'features', 'carousel'].includes(normalizedHint)) {
         return normalizedHint as SectionArchetype;
       }
     }
@@ -370,7 +439,7 @@ export class SectionInspector {
     }
 
     // 8. If hint was provided and valid
-    if (hint && ['navbar', 'hero', 'features', 'pricing', 'testimonials', 'faq', 'footer'].includes(hint.toLowerCase())) {
+    if (hint && ['navbar', 'hero', 'features', 'pricing', 'testimonials', 'faq', 'footer', 'carousel'].includes(hint.toLowerCase())) {
       return hint.toLowerCase() as SectionArchetype;
     }
 
@@ -505,11 +574,14 @@ export class SectionInspector {
     // 2. Picture extraction
     $('picture').each((_, pic) => {
       const img = $(pic).find('img').first();
-      const rawSrc = img.attr('src') || this.extractFirstUrlFromSrcset($(pic).find('source').first().attr('srcset'));
+      let rawSrc = img.attr('src');
+      if (!rawSrc || rawSrc.startsWith('data:') || rawSrc.includes('blank.gif') || rawSrc.includes('spacer.gif')) {
+        rawSrc = img.attr('data-desktop-src') || img.attr('data-src') || img.attr('data-original') || img.attr('data-lazy-src') || this.extractFirstUrlFromSrcset(img.attr('srcset') || img.attr('data-srcset') || $(pic).find('source').first().attr('srcset') || $(pic).find('source').first().attr('data-srcset'));
+      }
       if (rawSrc) {
         const sources: { srcset?: string; media?: string }[] = [];
         $(pic).find('source').each((_, s) => {
-          const srcset = $(s).attr('srcset');
+          const srcset = $(s).attr('srcset') || $(s).attr('data-srcset');
           const med = $(s).attr('media');
           if (srcset) {
             sources.push({
@@ -531,7 +603,10 @@ export class SectionInspector {
     // 3. Img extraction
     $('img').each((_, el) => {
       if ($(el).parents('picture').length > 0) return;
-      const src = $(el).attr('src');
+      let src = $(el).attr('src');
+      if (!src || src.startsWith('data:') || src.includes('blank.gif') || src.includes('spacer.gif')) {
+        src = $(el).attr('data-desktop-src') || $(el).attr('data-src') || $(el).attr('data-original') || $(el).attr('data-lazy-src') || this.extractFirstUrlFromSrcset($(el).attr('srcset') || $(el).attr('data-srcset'));
+      }
       if (src && !src.startsWith('data:') && !src.includes('pixel') && !src.includes('analytics')) {
         media.push({
           type: 'image',
@@ -621,57 +696,13 @@ export class SectionInspector {
     const seenTexts = new Set<string>();
     const seenUtilityTexts = new Set<string>();
 
-    // 1. Check for explicit top-level triggers first (e.g. Apple globalnav)
-    if ($('[data-globalnav-item-name]').length > 0) {
-      $('[data-globalnav-item-name]').each((_, el) => {
-        const name = ($(el).attr('data-globalnav-item-name') || '').toLowerCase();
-        if (/^(?:logo|brand|home|search|bag|cart|utility)$/i.test(name)) {
-          return; // Brand logo or action icon, not a regular nav link
-        }
-        const text = $(el).find('.globalnav-link-text').text().trim() || $(el).attr('aria-label') || $(el).text().trim();
-        const href = $(el).attr('href') || '#';
-        if (text && !seenTexts.has(text.toLowerCase())) {
-          seenTexts.add(text.toLowerCase());
-
-          // Find matching flyout submenu
-          const flyout = $(
-            `#globalnav-submenu-link-${name}, #globalnav-submenu-${name}, [id*="submenu-link-${name}"], [id*="submenu-${name}"]`
-          );
-          const dropdownItems: NonNullable<NavLinkItem['dropdownItems']> = [];
-          flyout.find('.globalnav-submenu-link, a').each((_, a) => {
-            const subClone = $(a).clone();
-            subClone.find('.blind, .sr-only, .visually-hidden, .hidden, [class*="mobile-only"], svg, style').remove();
-            const subText = subClone.text().trim().replace(/\s+/g, ' ');
-            const subHref = $(a).attr('href') || '#';
-            const subImg = $(a).find('img').attr('src') || $(a).find('img').attr('data-src');
-            if (subText && subText.length < 35 && !dropdownItems.find((d) => d.text.toLowerCase() === subText.toLowerCase())) {
-              dropdownItems.push({
-                text: subText,
-                href: this.resolveUrl(subHref, baseUrl),
-                imageUrl: subImg ? this.resolveUrl(subImg, baseUrl) : undefined,
-              });
-            }
-          });
-
-          links.push({
-            text,
-            href: this.resolveUrl(href, baseUrl),
-            hasDropdown: dropdownItems.length > 0,
-            dropdownItems: dropdownItems.length > 0 ? dropdownItems.slice(0, 15) : undefined,
-          });
-        }
-      });
-      if (links.length > 0) {
-        return { navLinks: links, navUtilityLinks: utilityLinks };
-      }
-    }
 
     // 2. Standard nav link extraction:
-    // Support modern nav buttons, links, and accessible navigation items
+    // Support modern nav buttons, links, spans, and accessible navigation items
     const candidateLinks = $(
-      'nav ul > li > a, nav ol > li > a, nav ul > li > button, nav ol > li > button, ' +
-      'header ul > li > a, header ol > li > a, header ul > li > button, header ol > li > button, ' +
-      '[role="navigation"] li > a, [role="navigation"] li > button, ' +
+      'nav ul > li > a, nav ol > li > a, nav ul > li > button, nav ol > li > button, nav ul > li > span, nav ol > li > span, ' +
+      'header ul > li > a, header ol > li > a, header ul > li > button, header ol > li > button, header ul > li > span, header ol > li > span, ' +
+      '[role="navigation"] li > a, [role="navigation"] li > button, [role="navigation"] li > span, ' +
       'nav button[class*="menu"], nav a[class*="menu"], ' +
       'header button[class*="menu"], header a[class*="menu"], ' +
       'nav > div button, nav > div a, ' +
@@ -731,10 +762,10 @@ export class SectionInspector {
       // Check for child / nested dropdown menu inside the <li> or container
       const liParent = $(el).closest('li');
       const parent = liParent.length > 0 ? liParent : $(el).closest('[class*="nav-item"], div[class*="menu"]');
-      const dropdownContainer = parent.find('> ul, > [class*="dropdown"], > [class*="menu"], > [class*="submenu"], [class*="l1-menu"], [class*="l2-menu"]');
+      const dropdownContainer = parent.find('> ul, > [class*="dropdown"], > [class*="menu"], > [class*="submenu"], [class*="dropdown"], [class*="submenu"], [class*="l1-menu"], [class*="l2-menu"]');
       const dropdownItems: NonNullable<NavLinkItem['dropdownItems']> = [];
       if (dropdownContainer.length > 0) {
-        dropdownContainer.find('a, button[class*="link"]').each((_, da) => {
+        dropdownContainer.find('a, button[class*="link"], [class*="item"] a').each((_, da) => {
           const dClone = $(da).clone();
           dClone.find('.blind, .sr-only, .visually-hidden, .hidden, [class*="mobile-only"], svg, style').remove();
           const subText = dClone.text().trim().replace(/\s+/g, ' ');
@@ -761,8 +792,11 @@ export class SectionInspector {
         let detachedPanel: cheerio.Cheerio<any> | null = null;
         const ctrl = $(el).attr('aria-controls') || $(el).attr('data-target') || $(el).attr('data-panel');
         if (ctrl) {
-          const direct = $(`#${ctrl.replace(/^#/, '')}`);
-          if (direct.length > 0) detachedPanel = direct;
+          try {
+            const cleanId = ctrl.replace(/^#/, '').replace(/"/g, '\\"');
+            const direct = $(`[id="${cleanId}"]`);
+            if (direct.length > 0) detachedPanel = direct;
+          } catch {}
         }
 
         const rawPanels = $('dialog, [role="dialog"], [class*="panel"], [class*="mega-menu-panel"], [class*="header-panel"]')
@@ -816,7 +850,7 @@ export class SectionInspector {
         }
 
         if (detachedPanel && detachedPanel.length > 0) {
-          detachedPanel.find('.dx-mega-menu-product, [class*="product-card"], [class*="product-item"], [class*="card"], li > a').each((_, da) => {
+          detachedPanel.find('[class*="product-card"], [class*="product-item"], [class*="card"], li > a').each((_, da) => {
             const title = $(da).find('h3, h4, h2, [class*="title"]').first().text().trim() ||
                           ($(da).is('a') ? $(da).text().trim() : $(da).find('a').first().text().trim());
             const subHref = $(da).is('a') ? $(da).attr('href') : $(da).find('a').first().attr('href') || '#';
@@ -1049,7 +1083,7 @@ export class SectionInspector {
 
   private extractBrand($: cheerio.CheerioAPI, baseUrl: string): SectionAST['brand'] {
     const brandContainer = $(
-      '[class*="globalnav-item-logo"], [class*="globalnav-item-home"], [class*="navbar-brand"], [class*="nav-brand"], .brand, .logo, header a[href="/"], nav a[href="/"]'
+      '[class*="navbar-brand"], [class*="nav-brand"], .brand, .logo, header a[href="/"], nav a[href="/"]'
     ).first();
     const brandLink = brandContainer.is('a')
       ? brandContainer
@@ -1075,21 +1109,16 @@ export class SectionInspector {
       brandLink.find('[class*="text"]').text().trim() ||
       brandLink.text().trim();
     if (!brandName || /^(navigate to home|home|back to home|logo)$/i.test(brandName) || brandName.length > 30) {
-      if (brandLink.attr('data-globalnav-item-name')) {
-        const item = brandLink.attr('data-globalnav-item-name')!;
-        brandName = item.charAt(0).toUpperCase() + item.slice(1);
-      } else {
-        try {
-          const u = new URL(baseUrl);
-          const hostParts = u.hostname.replace(/^www\./, '').split('.');
-          if (hostParts.length > 0 && hostParts[0]) {
-            brandName = hostParts[0].charAt(0).toUpperCase() + hostParts[0].slice(1);
-          } else {
-            brandName = 'Brand';
-          }
-        } catch {
+      try {
+        const u = new URL(baseUrl);
+        const hostParts = u.hostname.replace(/^www\./, '').split('.');
+        if (hostParts.length > 0 && hostParts[0]) {
+          brandName = hostParts[0].charAt(0).toUpperCase() + hostParts[0].slice(1);
+        } else {
           brandName = 'Brand';
         }
+      } catch {
+        brandName = 'Brand';
       }
     }
 
@@ -1107,11 +1136,14 @@ export class SectionInspector {
     // 1. Extract from <picture>
     $('picture').each((_, pic) => {
       const img = $(pic).find('img').first();
-      const rawSrc = img.attr('src') || this.extractFirstUrlFromSrcset($(pic).find('source').first().attr('srcset'));
+      let rawSrc = img.attr('src');
+      if (!rawSrc || rawSrc.startsWith('data:') || rawSrc.includes('blank.gif') || rawSrc.includes('spacer.gif')) {
+        rawSrc = img.attr('data-desktop-src') || img.attr('data-src') || img.attr('data-original') || img.attr('data-lazy-src') || this.extractFirstUrlFromSrcset(img.attr('srcset') || img.attr('data-srcset') || $(pic).find('source').first().attr('srcset') || $(pic).find('source').first().attr('data-srcset'));
+      }
       if (rawSrc) {
         const sources: { srcset: string; media?: string }[] = [];
         $(pic).find('source').each((_, s) => {
-          const srcset = $(s).attr('srcset');
+          const srcset = $(s).attr('srcset') || $(s).attr('data-srcset');
           const media = $(s).attr('media');
           if (srcset) {
             sources.push({
@@ -1132,7 +1164,10 @@ export class SectionInspector {
     // 2. Extract standard <img> if not already enclosed in a picture
     $('img').each((_, el) => {
       if ($(el).parents('picture').length > 0) return;
-      const src = $(el).attr('src');
+      let src = $(el).attr('src');
+      if (!src || src.startsWith('data:') || src.includes('blank.gif') || src.includes('spacer.gif')) {
+        src = $(el).attr('data-desktop-src') || $(el).attr('data-src') || $(el).attr('data-original') || $(el).attr('data-lazy-src') || this.extractFirstUrlFromSrcset($(el).attr('srcset') || $(el).attr('data-srcset'));
+      }
       if (src && !src.startsWith('data:') && !src.includes('pixel') && !src.includes('analytics')) {
         images.push({
           src: this.resolveUrl(src, baseUrl),
@@ -1145,13 +1180,28 @@ export class SectionInspector {
   }
 
   private extractCarouselDots($: cheerio.CheerioAPI): CarouselDotItem | undefined {
-    const tabList = $('[role="tablist"], [aria-label*="Tab"], [class*="tab-list"], [class*="carousel__tab"], [class*="dots"]');
+    const tabList = $('[role="tablist"], [aria-label*="Tab" i], [class*="tab-list"], [class*="carousel__tab"], [class*="dots"], [class*="dotnav"]');
     if (tabList.length > 0) {
-      const tabs = tabList.find('button, [role="tab"], [class*="tab"], [class*="dot"]');
-      if (tabs.length >= 2 && tabs.length <= 12) {
+      let tabs = tabList.find('[role="tab"]');
+      if (tabs.length === 0) {
+        tabs = tabList.find('button');
+      }
+      if (tabs.length === 0) {
+        tabs = tabList.children('li');
+      }
+      if (tabs.length === 0) {
+        tabs = tabList.find('[class*="tab"], [class*="dot"]');
+      }
+      if (tabs.length >= 2) {
         let activeIdx = 0;
         tabs.each((idx, tab) => {
-          if ($(tab).attr('aria-selected') === 'true' || $(tab).hasClass('is-active') || $(tab).hasClass('active')) {
+          if (
+            $(tab).attr('aria-selected') === 'true' ||
+            $(tab).hasClass('is-active') ||
+            $(tab).hasClass('active') ||
+            $(tab).hasClass('current') ||
+            $(tab).closest('.current, .active').length > 0
+          ) {
             activeIdx = idx;
           }
         });

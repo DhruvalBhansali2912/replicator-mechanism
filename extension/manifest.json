@@ -1,8 +1,11 @@
 {
   "manifest_version": 3,
   "name": "InventKid Page Replicator",
+  "short_name": "PageReplicator",
   "version": "1.0.0",
   "description": "1-Click website clone and section deconstructor. Downloads 100% offline-fidelity packages directly from your browser.",
+  "homepage_url": "https://inventkid.com",
+  "minimum_chrome_version": "109",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -11,6 +14,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
+    "default_title": "InventKid Page Replicator",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -31,10 +35,12 @@
     "alarms"
   ],
   "host_permissions": [
-    "<all_urls>",
-    "https://replicator.inventkid.com/*",
-    "http://localhost:3000/*",
-    "http://127.0.0.1:3000/*"
+    "*://*/*",
+    "https://replicator.inventkid.com/*"
+  ],
+  "optional_host_permissions": [
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "options_page": "options/options.html"
 }

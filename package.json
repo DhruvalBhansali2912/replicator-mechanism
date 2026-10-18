@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "crosscheck": "node scripts/auto-crosscheck.cjs",
+    "package:extension": "node scripts/package-extension.cjs"
   },
   "dependencies": {
     "@babel/generator": "^7.26.5",

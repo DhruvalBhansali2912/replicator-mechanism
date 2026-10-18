@@ -394,26 +394,153 @@ function resolveUrl(relativeOrAbsolute: string, baseUrl: string): string {
   }
 }
 
-function isTrackingOrAnalytics(url: string): boolean {
-  const lower = url.toLowerCase();
-  return (
-    lower.includes('analytics') ||
-    lower.includes('metrics') ||
-    lower.includes('data-relay') ||
-    lower.includes('auto-relay') ||
-    lower.includes('gtag') ||
-    lower.includes('google-analytics') ||
-    lower.includes('googletagmanager') ||
-    lower.includes('facebook.net') ||
-    lower.includes('doubleclick') ||
-    lower.includes('telemetry') ||
-    lower.includes('hotjar') ||
-    lower.includes('clarity.ms') ||
-    lower.includes('segment.io') ||
-    lower.includes('stats.wp.com') ||
-    lower.includes('sentry') ||
-    lower.includes('errlog') ||
-    lower.includes('location-script') ||
-    lower.includes('datadog')
-  );
+export function isTrackingOrAnalytics(urlOrContent: string): boolean {
+  if (!urlOrContent) return false;
+  const lower = urlOrContent.toLowerCase();
+
+  const nonEssentialKeywords = [
+    // Analytics & Telemetry
+    'analytics',
+    'metrics',
+    'telemetry',
+    'tracker',
+    'tracking',
+    'tagmanager',
+    'gtm.js',
+    'gtag',
+    'google-analytics',
+    'googletagmanager',
+    'googleadservices',
+    'googlesyndication',
+    'doubleclick',
+    'adservice',
+    'adsystem',
+    'adnxs',
+    'adroll',
+    // Dynamic Ad Networks & Tracking
+    'criteo',
+    'tiktok',
+    'fbevents',
+    'facebook.net',
+    'connect.facebook',
+    'sprinklr',
+    'rakuten',
+    'rmp.rakuten',
+    'dotomi',
+    'attn.tv',
+    'attentive',
+    'useinsider',
+    'insider.com',
+    'quantummetric',
+    'quantum-metric',
+    'hotjar',
+    'clarity.ms',
+    'segment.io',
+    'stats.wp.com',
+    'sentry',
+    'datadog',
+    'errlog',
+    'bugsnag',
+    'rollbar',
+    'newrelic',
+    'nr-data',
+    'pingdom',
+    'loggly',
+    'mixpanel',
+    'amplitude',
+    'heap',
+    'fullstory',
+    'logrocket',
+    'mouseflow',
+    'crazyegg',
+    'luckyorange',
+    'optimizely',
+    'visualwebsiteoptimizer',
+    'vwo.com',
+    // Tag Managers & Marketing Suites
+    'tealium',
+    'tiqcdn',
+    'adobedtm',
+    'demdex',
+    'omniture',
+    'satellite',
+    'assets.adobedtm',
+    // Chat & Customer Support Widgets
+    'intercom',
+    'drift.com',
+    'crisp.chat',
+    'zendesk',
+    'zopim',
+    // Attribution & Deep Linking
+    'branch.io',
+    'appsflyer',
+    'adjust.com',
+    // Captchas & Bot Detection
+    'recaptcha',
+    'hcaptcha',
+    'turnstile',
+    'arkoselabs',
+    // Consent Banners & Privacy Managers
+    'trustarc',
+    'truste',
+    'onetrust',
+    'cookiebot',
+    'cookieconsent',
+    'usercentrics',
+    'consentmanager',
+    'cookielaw',
+    'optanon',
+    // Ad & Content Recommendation Networks
+    'bat.bing',
+    'taboola',
+    'outbrain',
+    'casalemedia',
+    'rubiconproject',
+    'pubmatic',
+    'openx',
+    'bazaarvoice',
+    'yotpo',
+    'powerreviews',
+    'location-script',
+    'data-relay',
+    'auto-relay',
+  ];
+
+  for (const keyword of nonEssentialKeywords) {
+    if (lower.includes(keyword)) return true;
+  }
+
+  // Inline script snippet telemetry patterns
+  if (
+    lower.includes('window.datalayer') ||
+    lower.includes('datalayer.push') ||
+    lower.includes('_satellite.') ||
+    lower.includes('fbq(') ||
+    lower.includes('gtag(') ||
+    lower.includes('ga(') ||
+    lower.includes('onetrust') ||
+    lower.includes('truste') ||
+    lower.includes('quantummetric') ||
+    lower.includes('clarity("set"') ||
+    lower.includes('hj("identify"')
+  ) {
+    return true;
+  }
+
+  return false;
 }
+
+export function isDestructiveScript(code: string): boolean {
+  if (!code) return false;
+  const lower = code.toLowerCase();
+  // Webview / app-specific navbar hiding snippet
+  if (lower.includes('style.display') && lower.includes('none') && (lower.includes('nav') || lower.includes('gnb') || lower.includes('header') || lower.includes('menu'))) {
+    return true;
+  }
+  // Hostile redirect scripts
+  if (lower.includes('location.replace(') || lower.includes('location.href =') || lower.includes('location.assign(')) {
+    return true;
+  }
+  return false;
+}
+

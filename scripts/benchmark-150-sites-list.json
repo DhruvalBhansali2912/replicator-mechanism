@@ -1,0 +1,777 @@
+[
+  {
+    "id": "apple",
+    "name": "Apple",
+    "url": "https://www.apple.com/"
+  },
+  {
+    "id": "samsung",
+    "name": "Samsung",
+    "url": "https://www.samsung.com/in/"
+  },
+  {
+    "id": "tesla",
+    "name": "Tesla",
+    "url": "https://www.tesla.com/"
+  },
+  {
+    "id": "sony",
+    "name": "Sony",
+    "url": "https://www.sony.com/"
+  },
+  {
+    "id": "dyson",
+    "name": "Dyson",
+    "url": "https://www.dyson.com/"
+  },
+  {
+    "id": "dji",
+    "name": "DJI",
+    "url": "https://www.dji.com/"
+  },
+  {
+    "id": "bose",
+    "name": "Bose",
+    "url": "https://www.bose.com/"
+  },
+  {
+    "id": "nothing",
+    "name": "Nothing",
+    "url": "https://nothing.tech/"
+  },
+  {
+    "id": "oneplus",
+    "name": "OnePlus",
+    "url": "https://www.oneplus.com/"
+  },
+  {
+    "id": "xiaomi",
+    "name": "Xiaomi",
+    "url": "https://www.mi.com/global/"
+  },
+  {
+    "id": "dell",
+    "name": "Dell",
+    "url": "https://www.dell.com/"
+  },
+  {
+    "id": "asus",
+    "name": "Asus",
+    "url": "https://www.asus.com/"
+  },
+  {
+    "id": "hp",
+    "name": "HP",
+    "url": "https://www.hp.com/"
+  },
+  {
+    "id": "lenovo",
+    "name": "Lenovo",
+    "url": "https://www.lenovo.com/"
+  },
+  {
+    "id": "logitech",
+    "name": "Logitech",
+    "url": "https://www.logitech.com/"
+  },
+  {
+    "id": "stripe",
+    "name": "Stripe",
+    "url": "https://stripe.com/"
+  },
+  {
+    "id": "linear",
+    "name": "Linear",
+    "url": "https://linear.app/"
+  },
+  {
+    "id": "vercel",
+    "name": "Vercel",
+    "url": "https://vercel.com/"
+  },
+  {
+    "id": "supabase",
+    "name": "Supabase",
+    "url": "https://supabase.com/"
+  },
+  {
+    "id": "github",
+    "name": "GitHub",
+    "url": "https://github.com/"
+  },
+  {
+    "id": "notion",
+    "name": "Notion",
+    "url": "https://www.notion.so/"
+  },
+  {
+    "id": "figma",
+    "name": "Figma",
+    "url": "https://www.figma.com/"
+  },
+  {
+    "id": "slack",
+    "name": "Slack",
+    "url": "https://slack.com/"
+  },
+  {
+    "id": "airtable",
+    "name": "Airtable",
+    "url": "https://airtable.com/"
+  },
+  {
+    "id": "miro",
+    "name": "Miro",
+    "url": "https://miro.com/"
+  },
+  {
+    "id": "canva",
+    "name": "Canva",
+    "url": "https://www.canva.com/"
+  },
+  {
+    "id": "webflow",
+    "name": "Webflow",
+    "url": "https://webflow.com/"
+  },
+  {
+    "id": "framer",
+    "name": "Framer",
+    "url": "https://www.framer.com/"
+  },
+  {
+    "id": "loom",
+    "name": "Loom",
+    "url": "https://www.loom.com/"
+  },
+  {
+    "id": "retool",
+    "name": "Retool",
+    "url": "https://retool.com/"
+  },
+  {
+    "id": "datadog",
+    "name": "Datadog",
+    "url": "https://www.datadoghq.com/"
+  },
+  {
+    "id": "cloudflare",
+    "name": "Cloudflare",
+    "url": "https://www.cloudflare.com/"
+  },
+  {
+    "id": "postman",
+    "name": "Postman",
+    "url": "https://www.postman.com/"
+  },
+  {
+    "id": "sentry",
+    "name": "Sentry",
+    "url": "https://sentry.io/"
+  },
+  {
+    "id": "hashicorp",
+    "name": "HashiCorp",
+    "url": "https://www.hashicorp.com/"
+  },
+  {
+    "id": "mongodb",
+    "name": "MongoDB",
+    "url": "https://www.mongodb.com/"
+  },
+  {
+    "id": "redis",
+    "name": "Redis",
+    "url": "https://redis.io/"
+  },
+  {
+    "id": "docker",
+    "name": "Docker",
+    "url": "https://www.docker.com/"
+  },
+  {
+    "id": "elastic",
+    "name": "Elastic",
+    "url": "https://www.elastic.co/"
+  },
+  {
+    "id": "gitlab",
+    "name": "GitLab",
+    "url": "https://about.gitlab.com/"
+  },
+  {
+    "id": "nike",
+    "name": "Nike",
+    "url": "https://www.nike.com/"
+  },
+  {
+    "id": "adidas",
+    "name": "Adidas",
+    "url": "https://www.adidas.com/"
+  },
+  {
+    "id": "ikea",
+    "name": "Ikea",
+    "url": "https://www.ikea.com/"
+  },
+  {
+    "id": "zara",
+    "name": "Zara",
+    "url": "https://www.zara.com/"
+  },
+  {
+    "id": "sephora",
+    "name": "Sephora",
+    "url": "https://www.sephora.com/"
+  },
+  {
+    "id": "target",
+    "name": "Target",
+    "url": "https://www.target.com/"
+  },
+  {
+    "id": "bestbuy",
+    "name": "BestBuy",
+    "url": "https://www.bestbuy.com/"
+  },
+  {
+    "id": "uniqlo",
+    "name": "Uniqlo",
+    "url": "https://www.uniqlo.com/"
+  },
+  {
+    "id": "hm",
+    "name": "H&M",
+    "url": "https://www2.hm.com/"
+  },
+  {
+    "id": "lululemon",
+    "name": "Lululemon",
+    "url": "https://shop.lululemon.com/"
+  },
+  {
+    "id": "allbirds",
+    "name": "Allbirds",
+    "url": "https://www.allbirds.com/"
+  },
+  {
+    "id": "gymshark",
+    "name": "Gymshark",
+    "url": "https://www.gymshark.com/"
+  },
+  {
+    "id": "warbyparker",
+    "name": "Warby Parker",
+    "url": "https://www.warbyparker.com/"
+  },
+  {
+    "id": "glossier",
+    "name": "Glossier",
+    "url": "https://www.glossier.com/"
+  },
+  {
+    "id": "casper",
+    "name": "Casper",
+    "url": "https://casper.com/"
+  },
+  {
+    "id": "away",
+    "name": "Away Travel",
+    "url": "https://www.awaytravel.com/"
+  },
+  {
+    "id": "everlane",
+    "name": "Everlane",
+    "url": "https://www.everlane.com/"
+  },
+  {
+    "id": "patagonia",
+    "name": "Patagonia",
+    "url": "https://www.patagonia.com/"
+  },
+  {
+    "id": "rei",
+    "name": "REI",
+    "url": "https://www.rei.com/"
+  },
+  {
+    "id": "nordstrom",
+    "name": "Nordstrom",
+    "url": "https://www.nordstrom.com/"
+  },
+  {
+    "id": "paypal",
+    "name": "PayPal",
+    "url": "https://www.paypal.com/"
+  },
+  {
+    "id": "wise",
+    "name": "Wise",
+    "url": "https://wise.com/"
+  },
+  {
+    "id": "revolut",
+    "name": "Revolut",
+    "url": "https://www.revolut.com/"
+  },
+  {
+    "id": "robinhood",
+    "name": "Robinhood",
+    "url": "https://robinhood.com/"
+  },
+  {
+    "id": "coinbase",
+    "name": "Coinbase",
+    "url": "https://www.coinbase.com/"
+  },
+  {
+    "id": "klarna",
+    "name": "Klarna",
+    "url": "https://www.klarna.com/"
+  },
+  {
+    "id": "brex",
+    "name": "Brex",
+    "url": "https://www.brex.com/"
+  },
+  {
+    "id": "ramp",
+    "name": "Ramp",
+    "url": "https://ramp.com/"
+  },
+  {
+    "id": "monzo",
+    "name": "Monzo",
+    "url": "https://monzo.com/"
+  },
+  {
+    "id": "chime",
+    "name": "Chime",
+    "url": "https://www.chime.com/"
+  },
+  {
+    "id": "affirm",
+    "name": "Affirm",
+    "url": "https://www.affirm.com/"
+  },
+  {
+    "id": "sofi",
+    "name": "SoFi",
+    "url": "https://www.sofi.com/"
+  },
+  {
+    "id": "plaid",
+    "name": "Plaid",
+    "url": "https://plaid.com/"
+  },
+  {
+    "id": "square",
+    "name": "Square",
+    "url": "https://squareup.com/"
+  },
+  {
+    "id": "mercury",
+    "name": "Mercury",
+    "url": "https://mercury.com/"
+  },
+  {
+    "id": "airbnb",
+    "name": "Airbnb",
+    "url": "https://www.airbnb.com/"
+  },
+  {
+    "id": "uber",
+    "name": "Uber",
+    "url": "https://www.uber.com/"
+  },
+  {
+    "id": "booking",
+    "name": "Booking.com",
+    "url": "https://www.booking.com/"
+  },
+  {
+    "id": "expedia",
+    "name": "Expedia",
+    "url": "https://www.expedia.com/"
+  },
+  {
+    "id": "tripadvisor",
+    "name": "TripAdvisor",
+    "url": "https://www.tripadvisor.com/"
+  },
+  {
+    "id": "lyft",
+    "name": "Lyft",
+    "url": "https://www.lyft.com/"
+  },
+  {
+    "id": "marriott",
+    "name": "Marriott",
+    "url": "https://www.marriott.com/"
+  },
+  {
+    "id": "hilton",
+    "name": "Hilton",
+    "url": "https://www.hilton.com/"
+  },
+  {
+    "id": "delta",
+    "name": "Delta",
+    "url": "https://www.delta.com/"
+  },
+  {
+    "id": "united",
+    "name": "United Airlines",
+    "url": "https://www.united.com/"
+  },
+  {
+    "id": "netflix",
+    "name": "Netflix",
+    "url": "https://www.netflix.com/"
+  },
+  {
+    "id": "spotify",
+    "name": "Spotify",
+    "url": "https://www.spotify.com/"
+  },
+  {
+    "id": "twitch",
+    "name": "Twitch",
+    "url": "https://www.twitch.tv/"
+  },
+  {
+    "id": "hulu",
+    "name": "Hulu",
+    "url": "https://www.hulu.com/"
+  },
+  {
+    "id": "medium",
+    "name": "Medium",
+    "url": "https://medium.com/"
+  },
+  {
+    "id": "substack",
+    "name": "Substack",
+    "url": "https://substack.com/"
+  },
+  {
+    "id": "pinterest",
+    "name": "Pinterest",
+    "url": "https://www.pinterest.com/"
+  },
+  {
+    "id": "reddit",
+    "name": "Reddit",
+    "url": "https://www.reddit.com/"
+  },
+  {
+    "id": "discord",
+    "name": "Discord",
+    "url": "https://discord.com/"
+  },
+  {
+    "id": "steam",
+    "name": "Steam",
+    "url": "https://store.steampowered.com/"
+  },
+  {
+    "id": "locomotive",
+    "name": "Locomotive",
+    "url": "https://locomotive.ca/"
+  },
+  {
+    "id": "activetheory",
+    "name": "Active Theory",
+    "url": "https://activetheory.net/"
+  },
+  {
+    "id": "resn",
+    "name": "Resn",
+    "url": "https://resn.co.nz/"
+  },
+  {
+    "id": "huge",
+    "name": "Huge Inc",
+    "url": "https://www.hugeinc.com/"
+  },
+  {
+    "id": "fantasy",
+    "name": "Fantasy Interactive",
+    "url": "https://fantasy.co/"
+  },
+  {
+    "id": "instrument",
+    "name": "Instrument",
+    "url": "https://www.instrument.com/"
+  },
+  {
+    "id": "basicagency",
+    "name": "Basic/Agency",
+    "url": "https://www.basicagency.com/"
+  },
+  {
+    "id": "metalab",
+    "name": "MetaLab",
+    "url": "https://www.metalab.com/"
+  },
+  {
+    "id": "monopo",
+    "name": "Monopo",
+    "url": "https://monopo.london/"
+  },
+  {
+    "id": "dept",
+    "name": "Dept Agency",
+    "url": "https://www.deptagency.com/"
+  },
+  {
+    "id": "ola",
+    "name": "Ola Electric",
+    "url": "https://www.olaelectric.com/"
+  },
+  {
+    "id": "rivian",
+    "name": "Rivian",
+    "url": "https://rivian.com/"
+  },
+  {
+    "id": "lucid",
+    "name": "Lucid Motors",
+    "url": "https://www.lucidmotors.com/"
+  },
+  {
+    "id": "polestar",
+    "name": "Polestar",
+    "url": "https://www.polestar.com/"
+  },
+  {
+    "id": "porsche",
+    "name": "Porsche",
+    "url": "https://www.porsche.com/"
+  },
+  {
+    "id": "bmw",
+    "name": "BMW",
+    "url": "https://www.bmw.com/"
+  },
+  {
+    "id": "mercedes",
+    "name": "Mercedes-Benz",
+    "url": "https://www.mercedes-benz.com/"
+  },
+  {
+    "id": "audi",
+    "name": "Audi",
+    "url": "https://www.audi.com/"
+  },
+  {
+    "id": "volvo",
+    "name": "Volvo",
+    "url": "https://www.volvocars.com/"
+  },
+  {
+    "id": "ford",
+    "name": "Ford",
+    "url": "https://www.ford.com/"
+  },
+  {
+    "id": "doordash",
+    "name": "DoorDash",
+    "url": "https://www.doordash.com/"
+  },
+  {
+    "id": "instacart",
+    "name": "Instacart",
+    "url": "https://www.instacart.com/"
+  },
+  {
+    "id": "starbucks",
+    "name": "Starbucks",
+    "url": "https://www.starbucks.com/"
+  },
+  {
+    "id": "mcdonalds",
+    "name": "McDonalds",
+    "url": "https://www.mcdonalds.com/"
+  },
+  {
+    "id": "dominos",
+    "name": "Dominos",
+    "url": "https://www.dominos.com/"
+  },
+  {
+    "id": "sweetgreen",
+    "name": "Sweetgreen",
+    "url": "https://www.sweetgreen.com/"
+  },
+  {
+    "id": "chipotle",
+    "name": "Chipotle",
+    "url": "https://www.chipotle.com/"
+  },
+  {
+    "id": "blueapron",
+    "name": "Blue Apron",
+    "url": "https://www.blueapron.com/"
+  },
+  {
+    "id": "hellofresh",
+    "name": "HelloFresh",
+    "url": "https://www.hellofresh.com/"
+  },
+  {
+    "id": "grubhub",
+    "name": "Grubhub",
+    "url": "https://www.grubhub.com/"
+  },
+  {
+    "id": "peloton",
+    "name": "Peloton",
+    "url": "https://www.onepeloton.com/"
+  },
+  {
+    "id": "whoop",
+    "name": "Whoop",
+    "url": "https://www.whoop.com/"
+  },
+  {
+    "id": "ouraring",
+    "name": "Oura Ring",
+    "url": "https://ouraring.com/"
+  },
+  {
+    "id": "headspace",
+    "name": "Headspace",
+    "url": "https://www.headspace.com/"
+  },
+  {
+    "id": "calm",
+    "name": "Calm",
+    "url": "https://www.calm.com/"
+  },
+  {
+    "id": "strava",
+    "name": "Strava",
+    "url": "https://www.strava.com/"
+  },
+  {
+    "id": "myfitnesspal",
+    "name": "MyFitnessPal",
+    "url": "https://www.myfitnesspal.com/"
+  },
+  {
+    "id": "noom",
+    "name": "Noom",
+    "url": "https://www.noom.com/"
+  },
+  {
+    "id": "hims",
+    "name": "Hims",
+    "url": "https://www.forhims.com/"
+  },
+  {
+    "id": "ro",
+    "name": "Ro",
+    "url": "https://ro.co/"
+  },
+  {
+    "id": "duolingo",
+    "name": "Duolingo",
+    "url": "https://www.duolingo.com/"
+  },
+  {
+    "id": "coursera",
+    "name": "Coursera",
+    "url": "https://www.coursera.org/"
+  },
+  {
+    "id": "udemy",
+    "name": "Udemy",
+    "url": "https://www.udemy.com/"
+  },
+  {
+    "id": "khanacademy",
+    "name": "Khan Academy",
+    "url": "https://www.khanacademy.org/"
+  },
+  {
+    "id": "masterclass",
+    "name": "MasterClass",
+    "url": "https://www.masterclass.com/"
+  },
+  {
+    "id": "skillshare",
+    "name": "Skillshare",
+    "url": "https://www.skillshare.com/"
+  },
+  {
+    "id": "codecademy",
+    "name": "Codecademy",
+    "url": "https://www.codecademy.com/"
+  },
+  {
+    "id": "brilliant",
+    "name": "Brilliant",
+    "url": "https://brilliant.org/"
+  },
+  {
+    "id": "edx",
+    "name": "edX",
+    "url": "https://www.edx.org/"
+  },
+  {
+    "id": "quizlet",
+    "name": "Quizlet",
+    "url": "https://quizlet.com/"
+  },
+  {
+    "id": "microsoft",
+    "name": "Microsoft",
+    "url": "https://www.microsoft.com/"
+  },
+  {
+    "id": "google",
+    "name": "Google Store",
+    "url": "https://store.google.com/"
+  },
+  {
+    "id": "amazon",
+    "name": "Amazon",
+    "url": "https://www.amazon.com/"
+  },
+  {
+    "id": "salesforce",
+    "name": "Salesforce",
+    "url": "https://www.salesforce.com/"
+  },
+  {
+    "id": "adobe",
+    "name": "Adobe",
+    "url": "https://www.adobe.com/"
+  },
+  {
+    "id": "oracle",
+    "name": "Oracle",
+    "url": "https://www.oracle.com/"
+  },
+  {
+    "id": "ibm",
+    "name": "IBM",
+    "url": "https://www.ibm.com/"
+  },
+  {
+    "id": "cisco",
+    "name": "Cisco",
+    "url": "https://www.cisco.com/"
+  },
+  {
+    "id": "intel",
+    "name": "Intel",
+    "url": "https://www.intel.com/"
+  },
+  {
+    "id": "nvidia",
+    "name": "NVIDIA",
+    "url": "https://www.nvidia.com/"
+  }
+]

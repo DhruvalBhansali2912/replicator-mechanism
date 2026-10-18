@@ -114,7 +114,9 @@ export class HtmlTransformer {
 
       if (oldRootClass) {
         for (const cls of oldRootClass.split(/\s+/).filter(Boolean)) {
-          classMapping[cls] = newRootClass;
+          if (!HtmlTransformer.isStateOrModifierClass(cls)) {
+            classMapping[cls] = newRootClass;
+          }
         }
       }
       if (oldRootId) {
@@ -140,8 +142,10 @@ export class HtmlTransformer {
       if (currentClass) {
         const classes = currentClass.split(/\s+/).filter(Boolean);
         for (const cls of classes) {
-          if (!classMapping[cls]) {
-            classMapping[cls] = newClassName;
+          if (!HtmlTransformer.isStateOrModifierClass(cls)) {
+            if (!classMapping[cls]) {
+              classMapping[cls] = newClassName;
+            }
           }
         }
         $el.addClass(newClassName);
@@ -238,6 +242,10 @@ export class HtmlTransformer {
     if (tagName === 'a') return 'link';
 
     return 'item';
+  }
+
+  public static isStateOrModifierClass(cls: string): boolean {
+    return /^(is-|has-|not-|js-|w--|active$|open$|opened$|closed$|expanded$|collapsed$|selected$|current$|disabled$|visible$|hidden$|show$|hide$|in-view$|scrolled$|animating$|transitioning$|hover$)/i.test(cls);
   }
 }
 

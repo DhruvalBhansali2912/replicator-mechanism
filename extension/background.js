@@ -19,7 +19,7 @@ chrome.runtime.onInstalled.addListener(async () => {
   }
 
   if (!data.apiUrl) {
-    updates.apiUrl = 'http://localhost:3000';
+    updates.apiUrl = 'https://replicator.inventkid.com';
   }
 
   if (Object.keys(updates).length > 0) {
@@ -46,7 +46,7 @@ async function ensureTrialProvisioned() {
       await chrome.storage.local.set({ deviceId });
     }
 
-    const apiUrl = (data.apiUrl || 'http://localhost:3000').replace(/\/$/, '');
+    const apiUrl = (data.apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
 
     // Try V1 registration first
     try {
@@ -181,7 +181,7 @@ async function handleStartExtraction({ url, options }) {
     throw new Error('Please enter your License Key before starting replication.');
   }
 
-  const baseUrl = (apiUrl || 'http://localhost:3000').replace(/\/$/, '');
+  const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
   const isV1Token = apiKey.startsWith('rep_sec_') || apiKey.startsWith('rep_live_');
 
   // Universal Cross-Origin Stylesheet Harvesting in Extension Service Worker:
@@ -221,9 +221,12 @@ async function handleStartExtraction({ url, options }) {
       );
       const validCss = fetchedCss.filter((c) => c && c.trim().length > 0);
       if (validCss.length > 0) {
+        // External link stylesheets provide base styles and must precede inline overrides in CSS cascade
+        const existing = new Set((options.clientStylesheets || []).map((s) => s.slice(0, 200)));
+        const newSheets = validCss.filter((c) => !existing.has(c.slice(0, 200)));
         options.clientStylesheets = [
+          ...newSheets,
           ...(options.clientStylesheets || []),
-          ...validCss,
         ];
       }
     } catch (e) {
@@ -315,7 +318,7 @@ let consecutiveErrors = 0;
 async function pollJobStep(jobId, apiUrl) {
   try {
     const { apiKey, deviceId } = await chrome.storage.local.get(['apiKey', 'deviceId']);
-    const baseUrl = (apiUrl && apiUrl !== 'https://replicator.inventkid.com' ? apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+    const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
     const isV1Token = apiKey && (apiKey.startsWith('rep_sec_') || apiKey.startsWith('rep_live_'));
 
     const endpoint = isV1Token
@@ -333,7 +336,7 @@ async function pollJobStep(jobId, apiUrl) {
 
     if (!resp.ok) {
       consecutiveErrors++;
-      if (consecutiveErrors >= 6) {
+      if (consecutiveErrors >= 30) {
         stopPolling();
         chrome.action.setBadgeText({ text: 'ERR' });
         chrome.action.setBadgeBackgroundColor({ color: '#EF4444' });
@@ -476,7 +479,7 @@ async function resumePendingJobIfAny() {
 
     if (!activeJob || !activeJob.id) return;
 
-    const targetApi = apiUrl || 'http://localhost:3000';
+    const targetApi = apiUrl || 'https://replicator.inventkid.com';
     if (!['completed', 'failed'].includes(activeJob.status)) {
       if (!pollingInterval) {
         startPolling(activeJob.id, targetApi, apiKey, deviceId);

@@ -57,12 +57,19 @@ export class TokenHarvester {
     const styleAttr = (rootEl.attr('style') || '').toLowerCase();
 
     let background = '#ffffff';
-    const hasDarkDescendant =
+    const hasMultipleCards = $('[class*="tile"], [class*="card"], [class*="item"], [class*="product"], article').length >= 2;
+
+    const hasDarkDescendant = !hasMultipleCards &&
       $('[class*="theme-dark"], [class*="theme--dark"], [class*="bg-dark"], [class*="bg-black"], [style*="background: #000"], [style*="background:#000"], [style*="background-color: #000"], [style*="background-color:#000"], [style*="background: rgb(0, 0, 0)"], [style*="background-color: rgb(0, 0, 0)"]').length > 0;
+
+    const hasDarkThemeAttr =
+      classList.includes('dark') ||
+      rootEl.attr('data-theme') === 'dark' ||
+      rootEl.attr('data-color-mode') === 'dark' ||
+      (!hasMultipleCards && $('[data-theme="dark"], [data-color-mode="dark"]').length > 0);
 
     const isExplicitDarkSection =
       classList.includes('scrim--black') ||
-      classList.includes('tds-scrim--black') ||
       classList.includes('theme--dark') ||
       classList.includes('theme-dark') ||
       classList.includes('bg-dark') ||
@@ -73,6 +80,7 @@ export class TokenHarvester {
       styleAttr.includes('background-color:#000') ||
       styleAttr.includes('background: rgb(0, 0, 0)') ||
       styleAttr.includes('background-color: rgb(0, 0, 0)') ||
+      hasDarkThemeAttr ||
       hasDarkDescendant;
 
     const isExplicitLightSection =
@@ -92,13 +100,13 @@ export class TokenHarvester {
     }
 
     // Universal text contrast detection:
-    // If CSS or DOM explicitly declares white or near-white text on elements (e.g. transparent overlay navbars),
-    // and the container is not explicitly solid white, recognize dark/overlay theme contract.
-    const hasWhiteTextInCss = /(?:nav|header|menu|link|brand|logo|\.btn|a\b)[^{}]*\{[^}]*color:\s*(?:#fff\b|#ffffff\b|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|white\b)/i.test(css);
+    // If elements inside the section explicitly declare white text (e.g. transparent overlay navbars),
+    // and the container is not explicitly light, recognize dark/overlay theme contract.
     const hasWhiteTextInDom = $('[style*="color: #fff"], [style*="color:#fff"], [style*="color: rgb(255, 255, 255)"], [style*="color:rgb(255,255,255)"], [style*="color: white"]').length > 0;
+    const hasNavWhiteTextInCss = /(?:nav\s+a|\.site-header\s+a|\.navbar\s+a|\.header-nav\s+a)[^{}]*\{[^}]*color:\s*(?:#fff\b|#ffffff\b|rgb\(\s*255\s*,\s*255\s*,\s*255\s*\)|white\b)/i.test(css);
 
     let isDark = this.isDarkColor(background);
-    if (!isExplicitLightSection && (hasWhiteTextInCss || hasWhiteTextInDom)) {
+    if (!isExplicitLightSection && (isExplicitDarkSection || (hasNavWhiteTextInCss && hasWhiteTextInDom))) {
       isDark = true;
     }
 

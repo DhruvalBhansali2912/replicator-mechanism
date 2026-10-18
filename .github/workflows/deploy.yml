@@ -1,4 +1,4 @@
-name: Deploy to AlmaLinux VPS
+name: Deploy to AlmaLinux VPS & Package Extension
 
 on:
   push:
@@ -8,11 +8,33 @@ on:
 
 jobs:
   deploy:
-    name: Build & Deploy via SSH
+    name: Build, Package & Deploy via SSH
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Verify TypeScript Build
+        run: npm run build
+
+      - name: Package Chrome Extension
+        run: npm run package:extension
+
+      - name: Upload Chrome Extension Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: inventkid-page-replicator-extension
+          path: dist-extension/*.zip
+          retention-days: 30
 
       - name: Execute Remote Deployment via SSH
         uses: appleboy/ssh-action@v1.2.0

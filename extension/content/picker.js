@@ -18,7 +18,56 @@
     if (!el) return '';
     if (typeof el.className === 'string') return el.className;
     if (el.className && typeof el.className.baseVal === 'string') return el.className.baseVal;
-    return typeof el.getAttribute === 'function' ? (el.getAttribute('class') || '') : '';
+  }
+
+  // Universal Navigation & Redirect Shield: prevents native browser redirection & SPA route transitions
+  let removeNavShield = null;
+  function installNavShield() {
+    if (removeNavShield) return;
+
+    const navBlocker = (e) => {
+      if (e.target && e.target.closest && e.target.closest('#__replicator_picker_bar__')) {
+        return;
+      }
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('click', navBlocker, true);
+    document.addEventListener('click', navBlocker, true);
+    window.addEventListener('submit', navBlocker, true);
+    document.addEventListener('submit', navBlocker, true);
+
+    const unloadBlocker = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', unloadBlocker, true);
+
+    const origPushState = history.pushState;
+    const origReplaceState = history.replaceState;
+    try {
+      history.pushState = function(...args) {
+        console.log('[replicator] Blocked pushState navigation during replication');
+      };
+      history.replaceState = function(...args) {
+        console.log('[replicator] Blocked replaceState navigation during replication');
+      };
+    } catch {}
+
+    removeNavShield = () => {
+      window.removeEventListener('click', navBlocker, true);
+      document.removeEventListener('click', navBlocker, true);
+      window.removeEventListener('submit', navBlocker, true);
+      document.removeEventListener('submit', navBlocker, true);
+      window.removeEventListener('beforeunload', unloadBlocker, true);
+      try {
+        history.pushState = origPushState;
+        history.replaceState = origReplaceState;
+      } catch {}
+      removeNavShield = null;
+    };
   }
 
   // 1. Create Top Instruction Bar
@@ -90,152 +139,217 @@
   document.body.appendChild(overlay);
 
   let currentTarget = null;
+  let selectedData = null;
+
+  // Helper: check if element is a global page shell / layout wrapper that spans the entire document
+  function isPageShell(element) {
+    if (!element || element === document.body || element === document.documentElement) return true;
+    const t = element.tagName.toLowerCase();
+    const i = (element.id || '').toLowerCase();
+    const c = (typeof element.className === 'string' ? element.className : '').toLowerCase();
+    const role = (element.getAttribute('role') || '').toLowerCase();
+
+    if (['html', 'body', 'main'].includes(t)) return true;
+    if (role === 'main') return true;
+    if (['root', '__next', '__nuxt', 'app', 'maincontent', 'main-content', 'site-content', 'page-content'].includes(i)) return true;
+    if (
+      c.includes('page-wrapper') ||
+      c.includes('page_wrapper') ||
+      c.includes('main-wrapper') ||
+      c.includes('main_wrapper') ||
+      c.includes('layout-wrapper') ||
+      c.includes('layout_wrapper') ||
+      c.includes('site-wrapper') ||
+      c.includes('site_wrapper') ||
+      c.includes('app-wrapper') ||
+      c.includes('app_wrapper') ||
+      c.includes('page-main') ||
+      c.includes('site-main') ||
+      c.includes('site-content') ||
+      c.includes('page-content') ||
+      c.includes('main-content') ||
+      c.includes('content-wrapper') ||
+      c.includes('sections-wrapper') ||
+      c.includes('sections-container') ||
+      c.includes('page-container') ||
+      c.includes('all-sections') ||
+      c.includes('overall-wrapper') ||
+      c.includes('columns') ||
+      c.includes('column main')
+    ) return true;
+    return false;
+  }
+
+  // Helper: detect if an element contains multiple distinct sibling sections (i.e. is a multi-section layout container)
+  function isMultiSectionContainer(element) {
+    if (!element || element === document.body || element === document.documentElement) return true;
+    if (isPageShell(element)) return true;
+
+    const tag = element.tagName.toLowerCase();
+    // A <section> tag is a single semantic section unless it literally wraps multiple child <section> or <article> elements
+    if (tag === 'section') {
+      const childSections = element.querySelectorAll(':scope > section, :scope > div > section, :scope > article');
+      return childSections.length >= 2;
+    }
+
+    // Filter direct children with meaningful size
+    const children = Array.from(element.children).filter((c) => {
+      if (!c || c.nodeType !== 1) return false;
+      const cTag = c.tagName.toLowerCase();
+      if (['script', 'style', 'noscript', 'template', 'svg'].includes(cTag)) return false;
+      if (c.id === '__replicator_picker_bar__' || c.id === '__replicator_picker_overlay__') return false;
+      const rect = c.getBoundingClientRect();
+      return rect.height >= 40 && rect.width >= 200;
+    });
+
+    let sectionCount = 0;
+    for (const c of children) {
+      const cTag = c.tagName.toLowerCase();
+      const cCls = (typeof c.className === 'string' ? c.className : '').toLowerCase();
+
+      const isSemantic = ['section', 'article'].includes(cTag);
+      const isSectionClass = /^(section|site-section|page-section)/.test(cCls) || cCls.includes('section-') || /hero|banner|pricing|feature|testimonial|faq|showcase|carousel|slider|catalog|footer|navbar/i.test(cCls);
+
+      if (isSemantic || isSectionClass) {
+        sectionCount++;
+        if (sectionCount >= 2) return true;
+      }
+    }
+
+    // High page-height coverage check: container wrapping > 65% of entire page with 3+ child blocks
+    const docHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+    const rect = element.getBoundingClientRect();
+    if (docHeight > 1000 && rect.height > docHeight * 0.65 && children.length >= 3) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Helper: check if an element is a distinct standalone section boundary
+  function isSectionBoundary(element) {
+    if (!element || element === document.body || element === document.documentElement) return false;
+    if (isPageShell(element) || isMultiSectionContainer(element)) return false;
+
+    const tag = element.tagName.toLowerCase();
+    const role = (element.getAttribute('role') || '').toLowerCase();
+    const cls = (typeof element.className === 'string' ? element.className : '').toLowerCase();
+    const id = (element.id || '').toLowerCase();
+    const rect = element.getBoundingClientRect();
+
+    // If element is nested inside a semantic <section> or <article>, that outer section is the boundary!
+    const outerSection = element.parentElement ? element.parentElement.closest('section, article') : null;
+    if (outerSection && !isPageShell(outerSection) && !isMultiSectionContainer(outerSection)) {
+      return false;
+    }
+
+    // 1. Semantic Landmark Elements
+    if (['section', 'article'].includes(tag)) return true;
+    if (['header', 'nav', 'footer'].includes(tag) && !outerSection) return true;
+    if (['banner', 'navigation', 'contentinfo'].includes(role) && rect.height >= 50 && !outerSection) return true;
+
+    // 2. Archetype Component Blocks with sufficient dimensions (only if top-level)
+    const isArchetype = /hero|banner|pricing|feature|testimonial|faq|showcase|carousel|slider|swiper|catalog|gallery|contact|newsletter|footer|navbar|mega-menu/i.test(cls) ||
+                        /hero|banner|pricing|feature|testimonial|faq|showcase|carousel|slider|catalog|gallery|contact|footer|navbar/i.test(id);
+    if (isArchetype && rect.height >= 60 && rect.width >= 240) {
+      const parent = element.parentElement;
+      if (parent && (isPageShell(parent) || isMultiSectionContainer(parent))) {
+        return true;
+      }
+    }
+
+    // 3. Significant standalone container with heading / cards / media whose parent is a multi-section wrapper or body
+    if (tag === 'div' && rect.height >= 120 && rect.width >= 280) {
+      const parent = element.parentElement;
+      if (parent && (isPageShell(parent) || isMultiSectionContainer(parent))) {
+        const hasHeading = !!element.querySelector('h1, h2, h3, h4');
+        const hasCards = !!element.querySelector('[class*="card"], [class*="grid"], [class*="item"], [class*="col"]');
+        const hasMedia = !!element.querySelector('picture, img, video, canvas');
+        if (hasHeading || (hasCards && hasMedia) || rect.height >= 250) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
 
   // Helper: Find meaningful section boundary
   function findSectionTarget(el) {
     if (!el || el === document.body || el === document.documentElement) return null;
+    if (
+      el.id === '__replicator_picker_bar__' ||
+      el.id === '__replicator_picker_overlay__' ||
+      el.closest('#__replicator_picker_bar__') ||
+      el.closest('#__replicator_picker_overlay__')
+    ) {
+      return null;
+    }
 
-    let curr = el;
-    while (curr && curr !== document.body && curr !== document.documentElement) {
-      if (
-        curr.id === '__replicator_picker_bar__' ||
-        curr.id === '__replicator_picker_overlay__' ||
-        curr.closest('#__replicator_picker_bar__')
-      ) {
-        return null;
+    // 1. If el is inside a semantic <section> or <article> that is not a page shell / multi-section container:
+    let semantic = el.closest('section, article');
+    if (semantic && !isPageShell(semantic) && !isMultiSectionContainer(semantic)) {
+      // Check if this semantic section has a direct 1:1 wrapper (e.g. <div class="section-wrap"><section>...)
+      const p = semantic.parentElement;
+      if (p && !isPageShell(p) && !isMultiSectionContainer(p)) {
+        const pRect = p.getBoundingClientRect();
+        const sRect = semantic.getBoundingClientRect();
+        if (Math.abs(pRect.height - sRect.height) < 15 && Math.abs(pRect.width - sRect.width) < 15) {
+          return p;
+        }
       }
+      return semantic;
+    }
+
+    // 2. If inside a top-level header, footer, or nav (not inside a section/article):
+    let landmark = el.closest('header, footer, nav');
+    if (landmark && !isPageShell(landmark) && !landmark.closest('section, article')) {
+      return landmark;
+    }
+
+    // 3. Non-semantic or div-based layouts: climb up towards the multi-section container / page shell
+    let curr = el;
+    let candidate = null;
+
+    while (curr && curr !== document.body && curr !== document.documentElement) {
+      if (isPageShell(curr)) break;
 
       const tag = curr.tagName.toLowerCase();
       const role = curr.getAttribute('role') || '';
       const rawClass = typeof curr.className === 'string' ? curr.className : '';
       const cls = rawClass.toLowerCase();
 
-      // 1. Skip individual carousel slides/items so we always capture the full carousel container / section
-      if (
-        (cls.includes('slide') || cls.includes('carousel-item') || cls.includes('carousel__item') || role === 'tabpanel') &&
-        curr.parentElement &&
-        curr.parentElement !== document.body
-      ) {
-        curr = curr.parentElement;
-        continue;
-      }
-
-      // 2. Leaf, typography, media, form, and inline interactive elements can NEVER be section roots.
-      // Ascend to enclosing container.
+      // Skip leaf, typography, media, form, and inline elements
       const isLeafOrInline = [
         'button', 'a', 'span', 'p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'img', 'picture', 'source', 'video', 'audio', 'svg', 'path', 'g',
         'i', 'strong', 'em', 'b', 'u', 'input', 'label', 'textarea',
         'select', 'option', 'form', 'li', 'ul', 'ol', 'dl', 'dt', 'dd',
-        'table', 'tbody', 'thead', 'tr', 'td', 'th', 'cite', 'small', 'code', 'pre'
+        'table', 'tbody', 'thead', 'tr', 'td', 'th', 'cite', 'small', 'code', 'pre',
+        'time', 'mark', 'bdi', 'bdo'
       ].includes(tag);
       if (isLeafOrInline) {
         curr = curr.parentElement;
         continue;
       }
 
-      // 3. Skip full-bleed overlay buttons, click interceptors, scrims, or empty wrapper layers
-      const isOverlayOrInterceptor =
-        cls.includes('clickable-state') ||
-        cls.includes('click-target') ||
-        cls.includes('hit-box') ||
-        cls.includes('scrim') ||
-        cls.includes('backdrop') ||
-        (curr.children.length === 0 && !['video', 'canvas', 'iframe'].includes(tag));
-      if (isOverlayOrInterceptor) {
-        curr = curr.parentElement;
-        continue;
-      }
-
-      // 4. BEM Element Check: if class contains `__` (e.g. `hd08-hero-kv-home__clickable-state`, `hero__inner`, `banner__text-wrap`),
-      // this is explicitly a child part of a BEM block. Ascend to find the block container!
-      const bemClass = rawClass.split(/\s+/).find((c) => c.includes('__'));
-      if (bemClass) {
-        const blockName = bemClass.split('__')[0];
-        if (blockName) {
-          try {
-            const blockEl = curr.closest(`.${CSS.escape(blockName)}`);
-            if (blockEl && blockEl !== curr && blockEl !== document.body) {
-              curr = blockEl;
-              continue;
-            }
-          } catch {}
-        }
-      }
-
-      // 5. Skip sub-part / child utility wrappers (e.g. text-wrap, inner, headline-wrap, cta-wrap)
-      const isSubPart =
-        cls.includes('text-wrap') ||
-        cls.includes('cta-wrap') ||
-        cls.includes('btn-wrap') ||
-        cls.includes('title-wrap') ||
-        cls.includes('headline') ||
-        cls.includes('figure') ||
-        cls.includes('media-wrap');
-      if (isSubPart && curr.parentElement && curr.parentElement !== document.body) {
-        curr = curr.parentElement;
-        continue;
-      }
-
-      // 6. Landmark section tags: ascend to top-level landmark containers if nested
-      if (tag === 'footer' || role === 'contentinfo' || cls.includes('site-footer') || cls.includes('page-footer') || cls.includes('footer')) {
-        const enclosingFooter = curr.closest('footer, [role="contentinfo"], .site-footer');
-        if (enclosingFooter && enclosingFooter !== document.body) return enclosingFooter;
-        return curr;
-      }
-      if (['header', 'nav'].includes(tag) || ['banner', 'navigation'].includes(role) || cls.includes('header') || cls.includes('navbar')) {
-        const topHeader = curr.closest('header, [role="banner"], #mega-menu, .mega-menu, [class*="site-header-wrapper"], [class*="header-wrapper"], [class*="site-header"]');
-        if (topHeader && topHeader !== document.body) return topHeader;
-        return curr;
-      }
-      if (['section', 'article'].includes(tag)) {
+      // Check section boundary
+      if (isSectionBoundary(curr)) {
         return curr;
       }
 
-      // 7. Check if element is a component block container (e.g. hero, banner, features, pricing, etc.)
-      const isComponentBlock =
-        cls.includes('hero') ||
-        cls.includes('banner') ||
-        cls.includes('pricing') ||
-        cls.includes('feature') ||
-        cls.includes('faq') ||
-        cls.includes('testimonial') ||
-        cls.includes('showcase') ||
-        cls.includes('section');
-
-      if (isComponentBlock) {
-        // Check if a parent element is also a section or component block (to pick the outermost section)
-        const parentSection = curr.parentElement?.closest('section, article, [class*="hero"], [class*="banner"], [class*="section"]');
-        if (parentSection && parentSection !== document.body && !['main', 'body'].includes(parentSection.tagName.toLowerCase())) {
-          curr = parentSection;
-          continue;
-        }
-
+      const p = curr.parentElement;
+      if (p && (isPageShell(p) || isMultiSectionContainer(p))) {
         const rect = curr.getBoundingClientRect();
-        if (rect.height >= 80 && rect.width >= 280) {
-          return curr;
-        }
-      }
-
-      // 8. General container with significant height / width and content
-      const rect = curr.getBoundingClientRect();
-      if (tag === 'div' && rect.height >= 120 && rect.width >= 300) {
-        const hasHeadings = curr.querySelector('h1, h2, h3, h4');
-        const hasCardGrid = curr.querySelector('[class*="card"], [class*="grid"], [class*="item"]');
-        const hasMedia = curr.querySelector('picture, img, video, canvas');
-        if ((hasHeadings && (hasCardGrid || hasMedia || rect.height >= 200)) || (hasCardGrid && hasMedia)) {
-          // If parent is a section or article, ascend to outermost
-          const parentContainer = curr.parentElement;
-          if (parentContainer && (parentContainer.tagName.toLowerCase() === 'section' || parentContainer.tagName.toLowerCase() === 'article')) {
-            return parentContainer;
-          }
+        if (rect.height >= 50 && rect.width >= 200) {
           return curr;
         }
       }
 
       curr = curr.parentElement;
     }
-    return el && el !== document.body ? el : null;
+
+    return candidate || (el && !isPageShell(el) && !isMultiSectionContainer(el) ? el : null);
   }
 
   // Helper: Harvest all computed CSS variables from :root and document stylesheets
@@ -321,6 +435,20 @@
     const hasNavLinks = el.querySelectorAll('nav a, header a, ul > li > a, ol > li > button, nav button, header button').length >= 2;
     if (isNavElement && hasNavLinks && !hasH1) {
       return { name: 'Navbar', icon: '🧭', archetype: 'navbar' };
+    }
+
+    // 2.5 Carousel / Slider / Gallery check (evaluated before generic tabs so dotnavs aren't misclassified)
+    const isCarousel =
+      el.querySelector('[class*="swiper"], [class*="slick"], [class*="slider"], [class*="carousel"], [class*="gallery-items"], [class*="gallery-item-container"], [class*="media-gallery"], [class*="dotnav"], [class*="paddlenav"]') !== null ||
+      html.includes('media-gallery') ||
+      html.includes('tv-media-gallery') ||
+      html.includes('carousel') ||
+      html.includes('swiper') ||
+      html.includes('slick') ||
+      /carousel|slider|swiper|gallery/i.test(getElementClassString(el));
+
+    if (isCarousel) {
+      return { name: 'Carousel / Gallery', icon: '🎠', archetype: 'carousel' };
     }
 
     // 3. Check for Tabbed Section / Feature Tabs
@@ -576,9 +704,61 @@
       sectionHtml: (() => {
         let h = currentTarget.outerHTML;
         if (arch.archetype === 'navbar' || ['header', 'nav'].includes(currentTarget.tagName.toLowerCase())) {
-          const associated = document.querySelectorAll('dialog.tds-site-header-panel, .dx-mega-menu-panel, [class*="header-panel"], [class*="mega-menu-panel"], .tds-modal-backdrop');
-          associated.forEach((p) => {
-            if (!currentTarget.contains(p)) h += '\n' + p.outerHTML;
+          const added = new Set([currentTarget]);
+          function appendEl(el) {
+            if (!el || added.has(el) || currentTarget.contains(el)) return;
+            const tag = (el.tagName || '').toLowerCase();
+            if (['html', 'body', 'main', 'script', 'style'].includes(tag)) return;
+            added.add(el);
+            h += '\n' + el.outerHTML;
+          }
+
+          // A. Check declarative trigger attributes inside currentTarget
+          const triggers = currentTarget.querySelectorAll('button, a, [role="button"], [class*="toggle"], [class*="burger"], [class*="hamburger"], [class*="menu-btn"], [aria-controls], [data-target], [data-bs-target], [data-elementor-open-popup]');
+          triggers.forEach((trg) => {
+            const ctrlId = trg.getAttribute('aria-controls') || trg.getAttribute('aria-owns');
+            if (ctrlId) {
+              const match = document.getElementById(ctrlId.trim());
+              if (match) appendEl(match);
+            }
+            const dt = trg.getAttribute('data-target') || trg.getAttribute('data-bs-target');
+            if (dt && dt.startsWith('#')) {
+              try { const match = document.querySelector(dt.trim()); if (match) appendEl(match); } catch {}
+            }
+            const href = trg.getAttribute('href') || '';
+            if (href.includes('elementor-action') || href.includes('popup')) {
+              try {
+                const dec = decodeURIComponent(href);
+                const m = dec.match(/settings=([A-Za-z0-9+/=]+)/);
+                if (m && m[1]) {
+                  const s = JSON.parse(atob(m[1]));
+                  if (s && s.id) {
+                    const match = document.querySelector(`[data-elementor-id="${s.id}"], .elementor-${s.id}, [id="elementor-popup-modal-${s.id}"]`);
+                    if (match) appendEl(match);
+                  }
+                }
+              } catch {}
+            }
+            if (href.startsWith('#') && href.length > 2 && !href.includes('elementor-action')) {
+              try {
+                const match = document.querySelector(href);
+                if (match && (match.matches('[class*="menu"], [class*="nav"], [class*="drawer"], [class*="sidebar"], [class*="offcanvas"]') || match.getAttribute('role') === 'dialog')) {
+                  appendEl(match);
+                }
+              } catch {}
+            }
+          });
+
+          // B. Semantic companion query
+          const candidates = document.querySelectorAll(
+            '[data-elementor-type="popup"], [class*="location-popup"], [class*="mobile-nav-drawer"], [class*="mobile-menu"], [class*="menu-drawer"], [class*="nav-drawer"], [class*="header_sidebar_menu"], [class*="offcanvas"], [class*="off-canvas"], [class*="drawer"]:not([class*="cart"]), [class*="sidebar"]:not([class*="cart"]):not([class*="widget"]), [class*="header-panel"], [class*="mega-menu-panel"], dialog.tds-site-header-panel, .dx-mega-menu-panel, .tds-modal-backdrop'
+          );
+          candidates.forEach((c) => {
+            const cls = (c.className && typeof c.className === 'string') ? c.className.toLowerCase() : '';
+            if (cls.includes('cookie') || cls.includes('chat') || cls.includes('alert') || cls.includes('review') || cls.includes('cart')) return;
+            const hasLinks = c.querySelectorAll('a').length >= 1;
+            const hasNav = c.querySelectorAll('nav, ul, [role="menu"]').length > 0;
+            if (hasLinks || hasNav) appendEl(c);
           });
         }
         return h;
@@ -590,6 +770,8 @@
       action: 'SECTION_PICKED',
       section: data,
     });
+
+    selectedData = data;
 
     // Freeze selection & display docked confirmation toolbar
     isSectionConfirmed = true;
@@ -622,30 +804,59 @@
       </div>
     `;
 
+    document.getElementById('__replicator_start_btn__')?.addEventListener('click', initiateReplication);
+    document.getElementById('__replicator_reselect_btn__')?.addEventListener('click', () => {
+      isSectionConfirmed = false;
+      overlay.style.border = '2px solid #2563eb';
+      overlay.style.background = 'rgba(37, 99, 235, 0.12)';
+      overlay.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.8), 0 8px 24px rgba(37, 99, 235, 0.25)';
+      badge.style.background = '#1d4ed8';
+      window.addEventListener('mousemove', onMouseMove, true);
+
+      bar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">🎯</span>
+          <strong>Select Section:</strong>
+          <span>Hover to highlight. Press <kbd style="background:#334155;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">↑</kbd> to expand to parent, <kbd style="background:#334155;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">↓</kbd> to shrink, <kbd style="background:#334155;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">ESC</kbd> to cancel.</span>
+        </div>
+        <button id="__replicator_cancel_btn__" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-weight:600;font-size:12px;cursor:pointer;">Cancel</button>
+      `;
+    });
+
   // Helper: Universally hover and interact with elements in the section to reveal dynamic/lazy DOM
   async function revealDynamicSections(sectionEl) {
     if (!sectionEl) return;
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-    // 1. Identify tab triggers to dynamically collect and mount all tab panels
+    // Identify primary tab buttons
     const tabTriggers = Array.from(sectionEl.querySelectorAll(
-      '[role="tab"], [class*="tab__item"], [class*="tab-item"], button[class*="tab"], li[class*="tab"], [data-tab]'
+      'button[role="tab"], [role="tablist"] > * > button, .tab__list button.tab__item-title, .tab__list button, .tabs-nav button, [role="tab"]'
     )).filter((el) => {
       const cls = getElementClassString(el).toLowerCase();
-      return !cls.includes('panel') && !cls.includes('pane') && !cls.includes('content') &&
+      const txt = (el.textContent || '').trim().toLowerCase();
+      // Exclude navigation arrows, previous/next buttons
+      return !cls.includes('arrow') && !cls.includes('prev') && !cls.includes('next') &&
+             txt !== 'previous' && txt !== 'next' &&
              !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__');
     });
 
     if (tabTriggers.length > 1) {
-      // Find where active pane lives
-      const initialPane = sectionEl.querySelector('[class*="tab__pane"], [class*="tab-pane"], [role="tabpanel"]');
-      const paneParent = initialPane ? initialPane.parentElement : null;
-      const gatheredPanes = [];
+      // Deliberate, paced tab walk: wait for AJAX cards/products and record each tab's rendered panel HTML
+      const initialActiveTab = tabTriggers.find(t => t.getAttribute('aria-selected') === 'true' || t.classList.contains('active') || t.classList.contains('selected')) || tabTriggers[0];
+      const capturedTabs = [];
 
       for (let i = 0; i < tabTriggers.length; i++) {
         const tab = tabTriggers[i];
+        const tabTitle = (tab.textContent || '').trim();
+        const targetId = tab.getAttribute('aria-controls') || ('category' + i);
+
+        const progressStepEl = document.getElementById('__replicator_progress_step__');
+        if (progressStepEl) {
+          progressStepEl.textContent = `Extracting tab ${i + 1}/${tabTriggers.length}: ${tabTitle || targetId}...`;
+        }
+
+        // Trigger tab activation
         try {
-          // Trigger complete pointer/mouse cycle for React 18 / Vue / modern frameworks
           tab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
           tab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
           tab.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
@@ -654,38 +865,119 @@
           if (typeof tab.click === 'function') tab.click();
         } catch {}
 
-        await sleep(250);
+        // Wait dynamically for AJAX cards to mount in the target panel
+        const startTime = Date.now();
+        let targetPanel = sectionEl.querySelector('#' + CSS.escape(targetId)) ||
+                          document.getElementById(targetId) ||
+                          sectionEl.querySelectorAll('[role="tabpanel"], [class*="tabpanel"], [class*="primary-panel"], [class*="tab-pane"]')[i];
 
-        // Capture newly rendered or updated pane
-        const activePane = sectionEl.querySelector('[class*="tab__pane"], [class*="tab-pane"], [role="tabpanel"]');
-        if (activePane && paneParent) {
-          const clone = activePane.cloneNode(true);
-          clone.setAttribute('data-tab-pane-index', String(i));
-          if (i > 0) {
-            clone.style.display = 'none';
-            clone.setAttribute('aria-hidden', 'true');
-          } else {
-            clone.style.display = '';
-            clone.setAttribute('aria-hidden', 'false');
+        while (Date.now() - startTime < 1400) {
+          await sleep(150);
+          if (!targetPanel) {
+            targetPanel = sectionEl.querySelector('#' + CSS.escape(targetId)) ||
+                          document.getElementById(targetId) ||
+                          sectionEl.querySelectorAll('[role="tabpanel"], [class*="tabpanel"], [class*="primary-panel"], [class*="tab-pane"]')[i];
           }
-          gatheredPanes.push(clone);
+          if (targetPanel) {
+            const hasCards = targetPanel.querySelectorAll('[class*="card"], [class*="product"], [class*="item"], [role="listitem"]').length > 0;
+            if (hasCards && (Date.now() - startTime >= 700)) {
+              break;
+            }
+          }
+        }
+
+        if (targetPanel) {
+          // Resolve any lazy-loaded image URLs immediately into src attributes
+          targetPanel.querySelectorAll('img').forEach((img) => {
+            const realSrc = img.getAttribute('data-desktop-src') || img.getAttribute('data-src') || img.getAttribute('data-original') || img.src;
+            if (realSrc && (!img.src || img.src.includes('data:image'))) {
+              img.src = realSrc;
+            }
+          });
+
+          capturedTabs.push({
+            index: i,
+            title: tabTitle,
+            targetId: targetId,
+            panelHtml: targetPanel.outerHTML,
+            panelEl: targetPanel
+          });
         }
       }
 
-      // If page replaced single pane in DOM rather than preserving all, mount all gathered panes
-      if (paneParent && gatheredPanes.length > 1) {
-        // Clear old single pane and mount all gathered tab panes
-        const currentPanes = paneParent.querySelectorAll('[class*="tab__pane"], [class*="tab-pane"], [role="tabpanel"]');
-        currentPanes.forEach(p => p.remove());
-        gatheredPanes.forEach(gp => paneParent.appendChild(gp));
+      // If multiple tabs were captured, ensure each panel in the section has its populated content!
+      if (capturedTabs.length > 1) {
+        capturedTabs.forEach((ct, idx) => {
+          let existingPanel = sectionEl.querySelector('#' + CSS.escape(ct.targetId));
+          if (!existingPanel) {
+            const panels = sectionEl.querySelectorAll('[role="tabpanel"], [class*="tabpanel"], [class*="primary-panel"], [class*="tab-pane"]');
+            if (panels[idx]) {
+              existingPanel = panels[idx];
+              existingPanel.id = ct.targetId;
+            }
+          }
+          if (existingPanel && ct.panelEl && ct.panelEl !== existingPanel) {
+            existingPanel.innerHTML = ct.panelEl.innerHTML;
+          }
+          if (existingPanel) {
+            const pClasses = Array.from(existingPanel.classList);
+            if (idx === 0) {
+              existingPanel.classList.add('is-active', 'active');
+              pClasses.forEach(c => {
+                if (c.includes('panel') || c.includes('pane') || c.includes('tab')) {
+                  existingPanel.classList.add(c + '--active', c + '-active');
+                }
+              });
+              existingPanel.setAttribute('aria-hidden', 'false');
+              existingPanel.style.display = 'block';
+            } else {
+              existingPanel.classList.remove('is-active', 'active');
+              pClasses.forEach(c => {
+                if (c.endsWith('--active') || c.endsWith('-active') || c.endsWith('_active')) {
+                  existingPanel.classList.remove(c);
+                }
+              });
+              existingPanel.setAttribute('aria-hidden', 'true');
+              existingPanel.style.display = 'none';
+            }
+
+            // Ensure the first child subpanel is active so switching categories never renders a blank panel
+            const firstSubPanel = existingPanel.querySelector('[role="tabpanel"], [class*="subpanel"], [class*="__panel"]:not(:scope)');
+            if (firstSubPanel) {
+              firstSubPanel.classList.add('is-active', 'active');
+              Array.from(firstSubPanel.classList).forEach(c => {
+                if (c.includes('panel') || c.includes('pane') || c.includes('tab')) {
+                  firstSubPanel.classList.add(c + '--active', c + '-active');
+                }
+              });
+              firstSubPanel.setAttribute('aria-hidden', 'false');
+              firstSubPanel.style.display = 'block';
+            }
+            existingPanel.querySelectorAll('[class*="progressbar-indicator"], [class*="progress-indicator"]').forEach(ind => {
+              Array.from(ind.classList).forEach(c => ind.classList.add(c + '--show', c + '-show'));
+              ind.style.display = 'flex';
+            });
+            existingPanel.querySelectorAll('[class*="indicator__arrow"], [class*="swiper-button"], [class*="arrow"]').forEach(btn => {
+              btn.style.display = 'inline-flex';
+            });
+          }
+        });
       }
 
-      // Reset to first tab
+      // Restore initial tab
       try {
-        tabTriggers[0].dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-        if (typeof tabTriggers[0].click === 'function') tabTriggers[0].click();
+        if (initialActiveTab) {
+          initialActiveTab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          if (typeof initialActiveTab.click === 'function') initialActiveTab.click();
+        }
       } catch {}
-      await sleep(100);
+      await sleep(250);
+
+      window.__capturedTabsData = capturedTabs.map(t => ({
+        index: t.index,
+        title: t.title,
+        targetId: t.targetId
+      }));
     }
 
     // 2. Catalog & Grid Smooth Scroll and "View More" / "Load More" Expansion
@@ -807,18 +1099,28 @@
         if (typeof trg.focus === 'function') trg.focus({ preventScroll: true });
 
         const ariaExp = trg.getAttribute('aria-expanded');
-        if (ariaExp === 'false') {
-          if (typeof trg.click === 'function') trg.click();
+        const hasPopup = trg.hasAttribute('aria-haspopup');
+        const hasSubmenu = trg.querySelector && (
+          trg.querySelector('ul, ol, nav, [class*="menu"], [class*="dropdown"]') ||
+          trg.parentElement?.querySelector('ul, ol, nav, [class*="menu"], [class*="dropdown"]')
+        );
+        if (ariaExp === 'false' || hasPopup || hasSubmenu) {
           trg.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          const href = trg.getAttribute('href');
+          const isNavHref = href && href.trim() && !href.startsWith('#') && !href.startsWith('javascript:');
+          if (!isNavHref && typeof trg.click === 'function') {
+            trg.click();
+          }
         }
       } catch {}
-      await sleep(30);
+      // Wait for CSS animations, Framer Motion, and React state updates (300ms)
+      await sleep(300);
     }
 
     try {
       document.body.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true, view: window }));
     } catch {}
-    await sleep(50);
+    await sleep(150);
   }
 
   // Helper: Harvest section HTML including any dynamically mounted sibling panels or dialogs
@@ -841,9 +1143,18 @@
     const detachedSelectors = [
       'dialog',
       '[role="dialog"]',
+      '[role="menu"]',
+      '[role="listbox"]',
+      '[id*="headlessui-menu-items"]',
+      '[id*="headlessui-popover"]',
+      '[id*="headlessui-listbox"]',
+      '[data-radix-popper-content-wrapper]',
+      '[data-floating-ui-portal]',
       '[class*="header-panel"]',
       '[class*="mega-menu-panel"]',
       '[class*="megamenu-panel"]',
+      '[class*="dropdown-menu"]',
+      '[class*="popover-content"]',
       '[class*="modal-backdrop"]',
       '[class*="curtain"]'
     ];
@@ -968,14 +1279,45 @@
       return path.join(' > ');
     }
 
+    // Helper: Identify tabs so they are managed by the universal tab controller instead of mutation toggles
+    const isTabTrigger = (el) => {
+      if (!el) return false;
+      const role = (el.getAttribute('role') || '').toLowerCase();
+      const cls = getElementClassString(el).toLowerCase();
+      const ariaControls = (el.getAttribute('aria-controls') || '').toLowerCase();
+      return role === 'tab' || cls.includes('tab__item') || cls.includes('tab-item') ||
+             el.closest('.tab__list, .tab-list, [role="tablist"]') !== null ||
+             ariaControls.includes('category') || ariaControls.includes('tab');
+    };
+
+    // Helper: Identify carousel arrows/bullets so they are managed by the universal carousel controller
+    const isCarouselTrigger = (el) => {
+      if (!el) return false;
+      const cls = getElementClassString(el).toLowerCase();
+      const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+      const tr = (el.getAttribute('an-tr') || '').toLowerCase();
+      const ac = (el.getAttribute('an-ac') || '').toLowerCase();
+      return cls.includes('swiper-button') ||
+             cls.includes('indicator__arrow') ||
+             cls.includes('carousel-arrow') ||
+             cls.includes('slider-arrow') ||
+             cls.includes('progressbar-indicator') ||
+             ac === 'carousel' ||
+             aria.includes('next slide') ||
+             aria.includes('previous slide') ||
+             el.closest('.progressbar-indicator, .swiper-container, [role="region"][aria-roledescription*="carousel"]') !== null;
+    };
+
     // Hierarchical interactive trigger prioritization with full multi-category coverage
-    // 1. Collect all filter category dropdown toggles (openers) across the whole filter tree
+    // 1. Collect all filter category dropdown toggles (openers) across the whole filter tree (excluding tabs & carousels)
     const categoryOpeners = Array.from(sectionEl.querySelectorAll(
       'button[aria-expanded], [role="button"][aria-expanded], [aria-haspopup], [class*="opener"], [class*="toggle"], [class*="dropdown-toggle"], [class*="accordion-toggle"], [class*="filter-trigger"], [class*="facet-trigger"], summary'
     )).filter(el => {
       const cls = getElementClassString(el).toLowerCase();
       return !el.closest('#__replicator_picker_bar__') &&
              !el.closest('#__replicator_picker_overlay__') &&
+             !isTabTrigger(el) &&
+             !isCarouselTrigger(el) &&
              !cls.includes('view-more') && !cls.includes('load-more') &&
              !cls.includes('close') && !cls.includes('cancel');
     });
@@ -983,7 +1325,7 @@
     // 2. Expand category internal options if they have internal "View more" buttons
     const categoryWrappers = Array.from(sectionEl.querySelectorAll(
       '[class*="selector-item"], [class*="filter-group"], [class*="filter-section"], [class*="accordion-item"], fieldset'
-    )).filter(el => !el.closest('#__replicator_picker_bar__'));
+    )).filter(el => !el.closest('#__replicator_picker_bar__') && !isCarouselTrigger(el));
 
     for (const catWrap of categoryWrappers) {
       const internalViewMore = catWrap.querySelector('[class*="selector-view-more"], [class*="filter-view-more"], [class*="options-view-more"]');
@@ -1001,7 +1343,7 @@
     if (categoryWrappers.length > 0) {
       categoryWrappers.forEach(cat => {
         const catOptions = Array.from(cat.querySelectorAll('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]')).filter(i => {
-          return !seenInputs.has(i) && !i.closest('#__replicator_picker_bar__');
+          return !seenInputs.has(i) && !i.closest('#__replicator_picker_bar__') && !isTabTrigger(i) && !isCarouselTrigger(i);
         });
         catOptions.slice(0, 3).forEach(opt => {
           seenInputs.add(opt);
@@ -1010,20 +1352,15 @@
       });
     }
 
-    // Also pick any remaining checkboxes or swatches / tabs not in wrappers
+    // Also pick any remaining checkboxes or swatches not in wrappers (excluding tabs & carousels)
     const remainingOptions = Array.from(sectionEl.querySelectorAll(
-      '[role="tab"], input[type="checkbox"], input[type="radio"], [class*="swatch"] button, [class*="option-selector"] button, [class*="size"] button, [class*="color"] button'
-    )).filter(el => !seenInputs.has(el) && !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__'));
-
-    const sliders = Array.from(sectionEl.querySelectorAll(
-      '.swiper-button-next, .swiper-button-prev, .carousel-arrow-next, .carousel-arrow-prev, .swiper-pagination-bullet, .hero-dot'
-    )).filter(el => !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__'));
+      'input[type="checkbox"], input[type="radio"], [class*="swatch"] button, [class*="option-selector"] button, [class*="size"] button, [class*="color"] button'
+    )).filter(el => !seenInputs.has(el) && !isTabTrigger(el) && !isCarouselTrigger(el) && !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__'));
 
     const triggers = [
       ...categoryOpeners.slice(0, 25),
       ...sampledOptions,
-      ...remainingOptions.slice(0, 10),
-      ...sliders.slice(0, 5)
+      ...remainingOptions.slice(0, 10)
     ];
 
     for (const trigger of triggers) {
@@ -1132,13 +1469,15 @@
       }
 
       // Synthetic click
+      const href = trigger.getAttribute('href');
+      const isNavHref = href && href.trim() && !href.startsWith('#') && !href.startsWith('javascript:');
       try {
         trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
         trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
         trigger.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
         trigger.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
         trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-        if (typeof trigger.click === 'function') trigger.click();
+        if (!isNavHref && typeof trigger.click === 'function') trigger.click();
       } catch (e) {}
 
       await sleep(350);
@@ -1150,7 +1489,7 @@
         // Probe second click to test toggle behavior
         try {
           trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          if (typeof trigger.click === 'function') trigger.click();
+          if (!isNavHref && typeof trigger.click === 'function') trigger.click();
         } catch (e) {}
 
         await sleep(350);
@@ -1186,6 +1525,10 @@
 
   // Function to start live section replication & polling
   async function initiateReplication() {
+    const data = selectedData;
+    if (!data) return;
+    installNavShield();
+
     // Switch bar to live progress bar state
     bar.innerHTML = `
       <div style="display:flex;align-items:center;gap:12px;">
@@ -1231,13 +1574,15 @@
 
     if (progressStepEl) progressStepEl.textContent = 'Extracting styles & synthesizing code...';
 
-    // Harvest page client stylesheets (including cross-origin/CDN stylesheets)
+    // Harvest page client stylesheets in strict document cascade order
     const sheets = [];
-    const fetchPromises = [];
+    const sheetEntries = [];
     const fetchedHrefs = new Set();
 
     try {
-      for (const sheet of Array.from(document.styleSheets)) {
+      const allStyleSheets = Array.from(document.styleSheets);
+      for (let i = 0; i < allStyleSheets.length; i++) {
+        const sheet = allStyleSheets[i];
         let css = '';
         try {
           if (sheet.cssRules && sheet.cssRules.length > 0) {
@@ -1250,45 +1595,57 @@
         }
 
         if (css.trim()) {
-          sheets.push(css);
-        } else if (sheet.href && !sheet.href.startsWith('chrome-extension://') && !fetchedHrefs.has(sheet.href)) {
-          fetchedHrefs.add(sheet.href);
-          fetchPromises.push(
-            fetch(sheet.href, { cache: 'force-cache' })
+          sheetEntries.push({ index: i, css });
+        } else if (sheet.href && !sheet.href.startsWith('chrome-extension://')) {
+          const href = sheet.href;
+          fetchedHrefs.add(href);
+          sheetEntries.push({
+            index: i,
+            href,
+            promise: fetch(href, { cache: 'force-cache' })
               .then((r) => (r.ok ? r.text() : ''))
               .catch(() => '')
-          );
+          });
         }
       }
 
-      // Also harvest any <link rel="stylesheet"> tags in the document
+      // Also ensure any <link rel="stylesheet"> in document is represented in document order
       const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
       for (const link of links) {
         const href = link.href;
         if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
           fetchedHrefs.add(href);
-          fetchPromises.push(
-            fetch(href, { cache: 'force-cache' })
+          sheetEntries.push({
+            index: sheetEntries.length,
+            href,
+            promise: fetch(href, { cache: 'force-cache' })
               .then((r) => (r.ok ? r.text() : ''))
               .catch(() => '')
-          );
+          });
         }
       }
 
-      // Fetch external stylesheets in parallel with a 4000ms race timeout
-      if (fetchPromises.length > 0) {
-        try {
-          const parallelFetch = Promise.allSettled(fetchPromises);
-          const fetchTimeout = new Promise((r) => setTimeout(() => r([]), 4000));
-          const settled = await Promise.race([parallelFetch, fetchTimeout]);
-          if (Array.isArray(settled)) {
-            for (const s of settled) {
-              if (s && s.status === 'fulfilled' && typeof s.value === 'string' && s.value.trim()) {
-                sheets.push(s.value);
+      // Resolve external stylesheets in parallel while preserving exact document cascade order
+      const pending = sheetEntries.filter((e) => e.promise);
+      if (pending.length > 0) {
+        await Promise.race([
+          Promise.allSettled(
+            pending.map(async (e) => {
+              try {
+                e.css = await e.promise;
+              } catch {
+                e.css = '';
               }
-            }
-          }
-        } catch {}
+            })
+          ),
+          new Promise((r) => setTimeout(r, 4000))
+        ]);
+      }
+
+      for (const entry of sheetEntries) {
+        if (entry.css && entry.css.trim()) {
+          sheets.push(entry.css);
+        }
       }
     } catch {}
 
@@ -1305,6 +1662,7 @@
             stylesheetUrls: Array.from(fetchedHrefs),
             htmlSnapshot: document.documentElement.outerHTML,
             recordedInteractions: recordedInteractions,
+            tabsData: window.__capturedTabsData || [],
             rootCssVariables: harvestRootCssVariables(),
             pageTheme: document.body?.classList.contains('theme-dark') || document.documentElement?.classList.contains('theme-dark') ? 'dark' : 'light',
             localizeAssets: true,
@@ -1319,7 +1677,7 @@
           if (res && res.success && res.jobId) {
             const jobId = res.jobId;
             let pollAttempts = 0;
-            const maxPolls = 120; // 60 seconds
+            const maxPolls = 480; // Up to 8 minutes for complex multi-asset enterprise pages
 
             const pollTimer = setInterval(async () => {
               if (isCancelled) {
@@ -1336,8 +1694,28 @@
 
               try {
                 // Check background activeJob state
-                chrome.runtime.sendMessage({ action: 'POLL_STATUS' }, (statusRes) => {
-                  const job = statusRes?.activeJob;
+                chrome.runtime.sendMessage({ action: 'POLL_STATUS' }, async (statusRes) => {
+                  let job = statusRes?.activeJob;
+                  if (!job || job.id !== jobId) {
+                    // Direct backend poll fallback
+                    try {
+                      const { apiUrl } = await chrome.storage.local.get(['apiUrl']);
+                      const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+                      const directResp = await fetch(`${baseUrl}/api/jobs/${jobId}`);
+                      if (directResp.ok) {
+                        const directData = await directResp.json();
+                        job = {
+                          id: jobId,
+                          status: directData.status,
+                          progress: directData.progress,
+                          currentStep: directData.currentStep,
+                          previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
+                          downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
+                          error: directData.error,
+                        };
+                      }
+                    } catch {}
+                  }
                   if (!job || job.id !== jobId) return;
 
                   const stepEl = document.getElementById('__replicator_progress_step__');
@@ -1353,8 +1731,10 @@
                     clearInterval(pollTimer);
                     overlay.remove(); // Remove green selection box for pristine view
 
-                    const previewUrl = job.previewUrl || `http://localhost:3000/api/jobs/${jobId}/preview`;
-                    const downloadUrl = job.downloadUrl || `http://localhost:3000/api/jobs/${jobId}/download`;
+                    const { apiUrl } = await chrome.storage.local.get(['apiUrl']);
+                    const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
+                    const previewUrl = job.previewUrl || `${baseUrl}/api/jobs/${jobId}/preview`;
+                    const downloadUrl = job.downloadUrl || `${baseUrl}/api/jobs/${jobId}/download`;
 
                     bar.innerHTML = `
                       <div style="display:flex;align-items:center;gap:12px;">
@@ -1391,7 +1771,7 @@
               } catch (e) {
                 console.warn('In-page poll error:', e);
               }
-            }, 600);
+            }, 1000);
           } else {
             showError(res?.error || 'Replication failed to start. Check token balance.');
           }
@@ -1463,6 +1843,9 @@
   }
 
   function cleanup() {
+    if (removeNavShield) {
+      try { removeNavShield(); } catch {}
+    }
     window.removeEventListener('mousemove', onMouseMove, true);
     window.removeEventListener('click', onClick, true);
     window.removeEventListener('keydown', onKeyDown, true);

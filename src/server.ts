@@ -26,7 +26,11 @@ import { v1ApiRouter } from './api/v1/index.js';
 import * as cheerio from 'cheerio';
 import archiver from 'archiver';
 import { synthesisEngine } from './synthesis/engine.js';
-import { resolveTargetSectionFromSnapshot } from './classifier/section-resolver.js';
+import { resolveTargetSectionFromSnapshot, enrichSectionWithCompanions } from './classifier/section-resolver.js';
+import { jobQueue } from './queue/job-queue.js';
+import { FidelityGuard } from './validator/fidelity-guard.js';
+import { comparisonEngine } from './validator/comparison-engine.js';
+import { trialErrorOptimizer } from './optimizer/trial-error-optimizer.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -473,6 +477,27 @@ export function createServer(): express.Application {
     }
 
     if (!job) {
+      try {
+        const dbJob = jobQueue.getJob(req.params.id);
+        if (dbJob) {
+          const zipPath = path.join(CONFIG.jobsDir, req.params.id, 'site-package.zip');
+          res.json({
+            id: dbJob.id,
+            url: dbJob.url,
+            status: dbJob.status,
+            progress: dbJob.status === 'completed' ? 100 : dbJob.status === 'failed' ? 0 : 50,
+            currentStep: dbJob.error_message || (dbJob.status === 'completed' ? 'Extraction completed successfully' : 'Processing...'),
+            createdAt: dbJob.created_at,
+            completedAt: dbJob.updated_at,
+            sections: [],
+            error: dbJob.error_message || undefined,
+            previewUrl: `/api/jobs/${dbJob.id}/preview`,
+            downloadUrl: fs.existsSync(zipPath) ? `/api/jobs/${dbJob.id}/download` : undefined,
+          });
+          return;
+        }
+      } catch {}
+
       res.status(404).json({ error: 'Job not found' });
       return;
     }
@@ -514,6 +539,76 @@ export function createServer(): express.Application {
     }
     res.setHeader('Content-Type', 'image/png');
     fs.createReadStream(diffPath).pipe(res);
+  });
+
+  // 3.7. Run Full Multi-Screen & Detailed Interaction Comparison on Server
+  app.post('/api/jobs/:id/run-comparison', async (req: Request, res: Response): Promise<void> => {
+    const jobId = req.params.id;
+    const jobDir = path.join(CONFIG.jobsDir, jobId);
+    if (!fs.existsSync(jobDir)) {
+      res.status(404).json({ error: 'Job not found' });
+      return;
+    }
+    try {
+      const report = await comparisonEngine.runFullComparison(jobId);
+      res.json({ success: true, report });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Comparison failed', message: err.message });
+    }
+  });
+
+  // 3.8. Get Multi-Screen & Interaction Comparison Report
+  app.get('/api/jobs/:id/comparison-report', (req: Request, res: Response): void => {
+    const jobId = req.params.id;
+    const reportPath = path.join(CONFIG.jobsDir, jobId, 'full-page', 'qa', 'comparison-report.json');
+    if (!fs.existsSync(reportPath)) {
+      res.status(404).json({ error: 'Comparison report not yet generated. Trigger POST /api/jobs/:id/run-comparison first.' });
+      return;
+    }
+    try {
+      const report = JSON.parse(fs.readFileSync(reportPath, 'utf8'));
+      res.json(report);
+    } catch (err: any) {
+      res.status(500).json({ error: 'Failed to read comparison report' });
+    }
+  });
+
+  // 3.9. Section CSS & JS Trial-and-Error Optimizer
+  app.post('/api/jobs/:id/sections/:sectionId/optimize', async (req: Request, res: Response): Promise<void> => {
+    const { id, sectionId } = req.params;
+    const sectionsDir = path.join(CONFIG.jobsDir, id, 'sections');
+    if (!fs.existsSync(sectionsDir)) {
+      res.status(404).json({ error: 'Job or sections not found' });
+      return;
+    }
+    const matchingFolder = fs.readdirSync(sectionsDir).find((f) => f.startsWith(sectionId));
+    if (!matchingFolder) {
+      res.status(404).json({ error: `Section ${sectionId} not found` });
+      return;
+    }
+    const secDir = path.join(sectionsDir, matchingFolder);
+    const htmlPath = path.join(secDir, 'section.html');
+    const cssPath = path.join(secDir, 'section.css');
+    const jsPath = path.join(secDir, 'section.js');
+
+    if (!fs.existsSync(htmlPath) || !fs.existsSync(cssPath)) {
+      res.status(400).json({ error: 'Section files missing' });
+      return;
+    }
+
+    const html = fs.readFileSync(htmlPath, 'utf8');
+    const css = fs.readFileSync(cssPath, 'utf8');
+    const js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
+
+    try {
+      const result = await trialErrorOptimizer.optimizeSection(html, css, js);
+      // Persist optimized versions
+      fs.writeFileSync(path.join(secDir, 'section.optimized.css'), result.optimizedCss, 'utf8');
+      fs.writeFileSync(path.join(secDir, 'section.optimized.js'), result.optimizedJs, 'utf8');
+      res.json({ success: true, result });
+    } catch (err: any) {
+      res.status(500).json({ error: 'Trial-and-error optimization failed', message: err.message });
+    }
   });
 
   // Support direct style.css and script.js asset requests relative to job route
@@ -558,6 +653,22 @@ export function createServer(): express.Application {
       }
     }
 
+    // Explicitly serve style.css and script.js with proper content types
+    if (req.path === '/style.css') {
+      const cssPath = path.join(jobDir, 'style.css');
+      if (fs.existsSync(cssPath)) {
+        res.type('text/css').sendFile(cssPath);
+        return;
+      }
+    }
+    if (req.path === '/script.js') {
+      const jsPath = path.join(jobDir, 'script.js');
+      if (fs.existsSync(jsPath)) {
+        res.type('application/javascript').sendFile(jsPath);
+        return;
+      }
+    }
+
     express.static(jobDir, { index: 'index.html' })(req, res, () => {
       // Fallback 1: check inside assets/ directory for exact subpath
       const relPath = req.path.replace(/^\/+/, '');
@@ -597,40 +708,6 @@ export function createServer(): express.Application {
     });
   });
 
-  // Apple-compatible Global Header and Search API proxy for preview mode
-  app.get('/api-www/global-elements/global-header/v1/flyouts*', async (req: Request, res: Response): Promise<void> => {
-    try {
-      const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '?locale=en_US';
-      const appleResp = await fetch(`https://www.apple.com/api-www/global-elements/global-header/v1/flyouts${queryString}`, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      });
-      if (appleResp.ok) {
-        const data = await appleResp.json();
-        res.setHeader('Access-Control-Allow-Origin', '*');
-        res.setHeader('Content-Type', 'application/json');
-        res.json(data);
-        return;
-      }
-    } catch (e: any) {
-      console.warn('Could not fetch live Apple flyouts:', e.message);
-    }
-    res.json({});
-  });
-
-  app.get('/search-services/suggestions/defaultlinks/*', (_req: Request, res: Response): void => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.json({ results: [] });
-  });
-
-  app.get('/search-services/suggestions/*', (_req: Request, res: Response): void => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.json({ results: [] });
-  });
-
-  app.get('/us/shop/bag/*', (_req: Request, res: Response): void => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.json({ count: 0, items: [] });
-  });
 
   // Dynamic proxy/fallback for any root-relative assets (/v/*, /105/*, /assets/*, /fonts/*, /images/*, etc.)
   // requested by preview pages when websites request chunks, media, or images from the root domain
@@ -681,6 +758,7 @@ export function createServer(): express.Application {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
               'Referer': targetUrl,
+              'Origin': origin,
             },
             signal: AbortSignal.timeout(5000),
           }).then(async (remoteResp) => {
@@ -698,6 +776,65 @@ export function createServer(): express.Application {
           });
           return;
         } catch {}
+      }
+    } else {
+      // Handle font and media requests that omit Referer (e.g. Chromium CORS font loads)
+      const isFontOrAsset = /\.(?:woff2?|ttf|otf|eot|png|jpe?g|gif|svg|webp|mp4)(\?.*)?$/i.test(req.path) || req.path.includes('/fonts/');
+      if (isFontOrAsset) {
+        const baseName = path.basename(req.path);
+        try {
+          const jobDirs = fs.readdirSync(CONFIG.jobsDir);
+          for (const jDir of jobDirs) {
+            const candidate = path.join(CONFIG.jobsDir, jDir, 'full-page', 'assets', baseName);
+            if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              res.sendFile(candidate);
+              return;
+            }
+          }
+        } catch {}
+
+        let fallbackUrl = '';
+        const latestJob = Array.from(jobs.values()).pop();
+        if (latestJob && latestJob.url) fallbackUrl = latestJob.url;
+        if (!fallbackUrl) {
+          try {
+            const jobDirs = fs.readdirSync(CONFIG.jobsDir);
+            for (const jDir of jobDirs.reverse()) {
+              const metaPath = path.join(CONFIG.jobsDir, jDir, 'job.json');
+              if (fs.existsSync(metaPath)) {
+                fallbackUrl = JSON.parse(fs.readFileSync(metaPath, 'utf8')).url || '';
+                if (fallbackUrl) break;
+              }
+            }
+          } catch {}
+        }
+
+        if (fallbackUrl) {
+          try {
+            const origin = new URL(fallbackUrl).origin;
+            const targetAssetUrl = `${origin}${req.originalUrl}`;
+            fetch(targetAssetUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                'Referer': fallbackUrl,
+                'Origin': origin,
+              },
+              signal: AbortSignal.timeout(5000),
+            }).then(async (remoteResp) => {
+              if (remoteResp.ok) {
+                res.setHeader('Access-Control-Allow-Origin', '*');
+                const contentType = remoteResp.headers.get('content-type');
+                if (contentType) res.setHeader('Content-Type', contentType);
+                const buffer = Buffer.from(await remoteResp.arrayBuffer());
+                res.send(buffer);
+              } else {
+                next();
+              }
+            }).catch(() => next());
+            return;
+          } catch {}
+        }
       }
     }
     next();
@@ -851,19 +988,65 @@ export function createServer(): express.Application {
   return app;
 }
 
-async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<void> {
+export async function processJob(job: JobState, jobs: Map<string, JobState> = new Map()): Promise<void> {
   try {
+    const isIsolatedSection = !!(job.options.sectionHtml || job.options.sectionSelector || job.options.targetArchetype === 'navbar' || job.options.targetArchetype === 'hero');
+
+    // For Full-Page extraction jobs: Download whole authentic HTML, CSS, JS and localize assets
+    if (!isIsolatedSection && job.url && job.url.startsWith('http')) {
+      job.status = 'crawling';
+      job.progress = 20;
+      job.currentStep = 'Extracting authentic HTML, CSS & assets with headless browser...';
+
+      const extractor = new PageExtractor();
+      const packager = new ZipPackager();
+
+      const result = await extractor.extract(job.url, job.options, (step, prog) => {
+        job.currentStep = step;
+        job.progress = Math.min(85, Math.round(prog * 0.85));
+      });
+
+      job.status = 'packaging';
+      job.currentStep = 'Packaging full-page clone and localizing assets...';
+      job.progress = 90;
+
+      const { sectionsMeta } = await packager.packageJob(job.id, job.url, job.options, result, job.apiKey);
+
+      job.status = 'completed';
+      job.progress = 100;
+      job.currentStep = 'Extraction completed';
+      job.sections = sectionsMeta;
+      job.fullPageScreenshot = `/api/jobs/${job.id}/screenshot`;
+      return;
+    }
+
     job.status = 'crawling';
     job.progress = 15;
     job.currentStep = 'Synthesizing layout and structure from DOM...';
 
     const sourceUrl = job.url;
     const hasSnapshot = !!(job.options.htmlSnapshot && job.options.htmlSnapshot.length > 50);
-    let rawCss = Array.isArray(job.options.clientStylesheets)
-      ? job.options.clientStylesheets.join('\n')
+    const rawSheets: string[] = Array.isArray(job.options.clientStylesheets)
+      ? job.options.clientStylesheets
       : Array.isArray((job.options as any).rawCss)
-      ? (job.options as any).rawCss.join('\n')
-      : (job.options.clientStylesheets || (job.options as any).rawCss || '');
+      ? (job.options as any).rawCss
+      : job.options.clientStylesheets || (job.options as any).rawCss
+      ? [job.options.clientStylesheets || (job.options as any).rawCss]
+      : [];
+
+    const seenSheets = new Set<string>();
+    const uniqueSheets: string[] = [];
+    for (const sheet of rawSheets) {
+      const trimmed = (sheet || '').trim();
+      if (!trimmed) continue;
+      const normKey = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '').slice(0, 300);
+      if (!seenSheets.has(normKey)) {
+        seenSheets.add(normKey);
+        uniqueSheets.push(trimmed);
+      }
+    }
+
+    let rawCss = uniqueSheets.join('\n');
 
     // Universal External Stylesheet Harvesting:
     // If client stylesheets were blocked by CORS/CSP in the browser or missing from the request,
@@ -871,7 +1054,7 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     const optStylesheetUrls: string[] = Array.isArray((job.options as any).stylesheetUrls)
       ? (job.options as any).stylesheetUrls
       : [];
-    if (rawCss.trim().length < 200 && (hasSnapshot || optStylesheetUrls.length > 0)) {
+    if (uniqueSheets.length === 0 && (hasSnapshot || optStylesheetUrls.length > 0)) {
       try {
         const externalHrefs: string[] = [];
         const inlineStyles: string[] = [];
@@ -898,7 +1081,12 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
           $snap('style').each((_, el) => {
             const content = $snap(el).html();
             if (content && content.trim().length > 0) {
-              inlineStyles.push(content.trim());
+              const trimmed = content.trim();
+              const normKey = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '').slice(0, 300);
+              if (!seenSheets.has(normKey)) {
+                seenSheets.add(normKey);
+                inlineStyles.push(trimmed);
+              }
             }
           });
         }
@@ -915,17 +1103,34 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
                   signal: AbortSignal.timeout(3000),
                 });
                 if (resp.ok) {
-                  return await resp.text();
+                  const text = await resp.text();
+                  return text.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (fullMatch, quote, rawUrl) => {
+                    const trimmed = (rawUrl || '').trim();
+                    if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+                      return fullMatch;
+                    }
+                    try {
+                      return `url("${new URL(trimmed, href).href}")`;
+                    } catch {
+                      return fullMatch;
+                    }
+                  });
                 }
               } catch {}
               return '';
             })
           );
-          const validSheets = [...inlineStyles, ...fetchedSheets.filter((s) => s && s.trim().length > 0)];
-          if (validSheets.length > 0) {
-            rawCss = (rawCss ? rawCss + '\n' : '') + validSheets.join('\n');
-            job.options.clientStylesheets = validSheets;
+          for (const s of [...fetchedSheets, ...inlineStyles]) {
+            const trimmed = (s || '').trim();
+            if (!trimmed) continue;
+            const normKey = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '').slice(0, 300);
+            if (!seenSheets.has(normKey)) {
+              seenSheets.add(normKey);
+              uniqueSheets.push(trimmed);
+            }
           }
+          rawCss = uniqueSheets.join('\n');
+          job.options.clientStylesheets = uniqueSheets;
         }
       } catch (err) {
         console.warn('[processJob] Error harvesting external stylesheets:', err);
@@ -938,7 +1143,6 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
     // Check if specific section isolation was requested
     const isNavbarTarget = job.options.targetArchetype === 'navbar';
     const isHeroTarget = job.options.targetArchetype === 'hero';
-    const isIsolatedSection = !!(job.options.sectionHtml || job.options.sectionSelector || isNavbarTarget || isHeroTarget);
 
     if (isIsolatedSection) {
       job.currentStep = 'Synthesizing isolated target section...';
@@ -951,24 +1155,14 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
           const $snap = cheerio.load(job.options.htmlSnapshot);
           const resolvedTarget = resolveTargetSectionFromSnapshot($snap, job.options.targetArchetype, job.options.sectionSelector);
           if (resolvedTarget && resolvedTarget.length > 0) {
-            if (isNavbarTarget) {
-              const parentNavWrapper = resolvedTarget.closest('#mega-menu, .mega-menu, [class*="site-header-wrapper"], [class*="header-wrapper"], [class*="header_wrapper"]');
-              if (parentNavWrapper.length > 0 && parentNavWrapper.find('dialog, [class*="mega-menu-panel"], [class*="header-panel"]').length > 0) {
-                targetHtml = $snap.html(parentNavWrapper);
-              } else {
-                targetHtml = $snap.html(resolvedTarget);
-                const associatedPanels = $snap('dialog, [role="dialog"], [class*="header-panel"], [class*="mega-menu-panel"], [class*="megamenu-panel"]')
-                  .filter((_, el) => {
-                    const cls = ($snap(el).attr('class') || '').toLowerCase();
-                    return !cls.includes('popup') && !cls.includes('chat') && !cls.includes('alert') && !cls.includes('review');
-                  });
-                if (associatedPanels.length > 0) {
-                  targetHtml += '\n' + $snap.html(associatedPanels);
-                }
-              }
-            } else {
-              targetHtml = $snap.html(resolvedTarget);
+            targetHtml = $snap.html(resolvedTarget);
+            const resId = resolvedTarget.attr('id');
+            if (resId && (!job.options.sectionSelector || !job.options.sectionSelector.includes(resId))) {
+              job.options.sectionSelector = `#${resId}`;
             }
+          }
+          if (targetHtml) {
+            targetHtml = enrichSectionWithCompanions(targetHtml, $snap, job.options.targetArchetype, job.options.sectionSelector);
           }
         } catch {}
       }
@@ -994,6 +1188,16 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
         job.options.recordedInteractions,
         (job.options as any).rootCssVariables
       );
+      let sectionHtmlOutput = secRes.html;
+      if (sectionHtmlOutput.includes('<video')) {
+        sectionHtmlOutput = sectionHtmlOutput.replace(/<video([^>]*)>/gi, (match, p1) => {
+          let updated = p1;
+          if (!updated.includes('muted')) updated += ' muted';
+          if (!updated.includes('playsinline')) updated += ' playsinline';
+          return `<video${updated}>`;
+        });
+      }
+
       // Extract html/body attributes from htmlSnapshot to preserve themes, font variables, and data attributes
       let htmlAttrs = 'lang="en"';
       let bodyAttrs = '';
@@ -1013,7 +1217,7 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
           const htmlEl = snapHtml.get(0) as any;
           if (htmlEl && htmlEl.attribs) {
             for (const [k, v] of Object.entries(htmlEl.attribs)) {
-              if (k.startsWith('data-')) hAttr += ` ${k}="${v}"`;
+              if (k !== 'class' && k !== 'style' && k !== 'lang') hAttr += ` ${k}="${v}"`;
             }
           }
           htmlAttrs = hAttr;
@@ -1026,22 +1230,42 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
           const bodyEl = snapBody.get(0) as any;
           if (bodyEl && bodyEl.attribs) {
             for (const [k, v] of Object.entries(bodyEl.attribs)) {
-              if (k.startsWith('data-')) bAttr += ` ${k}="${v}"`;
+              if (k !== 'class' && k !== 'style') bAttr += ` ${k}="${v}"`;
             }
           }
           bodyAttrs = bAttr.trim();
-        } catch {}
-      }
 
-      // Ensure autoplay videos are muted for browser autoplay policy compliance
-      let sectionHtmlOutput = secRes.html;
-      if (sectionHtmlOutput.includes('<video')) {
-        sectionHtmlOutput = sectionHtmlOutput.replace(/<video([^>]*)>/gi, (match, p1) => {
-          let updated = p1;
-          if (!updated.includes('muted')) updated += ' muted';
-          if (!updated.includes('playsinline')) updated += ' playsinline';
-          return `<video${updated}>`;
-        });
+          // Inherit page-builder and layout ancestor classes from snapshot onto section container
+          try {
+            const snapTarget = $snap(effectiveSelector).first();
+            if (snapTarget.length > 0) {
+              const ancestorClasses: string[] = [];
+              snapTarget.parents().each((_, p) => {
+                const pCls = $snap(p).attr('class') || '';
+                pCls.split(/\s+/).forEach(c => {
+                  if (
+                    c &&
+                    (c.startsWith('elementor-') ||
+                     c === 'elementor' ||
+                     c.startsWith('ast-') ||
+                     c.startsWith('theme-') ||
+                     c === 'site-main')
+                  ) {
+                    if (!ancestorClasses.includes(c)) ancestorClasses.push(c);
+                  }
+                });
+              });
+              if (ancestorClasses.length > 0) {
+                const $out = cheerio.load(sectionHtmlOutput, null, false);
+                const rootSection = $out('section, header, footer, div').first();
+                if (rootSection.length > 0) {
+                  rootSection.addClass(ancestorClasses.join(' '));
+                  sectionHtmlOutput = $out.html() || sectionHtmlOutput;
+                }
+              }
+            }
+          } catch (_) {}
+        } catch {}
       }
 
       synthesizedResult = {
@@ -1050,19 +1274,13 @@ async function processJob(job: JobState, jobs: Map<string, JobState>): Promise<v
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
   <title>Synthesized Section</title>
-  <style>
-    body { display: block !important; place-items: unset !important; margin: 0; padding: 0; }
-    body:has(> [data-theme="dark"]), body:has(> .section[data-theme="dark"]), body:has(> header[data-theme="dark"]), body:has(> nav[data-theme="dark"]), body[data-theme="dark"], body.theme-dark { background-color: #0f172a !important; color: #f8fafc; }
-    header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"] { width: 100% !important; align-self: flex-start !important; top: 0 !important; margin-top: 0 !important; }
-${secRes.css}
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body${bodyAttrs ? ' ' + bodyAttrs : ''}>
 ${sectionHtmlOutput}
-  <script>
-${secRes.js}
-  </script>
+  <script src="script.js" defer></script>
 </body>
 </html>`.trim(),
         fullCss: secRes.css,
@@ -1128,6 +1346,31 @@ ${secRes.js}
         cssPath: `sections/${s.sectionId}/section.css`,
         jsPath: `sections/${s.sectionId}/section.js`,
       }));
+    }
+
+    // Standalone FidelityGuard Verification & Authentic Self-Correction
+    try {
+      const guard = new FidelityGuard();
+      const guardResult = await guard.auditAndHeal({
+        html: synthesizedResult.fullHtml,
+        css: synthesizedResult.fullCss,
+        js: synthesizedResult.fullJs,
+        rawWebsiteCss: rawCss,
+        rawSnapshotHtml: job.options.htmlSnapshot || job.options.sectionHtml || '',
+        sourceUrl: job.url,
+      });
+      if (guardResult.patches.length > 0) {
+        synthesizedResult.fullHtml = guardResult.healedHtml;
+        synthesizedResult.fullCss = guardResult.healedCss;
+        synthesizedResult.fullJs = guardResult.healedJs;
+        if (synthesizedResult.sections && synthesizedResult.sections.length === 1) {
+          synthesizedResult.sections[0].html = guardResult.healedHtml;
+          synthesizedResult.sections[0].css = guardResult.healedCss;
+          synthesizedResult.sections[0].js = guardResult.healedJs;
+        }
+      }
+    } catch (guardErr) {
+      console.warn('[Server] FidelityGuard verification notice:', guardErr);
     }
 
     job.status = 'packaging';

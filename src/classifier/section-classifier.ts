@@ -14,12 +14,15 @@ interface SectionRawContext {
 
 export class SectionClassifier {
   public classify(ctx: SectionRawContext): SectionMetadata {
-    const $ = cheerio.load(ctx.html);
+    const $ = cheerio.load(ctx.html, null, false);
     const rootElement = $.root().children().first();
     const classAttr = rootElement.attr('class') || '';
     const idAttr = rootElement.attr('id') || '';
     const roleAttr = rootElement.attr('role') || '';
-    const fullText = $.text().toLowerCase();
+    const cleanRoot = $.root().clone();
+    cleanRoot.find('script, style, noscript').remove();
+    const fullText = cleanRoot.text().toLowerCase();
+    const allClasses = $('[class]').map((_, el) => $(el).attr('class') || '').get().join(' ').toLowerCase();
     const innerHtml = ctx.html.toLowerCase();
 
     // Determine position tier: 'top' | 'middle' | 'bottom'
@@ -64,9 +67,16 @@ export class SectionClassifier {
       }
 
       // Special case: <nav> or <header> tags inside section
+      const isHeroNamed = classAttr.toLowerCase().includes('hero') || idAttr.toLowerCase().includes('hero');
       if (rule.archetype === 'navbar' && (hasNavTag || hasHeaderTag)) {
+        if (!isHeroNamed) {
+          score += 35;
+          reasons.push('Contains <nav> or <header> element');
+        }
+      }
+      if (rule.archetype === 'hero' && isHeroNamed) {
         score += 35;
-        reasons.push('Contains <nav> or <header> element');
+        reasons.push('Explicit hero naming on container');
       }
       if (rule.archetype === 'footer' && hasFooterTag) {
         score += 40;
@@ -75,7 +85,7 @@ export class SectionClassifier {
 
       // 2. Class & ID attribute matches
       for (const pattern of rule.classPatterns) {
-        if (pattern.test(classAttr) || pattern.test(innerHtml)) {
+        if (pattern.test(classAttr) || pattern.test(allClasses)) {
           score += 20;
           reasons.push(`Class pattern matched: ${pattern.source}`);
           break;
@@ -165,6 +175,11 @@ export class SectionClassifier {
         if (cardLikeElements >= 3) {
           score += 25;
           reasons.push(`${cardLikeElements} repetitive card/feature containers detected`);
+        }
+      } else if (rule.archetype === 'cta') {
+        if (classAttr.toLowerCase().includes('cta') || idAttr.toLowerCase().includes('cta') || allClasses.includes('cta')) {
+          score += 25;
+          reasons.push('Call-to-action button/link banner detected');
         }
       }
 

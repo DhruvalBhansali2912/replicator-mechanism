@@ -157,6 +157,16 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
+    if (targetUrl.includes('localhost') || targetUrl.includes('127.0.0.1')) {
+      try {
+        await chrome.permissions.request({
+          origins: ['http://localhost/*', 'http://127.0.0.1/*'],
+        });
+      } catch (e) {
+        console.debug('Optional permission note:', e);
+      }
+    }
+
     await chrome.storage.local.set({ apiUrl: targetUrl });
     showMessage(`API Server URL updated to: ${targetUrl}`, 'success');
   });

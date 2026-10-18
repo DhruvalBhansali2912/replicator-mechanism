@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { CONFIG } from '../config.js';
+import { isTrackingOrAnalytics } from '../localizer/asset-localizer.js';
 
 export class BrowserManager {
   private static browserInstance: Browser | null = null;
@@ -31,6 +32,8 @@ export class BrowserManager {
         '--disable-gpu',
         '--disable-software-rasterizer',
         '--disable-blink-features=AutomationControlled',
+        '--disable-web-security',
+        '--allow-running-insecure-content',
       ],
     };
 
@@ -98,6 +101,16 @@ export class BrowserManager {
     });
 
     const page = await context.newPage();
+
+    // Abort all non-essential tracking, ads, and telemetry network requests
+    await page.route('**/*', (route) => {
+      const reqUrl = route.request().url();
+      if (isTrackingOrAnalytics(reqUrl)) {
+        return route.abort().catch(() => {});
+      }
+      return route.continue().catch(() => {});
+    });
+
     return { context, page };
   }
 

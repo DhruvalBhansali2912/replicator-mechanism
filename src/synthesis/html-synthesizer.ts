@@ -592,11 +592,19 @@ export class HtmlSynthesizer {
           const isNavHeader = ast.archetype === 'navbar' || targetEl.is('header, nav, [role="banner"], [role="navigation"]');
           $.root().children().not(targetEl).each((_, sib) => {
             const $sib = $(sib);
+            // Universal Header + Hero Fold Pairing Preservation:
+            // If one element is a navigation header and the other is a hero section, preserve both!
+            if (
+              (targetEl.is('header, nav, [role="banner"], [role="navigation"]') && $sib.is('section, article, div, [class*="hero"], [class*="banner"]')) ||
+              (targetEl.is('section, article, div, [class*="hero"], [class*="banner"]') && $sib.is('header, nav, [role="banner"], [role="navigation"]'))
+            ) {
+              return;
+            }
             if (isNavHeader && (
-              $sib.is('dialog, [role="dialog"], [data-testid*="drawer"], [data-testid*="modal"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]') ||
-              $sib.find('dialog, [role="dialog"], [data-testid*="drawer"], [data-baseweb="drawer"], [data-baseweb="modal"], [lang]').length > 0
+              $sib.is('dialog, [role="dialog"], [data-testid*="drawer"], [data-testid*="modal"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"], [class*="mega-menu"], [class*="header-panel"], [data-elementor-type="popup"], [class*="location-popup"], [id*="elementor-popup"], [class*="offcanvas"], [class*="off-canvas"], [class*="drawer"], [class*="sidebar"], [class*="mobile-menu"], [class*="site-menu"], [class*="nav-drawer"], [id*="mobile-menu"], [id*="sidebar"]') ||
+              $sib.find('dialog, [role="dialog"], [data-testid*="drawer"], [data-baseweb="drawer"], [data-baseweb="modal"], [lang], nav, [role="menu"], [class*="nav-menu"], a').length > 0
             )) {
-              // Preserve associated navigation dialogs and drawers
+              // Preserve associated navigation dialogs, mega menus, and drawers
               return;
             }
             $sib.remove();
@@ -628,16 +636,15 @@ export class HtmlSynthesizer {
     });
 
     // Universal Animation Initial State Normalization:
-    // Scroll triggers often leave inline opacity: 0 and full stroke-dashoffset on text, SVG pointer paths, and hero visuals.
+    // Normalize SVG stroke-dashoffset and redundant 'none' transforms without destroying author visibility/opacity states.
     $('*').each((_, el) => {
       const $el = $(el);
       const style = $el.attr('style');
-      if (style && (style.includes('opacity') || style.includes('stroke-dashoffset'))) {
+      if (style && (style.includes('stroke-dashoffset') || style.includes('translate: none') || style.includes('rotate: none') || style.includes('scale: none'))) {
         const isHiddenPanel = $el.is('dialog, [role="dialog"], [class*="modal"], [class*="menu-panel"], [class*="header-panel"]') ||
                               ($el.attr('aria-hidden') === 'true' && !$el.is('svg, path, span, div, img, a, button, p'));
         if (!isHiddenPanel) {
           let newStyle = style
-            .replace(/(^|;)\s*opacity\s*:\s*0(\.0+)?\s*(;|$)/gi, '$1')
             .replace(/(^|;)\s*stroke-dashoffset\s*:\s*[\d\.]+\s*(;|$)/gi, '$1stroke-dashoffset: 0;$2')
             .replace(/(^|;)\s*translate\s*:\s*none\s*(;|$)/gi, '$1')
             .replace(/(^|;)\s*rotate\s*:\s*none\s*(;|$)/gi, '$1')
@@ -654,11 +661,125 @@ export class HtmlSynthesizer {
       }
     });
 
+    // Universal Cloned / Duplicate Slide Removal:
+    // Modern slider libraries (Swiper, Slick, Glide, Splide, Owl) clone slides at runtime for infinite looping.
+    // When the page snapshot is taken, both original and cloned slides are captured.
+    // We must remove all duplicate/cloned slide DOM nodes so only unique slides remain without duplication.
+    $('[class*="swiper-slide-duplicate"], [class*="slick-cloned"], [class*="duplicate-slide"], [class*="carousel-item-duplicate"], [class*="slide-clone"], [class*="clone-slide"], [data-slick-index^="-"]').remove();
+
+    $('[class*="swiper-slide"], [class*="slick-slide"]').each((_, el) => {
+      const $el = $(el);
+      const c = $el.attr('class') || '';
+      const cleaned = c.split(/\s+/).filter(cls => !cls.includes('duplicate') && !cls.includes('cloned')).join(' ');
+      if (cleaned !== c) $el.attr('class', cleaned);
+    });
+
+    // Relocate non-slide tags (<style>, <script>, <template>, <noscript>) out of slider tracks to their parent container
+    $('[class*="swiper-wrapper"], [class*="slick-track"], [class*="carousel-inner"], [class*="slides"]').each((_, track) => {
+      const $track = $(track);
+      $track.children('style, script, noscript, template').each((_, child) => {
+        $track.parent().prepend(child);
+      });
+    });
+
+    // Universal Carousel Track Initial Translation Normalization:
+    // If a carousel or gallery track was captured mid-animation with an offscreen translation,
+    // reset it to initial position (0px) so slide 0 is visible at resting state.
+    $('[class*="track"], [class*="wrapper"], [class*="gallery-item-container"], [class*="gallery__container"], [class*="gallery-container"], [class*="slides"], [class*="carousel"]').each((_, el) => {
+      const $el = $(el);
+      const style = $el.attr('style');
+      if (style && /transform\s*:\s*translate(?:3d|X)?\s*\(\s*-[1-9]\d+px/i.test(style)) {
+        let newStyle = style.replace(/transform\s*:\s*translate3d\s*\([^)]+\)/gi, 'transform: translate3d(0px, 0px, 0px)')
+                            .replace(/transform\s*:\s*translateX\s*\([^)]+\)/gi, 'transform: translateX(0px)')
+                            .replace(/transform\s*:\s*matrix\s*\([^)]+\)/gi, 'transform: none');
+        $el.attr('style', newStyle);
+      }
+    });
+
+    // Universal Scroll & Parallax Resting State Normalization:
+    // When elements are snapshotted mid-scroll, scroll-driven transforms
+    // (e.g. `transform: matrix(1, 0, 0, 1, 0, -337.2)`) get frozen into inline styles,
+    // pulling elements up/down and overlapping neighboring content at resting state.
+    $('*').each((_, el) => {
+      const tag = ((el as any).tagName || '').toLowerCase();
+      if (['svg', 'path', 'g', 'polygon', 'circle', 'rect', 'ellipse', 'line'].includes(tag)) return;
+      const $el = $(el);
+      const style = $el.attr('style');
+      if (!style) return;
+      const isParallaxOrScroll = $el.closest('[data-component-list*="Parallax" i], [class*="parallax" i], [data-anim-scroll-group], [data-focus-expression], [data-scroll]').length > 0 ||
+        /camera-stats|parallax/i.test($el.attr('class') || '');
+      if (isParallaxOrScroll && /transform\s*:\s*(?:matrix\s*\(|translateY\s*\(-?[0-9.]+px\)|translate3d\s*\([^)]+,-?[1-9][0-9.]*px)/i.test(style)) {
+        let newStyle = style.replace(/(?:^|;)\s*transform\s*:\s*(?:matrix|translateY|translate3d)\s*\([^)]+\)\s*(;|$)/gi, '$1').trim();
+        newStyle = newStyle.replace(/^;+|;+$/g, '').trim();
+        if (newStyle) $el.attr('style', newStyle);
+        else $el.removeAttr('style');
+      }
+    });
+
+    // Ensure stacked/fade gallery items preserve subgrid / natural grid layout:
+    // If an item in a fade gallery had `display: block` frozen into its inline style,
+    // strip `display: block` so that author CSS subgrid/grid rules apply cleanly.
+    $('[class*="fade-gallery"], [class*="crossfade"], [data-component-list*="FadeGallery"]').find('[class*="gallery-item"], [class*="fade-item"], [role="tabpanel"]').each((_, el) => {
+      const $el = $(el);
+      const style = $el.attr('style');
+      if (style && /display\s*:\s*block/i.test(style)) {
+        let newStyle = style.replace(/(?:^|;)\s*display\s*:\s*block\s*(;|$)/gi, '$1').trim();
+        newStyle = newStyle.replace(/^;+|;+$/g, '').trim();
+        if (newStyle) $el.attr('style', newStyle);
+        else $el.removeAttr('style');
+      }
+    });
+
+    // Universal Navigation Resting State Class Normalization:
+    // When elements are captured while a user hovers or interacts, sites dynamically attach
+    // transient classes such as 'globalnav-with-flyout-open', 'globalnav-with-submenu-open', 'globalnav-item-flyout-open', 'menu-open', etc.
+    // If left in place, author CSS hides primary navigation links at resting state (e.g. Apple hides .globalnav-link when .globalnav-with-flyout-open is present).
+    $('[class*="globalnav"], nav, header, [role="navigation"], [role="banner"]').each((_, el) => {
+      const $el = $(el);
+      const currentClass = $el.attr('class');
+      if (currentClass) {
+        const cleanedClass = currentClass
+          .split(/\s+/)
+          .filter(cls => {
+            if (!cls) return false;
+            if (
+              cls.includes('flyout-open') ||
+              cls.includes('submenu-open') ||
+              cls.includes('with-flyout') ||
+              cls.includes('with-submenu') ||
+              cls.includes('animating') ||
+              cls.includes('flyout-closing') ||
+              cls.endsWith('-open') ||
+              cls === 'is-open' ||
+              cls === 'menu-open' ||
+              cls === 'nav-open'
+            ) {
+              return false;
+            }
+            return true;
+          })
+          .join(' ');
+        if (cleanedClass !== currentClass) {
+          $el.attr('class', cleanedClass);
+        }
+      }
+    });
+
+    // Also sanitize nested items inside globalnav (e.g. .globalnav-item-flyout-open)
+    $('[class*="globalnav-item"]').each((_, el) => {
+      const $el = $(el);
+      const currentClass = $el.attr('class');
+      if (currentClass && currentClass.includes('flyout-open')) {
+        const cleaned = currentClass.split(/\s+/).filter(c => !c.includes('flyout-open')).join(' ');
+        $el.attr('class', cleaned);
+      }
+    });
+
     // Universal Navigation Menu Initial State Normalization:
     // When capturing responsive sites, mobile drawer close animations frequently freeze inline styles
-    // (such as visibility: hidden, width: 0px, negative margins) onto the primary menubar/nav container.
-    // On desktop, these inline styles override author media queries and suppress the navigation bar.
-    $('[role="menubar"], nav > ul, [class*="nav__menu"], [class*="navbar-nav"], [class*="nav-menu"]').each((_, el) => {
+    // (such as visibility: hidden, width: 0px, negative margins, pointer-events: none) onto the primary menubar/nav container.
+    // On desktop, these inline styles override author media queries, trap focus, or suppress the navigation bar.
+    $('[role="menubar"], nav > ul, [class*="nav__menu"], [class*="navbar-nav"], [class*="nav-menu"], [class*="globalnav-list"], [class*="globalnav-item"], [class*="globalnav-link"], [class*="navItems"], ul, header, nav').each((_, el) => {
       const $el = $(el);
       const style = $el.attr('style');
       if (style) {
@@ -670,11 +791,34 @@ export class HtmlSynthesizer {
           .replace(/(^|;)\s*margin-left\s*:\s*-[0-9]+[^;]*(;|$)/gi, '$1')
           .replace(/(^|;)\s*margin-right\s*:\s*-[0-9]+[^;]*(;|$)/gi, '$1')
           .replace(/(^|;)\s*opacity\s*:\s*0(\.0+)?\s*(;|$)/gi, '$1')
+          .replace(/(^|;)\s*pointer-events\s*:\s*none\s*(;|$)/gi, '$1')
           .trim();
         if (!newStyle || newStyle === ';') {
           $el.removeAttr('style');
         } else {
           $el.attr('style', newStyle);
+        }
+      }
+    });
+
+    // Universal Interactive Resting State Normalization:
+    // Modern focus-trap and accessible dropdown libraries (Base UI, Floating UI, Radix, Headless UI)
+    // inject transient state attributes (data-popup-open, data-pressed, data-open, aria-expanded="true")
+    // when a menu is opened. At resting state, all dropdowns and menus must start closed.
+    $('[data-popup-open]').removeAttr('data-popup-open');
+    $('[data-pressed]').removeAttr('data-pressed');
+    $('[data-open]').removeAttr('data-open');
+    $('[data-state="open"]').attr('data-state', 'closed');
+    $('[aria-expanded="true"]').attr('aria-expanded', 'false');
+
+    // Companion popups, dropdown panels, and floating positioners must start closed / hidden in resting state
+    $('[class*="popup"], [class*="positioner"]').each((_, el) => {
+      const $el = $(el);
+      const cls = ($el.attr('class') || '').toLowerCase();
+      if (!cls.includes('toast') && !cls.includes('banner')) {
+        $el.removeAttr('data-open');
+        if (!$el.hasClass('is-open')) {
+          $el.attr('data-state', 'closed');
         }
       }
     });
@@ -713,20 +857,80 @@ export class HtmlSynthesizer {
         .join(', ');
     };
 
+    // Promote authentic fallback pictures and images from noscript
+    $('noscript').each((_, el) => {
+      const noscriptHtml = $(el).html() || '';
+      if (noscriptHtml.includes('<img') || noscriptHtml.includes('<picture')) {
+        try {
+          const $no = cheerio.load(noscriptHtml);
+          const realPic = $no('picture').first();
+          const realImg = $no('img').first();
+          const realSrc = realImg.attr('src') || realImg.attr('data-src') || realImg.attr('data-original');
+          const realSrcset = realImg.attr('srcset') || realImg.attr('data-srcset');
+
+          let prev = $(el).prev('picture, img');
+          if (prev.length === 0) {
+            prev = $(el).parent().find('picture, img').first();
+          }
+          if (prev.length > 0) {
+            const hasPlaceholderSource = prev.is('picture') && prev.find('source[srcset*="data:image/gif"], source[srcset*="base64"], source[data-empty]').length > 0;
+            const targetImg = prev.is('img') ? prev : prev.find('img').first();
+            const currSrc = targetImg.attr('src') || '';
+            const isPlaceholder = !currSrc || currSrc.startsWith('data:image/gif') || currSrc.startsWith('data:image/svg') || currSrc.includes('placeholder') || hasPlaceholderSource;
+            if (isPlaceholder) {
+              if (prev.is('picture') && realPic.length > 0) {
+                // Transfer any existing classes and id
+                const prevClass = prev.attr('class') || '';
+                const realClass = realPic.attr('class') || '';
+                const mergedClasses = Array.from(new Set(`${realClass} ${prevClass}`.split(/\s+/).filter(Boolean))).join(' ');
+                realPic.attr('class', mergedClasses);
+                const prevId = prev.attr('id');
+                if (prevId && !realPic.attr('id')) {
+                  realPic.attr('id', prevId);
+                }
+                prev.replaceWith(realPic);
+              } else {
+                if (realSrc) targetImg.attr('src', realSrc);
+                if (realSrcset) targetImg.attr('srcset', realSrcset);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+    });
+
     $('img').each((_, el) => {
       let src = $(el).attr('src');
-      if (!src || src.startsWith('data:') || src.trim() === '') {
-        const lazySrc = $(el).attr('data-src') || $(el).attr('data-desktop-src') || $(el).attr('data-original') || $(el).attr('data-lazy-src') || $(el).attr('data-mobile-src');
+      if (!src || src.startsWith('data:') || src.trim() === '' || src.includes('placeholder')) {
+        const lazySrc =
+          $(el).attr('data-src') ||
+          $(el).attr('data-desktop-src') ||
+          $(el).attr('data-original') ||
+          $(el).attr('data-lazy-src') ||
+          $(el).attr('data-mobile-src') ||
+          $(el).attr('data-origin-src') ||
+          $(el).attr('data-img-src');
         if (lazySrc) {
           src = lazySrc;
         }
       }
-      if (src) $(el).attr('src', resolveUrl(src));
+      if (src && !src.startsWith('data:')) {
+        $(el).attr('src', resolveUrl(src));
+      } else if (!src || src.trim() === '') {
+        $(el).attr('src', 'data:image/svg+xml;charset=utf-8,%3Csvg xmlns="http://www.w3.org/2000/svg" width="1" height="1"%3E%3C/svg%3E');
+      }
       const srcset = $(el).attr('srcset') || $(el).attr('data-srcset');
       if (srcset) {
         $(el).attr('srcset', resolveSrcset(srcset));
       }
       $(el).attr('referrerpolicy', 'no-referrer');
+
+      // Universally ensure all carousel, slider, gallery, and showcase images are loaded eagerly with async decoding
+      const isInsideCarousel = $(el).closest('[class*="carousel"], [class*="slider"], [class*="swiper"], [class*="gallery"], [class*="slide"], [class*="track"], [class*="hero"], [aria-roledescription="carousel"], [role="region"]').length > 0;
+      if (isInsideCarousel) {
+        $(el).attr('loading', 'eager');
+        $(el).attr('decoding', 'async');
+      }
     });
 
     // Ensure all product cards / catalog items are marked active/visible initially
@@ -742,24 +946,94 @@ export class HtmlSynthesizer {
       $el.addClass('is-active active');
     });
 
+    $('noscript').remove();
+
     $('source').each((_, el) => {
       const src = $(el).attr('src');
       if (src) $(el).attr('src', resolveUrl(src));
-      const srcset = $(el).attr('srcset');
-      if (srcset) {
+      let srcset = $(el).attr('srcset');
+      const dataSrcset = $(el).attr('data-srcset');
+
+      const isPlaceholder = $(el).is('[data-empty]') ||
+        !srcset ||
+        srcset.includes('data:image/gif;base64,R0lGODlh') ||
+        srcset.includes('data:image/svg+xml;base64,') ||
+        srcset.trim() === '';
+
+      if (isPlaceholder) {
+        if (dataSrcset && !dataSrcset.includes('data:image/gif;base64,R0lGODlh')) {
+          $(el).attr('srcset', resolveSrcset(dataSrcset));
+          $(el).removeAttr('data-empty');
+        } else {
+          const parentPic = $(el).parent('picture');
+          const otherValidSources = parentPic.find('source').filter((_, s) => {
+            if (s === el) return false;
+            const sSet = $(s).attr('srcset') || $(s).attr('data-srcset') || '';
+            return Boolean(sSet && !sSet.includes('data:image/gif;base64,R0lGODlh') && !sSet.includes('data:image/svg+xml;base64,'));
+          });
+          if (otherValidSources.length > 0) {
+            $(el).remove();
+            return;
+          }
+          const siblingImg = parentPic.find('img').first();
+          const realImgSrc = siblingImg.attr('src') || siblingImg.attr('data-src') || siblingImg.attr('data-original');
+          if (realImgSrc && !realImgSrc.includes('data:image/gif;base64,R0lGODlh')) {
+            $(el).attr('srcset', resolveUrl(realImgSrc));
+            $(el).removeAttr('data-empty');
+          } else {
+            $(el).remove();
+            return;
+          }
+        }
+      } else {
         $(el).attr('srcset', resolveSrcset(srcset));
       }
     });
 
     $('video, audio').each((_, el) => {
-      const src = $(el).attr('src');
+      let src = $(el).attr('src');
       if (src) $(el).attr('src', resolveUrl(src));
       const poster = $(el).attr('poster');
       if (poster) $(el).attr('poster', resolveUrl(poster));
       $(el).attr('playsinline', '');
-      if ($(el).is('video') && $(el).attr('autoplay') !== undefined) {
-        $(el).attr('muted', '');
+
+      if ($(el).is('video')) {
+        const basepath = $(el).attr('data-inline-media-basepath');
+        if (basepath && !src && $(el).find('source').length === 0) {
+          const resolvedBase = resolveUrl(basepath);
+          $(el).append(`\n  <source src="${resolvedBase}large.mp4" media="(min-width: 1069px)" type="video/mp4">`);
+          $(el).append(`\n  <source src="${resolvedBase}medium.mp4" media="(min-width: 735px)" type="video/mp4">`);
+          $(el).append(`\n  <source src="${resolvedBase}small.mp4" type="video/mp4">\n`);
+          $(el).attr('src', `${resolvedBase}large.mp4`);
+          src = `${resolvedBase}large.mp4`;
+        }
+
+        const isInlineAnimation =
+          $(el).attr('data-inline-media-basepath') !== undefined ||
+          $(el).attr('data-inline-media-play-kf') !== undefined ||
+          $(el).attr('role') === 'img' ||
+          $(el).closest('[class*="inline-media"]').length > 0;
+
+        if (isInlineAnimation) {
+          $(el).attr('muted', '');
+          $(el).attr('playsinline', '');
+          $(el).attr('preload', 'auto');
+          $(el).attr('autoplay', '');
+          $(el).attr('loop', '');
+        } else if ($(el).attr('autoplay') !== undefined) {
+          $(el).attr('autoplay', '');
+          $(el).attr('muted', '');
+          $(el).attr('playsinline', '');
+          $(el).attr('preload', 'auto');
+          $(el).attr('loop', '');
+        }
       }
+
+      // Also resolve child <source> elements inside video/audio
+      $(el).find('source').each((_, s) => {
+        const sSrc = $(s).attr('src');
+        if (sSrc) $(s).attr('src', resolveUrl(sSrc));
+      });
     });
 
     $('a').each((_, el) => {
@@ -780,22 +1054,39 @@ export class HtmlSynthesizer {
       }
     });
 
+    // Universal 3D Viewer, Product Tour & WebGL Model Fallback Normalization
+    $('[class*="viewer--loading"], .viewer--loading').each((_, el) => {
+      $(el).removeClass('viewer--loading').addClass('viewer--loaded');
+    });
+    $('.loader, .loader-background, [class*="viewer"] [class*="loader"], .product-viewer-canvas.entice').remove();
+    $('.product-viewer-media-gallery, [class*="product-viewer-media-gallery"]').each((_, el) => {
+      $(el).css({ opacity: '1', visibility: 'visible', display: 'block' });
+      $(el).removeAttr('hidden');
+    });
+    $('.control-item-label, .control-item-open, [class*="control-item-label"]').each((_, el) => {
+      $(el).css({ opacity: '1', visibility: 'visible' });
+    });
+
     // 4. Ensure universal mobile toggle and curtain/backdrop exist for navbars
     const rawLower = (ast.rawSectionHtml || '').toLowerCase();
     const isNavigationSection =
       ast.archetype === 'navbar' ||
-      rawLower.includes('globalnav') ||
       rawLower.includes('<nav') ||
-      rawLower.includes('<header') ||
       rawLower.includes('mega-menu') ||
-      rawLower.includes('site-header');
+      rawLower.includes('site-header') ||
+      rawLower.includes('role="navigation"') ||
+      (ast.archetype !== 'features' && ast.archetype !== 'footer' && $('header:not(.section-header):not([class*="section-header"]):not([class*="section_header"])').length > 0);
 
     if (isNavigationSection) {
       const hasExistingMenuBtn = $(
-        'button[class*="menutrigger"], button[class*="hamburger"], [class*="nav-toggle"], [class*="menu-toggle"], button[aria-label*="menu" i], button[aria-label*="nav" i], button[aria-controls*="nav" i], button[aria-controls*="menu" i], [class*="menu-btn"], [id*="menu-open"], [id*="menu-toggle"], [class*="openButton" i], [class*="open-button" i], [aria-label*="navigation" i]'
+        'button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], [class*="nav-toggle"], [class*="menu-toggle"], button[aria-label*="menu" i], button[aria-label*="nav" i], button[aria-controls*="nav" i], button[aria-controls*="menu" i], [class*="menu-btn"], [id*="menu-open"], [id*="menu-toggle"], [class*="openButton" i], [class*="open-button" i], [aria-label*="navigation" i], [class*="icon-bar"], .hdrmobmenu, #nav-container, div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="menu_icon"], [class*="menu-icon"], [class*="menu-trigger"], [class*="menu_trigger"]'
       ).length > 0;
 
-      if (!hasExistingMenuBtn) {
+      const hasNavLinks = $(
+        'nav a, [role="navigation"] a, [class*="nav-item"] a, [class*="menu-item"] a, [class*="nav-link"], [class*="nav-list"] a, [class*="menu-list"] a, [class*="navbar"] a'
+      ).length > 0;
+
+      if (!hasExistingMenuBtn && hasNavLinks) {
         const toggleBtn = `
 <div class="universal-nav-toggle-wrapper">
   <button class="universal-nav-toggle" aria-label="Toggle navigation" type="button" aria-expanded="false">
@@ -804,7 +1095,7 @@ export class HtmlSynthesizer {
     <span class="nav-toggle-line"></span>
   </button>
 </div>`;
-        const headerEl = $('header, nav, [role="navigation"]').first();
+        const headerEl = $('nav, [role="navigation"], header:not(.section-header):not([class*="section-header"]):not([class*="section_header"]), [class*="site-header"]').first();
         if (headerEl.length > 0) {
           headerEl.append(toggleBtn);
         } else {
@@ -814,8 +1105,42 @@ export class HtmlSynthesizer {
 
 
 
-      // Strip unrelated popups, reviews, and floating dialogs that leaked into navigation DOM
+      // Universal Mutual Exclusion for Dual Responsive Header Containers (e.g. mobile bar + desktop bar inside header)
+      $('header, nav, [class*="site-header"]').each((_, hdr) => {
+        const $hdr = $(hdr);
+        const children = $hdr.children();
+        if (children.length >= 2) {
+          const c0 = children.eq(0);
+          const c1 = children.eq(1);
+          const c0Cls = (c0.attr('class') || '').toLowerCase();
+          const c1Cls = (c1.attr('class') || '').toLowerCase();
+
+          const c0IsMobile = /xl:hidden|lg:hidden|md:hidden|sm:hidden|mobile/i.test(c0Cls);
+          const c1IsDesktop = /xl:flex|lg:flex|md:flex|desktop|hidden xl:flex|hidden lg:flex/i.test(c1Cls);
+
+          const c1IsMobile = /xl:hidden|lg:hidden|md:hidden|sm:hidden|mobile/i.test(c1Cls);
+          const c0IsDesktop = /xl:flex|lg:flex|md:flex|desktop|hidden xl:flex|hidden lg:flex/i.test(c0Cls);
+
+          if (c0IsMobile && c1IsDesktop) {
+            c0.attr('data-viewport-variant', 'mobile');
+            c1.attr('data-viewport-variant', 'desktop');
+          } else if (c1IsMobile && c0IsDesktop) {
+            c1.attr('data-viewport-variant', 'mobile');
+            c0.attr('data-viewport-variant', 'desktop');
+          }
+        }
+      });
+
+      // Strip unrelated popups, reviews, cookie banners, and floating dialogs that leaked into navigation DOM
       $('section.popup, div.popup, [class*="popup--alert"], [class*="bottom-sheet"], [class*="confirm-popup"], [class*="sns-share"], [class*="review-contents"], .mini-cart-popup, [class*="fab__confirm"]').remove();
+      $('[class*="ot-pc-"], [id*="ot-pc-"], [id*="ot-lst-"], [class*="ot-sdk"], [id*="onetrust"], [class*="onetrust"], [class*="cookie-law"], [id*="ot-fltr"], [class*="ot-close"], [id*="close-pc-btn"], [class*="cookie-banner"], [class*="cookie-consent"], [class*="cookie-notice"], [id*="cookie-banner"], [id*="cookie-consent"], [id*="cookie-notice"]').each((_, el) => {
+        const topBlock = $(el).parents('header > div, nav > div, section > div, body > div').last();
+        if (topBlock.length > 0 && !topBlock.is('[class*="header-main"], [class*="nav-main"], [class*="navbar"], [class*="header__"], [class*="menu"]')) {
+          topBlock.remove();
+        } else {
+          $(el).remove();
+        }
+      });
 
       // Normalize all SVGs so icons never inflate to screen width, but preserve brand/logo dimensions
       $('svg').each((_, el) => {
@@ -824,11 +1149,27 @@ export class HtmlSynthesizer {
                        $svg.closest('[class*="logo"], [class*="brand"], [id*="logo"], [id*="brand"], [class*="header__logo"], [class*="nav__logo"]').length > 0;
 
         if (isLogo) {
-          $svg.removeAttr('width').removeAttr('height');
-          const style = $svg.attr('style') || '';
-          const cleanStyle = style.replace(/(?:^|;)\s*(?:width|height)\s*:\s*\d+px;?/gi, '').trim();
-          if (cleanStyle) $svg.attr('style', cleanStyle);
-          else $svg.removeAttr('style');
+          const w = $svg.attr('width');
+          const h = $svg.attr('height');
+          const vb = $svg.attr('viewBox');
+          if (vb) {
+            const parts = vb.trim().split(/[\s,]+/).map(Number);
+            if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+              const aspect = parts[2] / parts[3];
+              if (h && (!w || w === '100%')) {
+                const computedW = Math.round(parseFloat(h) * aspect);
+                $svg.attr('width', String(computedW));
+              } else if (w && (!h || h === '100%')) {
+                const computedH = Math.round(parseFloat(w) / aspect);
+                $svg.attr('height', String(computedH));
+              } else if ((!w || w === '100%') && (!h || h === '100%')) {
+                const targetH = Math.min(parts[3], 32);
+                const targetW = Math.round(targetH * aspect);
+                $svg.attr('width', String(targetW));
+                $svg.attr('height', String(targetH));
+              }
+            }
+          }
           return;
         }
 
@@ -839,31 +1180,36 @@ export class HtmlSynthesizer {
           if (vb) {
             const parts = vb.trim().split(/[\s,]+/).map(Number);
             if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
-              const isIcon = $svg.closest('a, button, li, [class*="icon"], [class*="item"]').length > 0;
-              const targetW = isIcon ? Math.min(parts[2], 24) : parts[2];
-              const targetH = isIcon ? Math.min(parts[3], 24) : parts[3];
-              $svg.attr('width', String(targetW));
-              $svg.attr('height', String(targetH));
-              $svg.css('width', `${targetW}px`);
-              $svg.css('height', `${targetH}px`);
+              const aspect = parts[2] / parts[3];
+              if (h && (!w || w === '100%')) {
+                const computedW = Math.round(parseFloat(h) * aspect);
+                $svg.attr('width', String(computedW));
+              } else if (w && (!h || h === '100%')) {
+                const computedH = Math.round(parseFloat(w) / aspect);
+                $svg.attr('height', String(computedH));
+              } else {
+                const isIcon = $svg.closest('a, button, li, [class*="icon"], [class*="item"]').length > 0;
+                const targetW = isIcon ? Math.min(parts[2], 24) : parts[2];
+                const targetH = isIcon ? Math.min(parts[3], 24) : parts[3];
+                $svg.attr('width', String(targetW));
+                $svg.attr('height', String(targetH));
+              }
             }
           } else {
             $svg.attr('width', '24');
             $svg.attr('height', '24');
-            $svg.css('width', '24px');
-            $svg.css('height', '24px');
           }
         }
       });
 
-      // Ensure any dialog panels / megamenu panels start closed cleanly by default
-      $('dialog, [role="dialog"], [class*="menu-panel"], [class*="header-panel"], [class*="modal"]').removeAttr('open').attr('aria-hidden', 'true');
+      // Ensure any dialog panels / megamenu panels / search overlays start closed cleanly by default
+      $('dialog, [role="dialog"], [aria-modal="true"], [class*="menu-panel"], [class*="header-panel"], [class*="modal"], [class*="gnb-search"], [class*="search-layer"], [class*="search-overlay"]').removeAttr('open').attr('aria-hidden', 'true');
       $('*').each((_, el) => {
         const cls = $(el).attr('class');
         if (cls) {
           const updated = cls
             .split(/\s+/)
-            .filter((c) => !c.match(/^(active|is-active|open|is-open|show|is-show|expanded|is-expanded)$/i) && !c.match(/--(show|active|open|expanded)$/i))
+            .filter((c) => !c.match(/^(active|is-active|open|is-open|show|is-show|expanded|is-expanded|current|is-current)$/i) && !c.match(/--(show|active|open|expanded|current)$/i))
             .join(' ');
           if (updated !== cls) {
             $(el).attr('class', updated);
@@ -891,7 +1237,29 @@ export class HtmlSynthesizer {
 
       $('[class*="panel-content"]').removeClass('active is-active');
       $('[class*="backdrop"], [class*="curtain"], [class*="scrim"]').removeClass('is-active is-open open');
+      $('.staggered-start').removeClass('staggered-start').addClass('staggered-end');
     }
+
+    // Restore animated/fade-in content elements that were snapshotted in hidden state (opacity: 0)
+    $('[style*="opacity: 0"], [style*="opacity:0"]').each((_, el) => {
+      const $el = $(el);
+      const hasContent = $el.find('h1, h2, h3, h4, h5, h6, p, button, a, img, picture').length > 0 ||
+        $el.is('[class*="hero"], [class*="banner"], [class*="poster"], [class*="item"], [class*="slide"], [class*="column"]');
+      if (hasContent) {
+        const style = $el.attr('style') || '';
+        const clean = style.replace(/(?:^|;)\s*opacity\s*:\s*0\s*;?/gi, '').trim();
+        if (clean) $el.attr('style', clean);
+        else $el.removeAttr('style');
+      }
+    });
+
+    // Ensure all staggered items inside staggered-end containers have initial opacity and transform restored
+    $('.staggered-end [data-staggered-item], [data-component-list*="StaggeredFadeIn"] [data-staggered-item]').each((_, el) => {
+      const style = $(el).attr('style') || '';
+      const clean = style.replace(/(?:^|;)\s*opacity\s*:\s*0\s*;?/gi, '').replace(/(?:^|;)\s*transform\s*:[^;]+;?/gi, '').trim();
+      if (clean) $(el).attr('style', clean);
+      else $(el).removeAttr('style');
+    });
 
     // Ensure referenced SVG symbols (e.g. accordion chevrons, icons, social icons) have definitions in DOM
     const missingSymbols = new Set<string>();
@@ -920,40 +1288,71 @@ export class HtmlSynthesizer {
         } catch {}
       }
 
-      // Built-in SVG symbol fallbacks for common icons if still missing
-      if (missingSymbols.has('open-down-regular')) {
-        gatheredSymbols.push('<symbol viewBox="0 0 96 96" id="open-down-regular" xmlns="http://www.w3.org/2000/svg"><path d="M79.719 32.342l3.562 3.509L48 71.658 12.719 35.851l3.562-3.509L48 64.534z" fill="currentColor"></path></symbol>');
-      }
-
       if (gatheredSymbols.length > 0) {
         $.root().prepend(`\n<svg xmlns="http://www.w3.org/2000/svg" style="display:none;" aria-hidden="true">\n${gatheredSymbols.join('\n')}\n</svg>\n`);
       }
     }
 
+    // Attach headlessui portal roots and floating menus if present in snapshot
+    if (ast.rawHtmlSnapshot) {
+      try {
+        const $snap = cheerio.load(ast.rawHtmlSnapshot);
+        const portalRoots = $snap('#headlessui-portal-root, [id*="portal-root"], [data-headlessui-portal]');
+        if (portalRoots.length > 0 && $('#headlessui-portal-root').length === 0) {
+          const portalHtml = $snap.html(portalRoots);
+          if (portalHtml) {
+            $.root().append(`\n${portalHtml}\n`);
+          }
+        }
+      } catch {}
+    }
+
+    // Ensure modal dialogs are closed at rest if aria-hidden is true or they are interactive modals
+    $('dialog[aria-hidden="true"], dialog[class*="modal"], dialog[data-shoptimizermodal-id]').removeAttr('open');
+
     // 5. Ensure top element has semantic landmark and id
     let result = '';
     const rootEl = $.root().children().first();
     const firstTag = rootEl.prop('tagName')?.toLowerCase();
-    const hasLandmark = ['header', 'nav', 'section', 'footer', 'article', 'main'].includes(firstTag || '');
+    const hasLandmark = [
+      'header', 'nav', 'section', 'footer', 'article', 'main',
+      'sticky-header', 'site-header', 'custom-header', 'app-header'
+    ].includes(firstTag || '') ||
+      (rootEl.attr('class') || '').includes('header-wrapper') ||
+      rootEl.find('> header, > nav').length > 0;
 
     if (!hasLandmark) {
       const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
+      const hasExistingHeaderTag = $.html().includes('<header') || $.html().includes('class="site-header"');
+      let originalLandmarkClasses = '';
+      if (ast.rawHtmlSnapshot) {
+        try {
+          const $snap = cheerio.load(ast.rawHtmlSnapshot);
+          const snapLandmark = $snap(wrapperTag).first();
+          if (snapLandmark.length > 0) {
+            originalLandmarkClasses = (snapLandmark.attr('class') || '').trim();
+          }
+        } catch {}
+      }
       const archetypeClasses = ast.archetype === 'footer'
         ? 'site-footer page-footer'
         : ast.archetype === 'navbar'
-        ? 'site-header shared-header header-nav'
+        ? (hasExistingHeaderTag ? 'authentic-navbar header-nav' : 'site-header shared-header header-nav')
         : 'site-section page-section';
-      result = `<${wrapperTag} class="authentic-section ${ast.archetype}-section ${archetypeClasses}" id="${ast.id}" data-theme="${ast.theme || 'light'}">\n${$.html().trim()}\n</${wrapperTag}>`;
+      const darkCls = ast.theme === 'dark' ? ' dark' : '';
+      const combinedClasses = `${originalLandmarkClasses ? originalLandmarkClasses + ' ' : ''}authentic-section ${ast.archetype}-section ${archetypeClasses}${darkCls}`.trim();
+      result = `<${wrapperTag} class="${combinedClasses}" id="${ast.id}" data-theme="${ast.theme || 'light'}">\n${$.html().trim()}\n</${wrapperTag}>`;
     } else {
       if (!rootEl.attr('id')) {
         rootEl.attr('id', ast.id);
       }
-      rootEl.attr('data-theme', ast.theme || 'light');
+      if (ast.theme === 'dark' && (rootEl.hasClass('dark') || rootEl.attr('data-theme') === 'dark' || (rootEl.attr('class') || '').toLowerCase().includes('dark'))) {
+        rootEl.attr('data-theme', 'dark');
+      }
       result = $.html().trim();
     }
 
-    // Only inject nav-curtain if the authentic markup specifically relies on an Apple-style globalnav or curtain/backdrop
-    const needsAuthenticCurtain = rawLower.includes('globalnav') || rawLower.includes('curtain') || rawLower.includes('backdrop');
+    const needsAuthenticCurtain = rawLower.includes('curtain') || rawLower.includes('backdrop');
     if (isNavigationSection && needsAuthenticCurtain && !result.includes('curtain') && !result.includes('backdrop')) {
       result += '\n<div class="nav-curtain"></div>';
     }

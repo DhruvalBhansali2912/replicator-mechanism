@@ -62,15 +62,19 @@ export class CssTransformer {
    * Deminifies / formats CSS to make it human-readable
    */
   public static async beautify(cssContent: string): Promise<string> {
+    if (!cssContent) return '';
     try {
-      return await prettier.format(cssContent, { parser: 'css', tabWidth: 2 });
+      const formatted = await prettier.format(cssContent, { parser: 'css', tabWidth: 2 });
+      return formatted.replace(/url\(([\s\S]*?)\)/gi, (m, inner) => `url(${inner.replace(/[\r\n]+/g, ' ').trim()})`);
     } catch {
-      // Fallback simple indentation formatting
-      return cssContent
-        .replace(/\{/g, ' {\n  ')
-        .replace(/\}/g, '\n}\n\n')
-        .replace(/;\s*/g, ';\n  ')
-        .replace(/,\s*/g, ', ');
+      // Safe fallback using PostCSS parsing to avoid corrupting data: URLs or strings with newlines
+      try {
+        const root = postcss.parse(cssContent);
+        const formatted = root.toString();
+        return formatted.replace(/url\(([\s\S]*?)\)/gi, (m, inner) => `url(${inner.replace(/[\r\n]+/g, ' ').trim()})`);
+      } catch {
+        return cssContent.replace(/url\(([\s\S]*?)\)/gi, (m, inner) => `url(${inner.replace(/[\r\n]+/g, ' ').trim()})`);
+      }
     }
   }
 }

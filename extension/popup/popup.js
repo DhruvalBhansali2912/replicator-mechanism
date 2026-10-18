@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   activeSelectedSection = store.selectedSection || null;
 
-  const apiUrl = (store.apiUrl || 'http://localhost:3000').replace(/\/$/, '');
+  const apiUrl = (store.apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
   serverUrlDisplay.textContent = `Server: ${apiUrl.replace(/^https?:\/\//, '')}`;
 
   // If no API key is present, auto-provision default 3-token trial key immediately
@@ -465,6 +465,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Capture client DOM snapshot and stylesheets as anti-bot / Cloudflare bypass fallback
       let htmlSnapshot = '';
       let clientStylesheets = [];
+      let extractedStylesheetUrls = [];
+      let extractedClientScreenshot = '';
       try {
         const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
         if (tab && tab.id && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
@@ -618,7 +620,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           const timeoutPromise = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
           const results = await Promise.race([scriptPromise, timeoutPromise]);
 
-          let extractedStylesheetUrls = [];
           if (results && results[0] && results[0].result) {
             htmlSnapshot = results[0].result.html || '';
             clientStylesheets = results[0].result.stylesheets || [];
@@ -642,14 +643,11 @@ document.addEventListener('DOMContentLoaded', async () => {
           }
 
           // Capture active tab visible area screenshot directly via Chrome native API
-          let clientScreenshot = '';
           try {
-            clientScreenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
+            extractedClientScreenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'png' });
           } catch (shotErr) {
             console.debug('captureVisibleTab not available:', shotErr);
           }
-
-          var extractedClientScreenshot = clientScreenshot;
         }
       } catch (e) {
         console.debug('Could not grab active tab DOM snapshot:', e);
@@ -965,7 +963,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // 2. Synchronize with server if API key is available
       if (apiKey) {
-        const baseUrl = (apiUrl && apiUrl !== 'https://replicator.inventkid.com' ? apiUrl : 'http://localhost:3000').replace(/\/$/, '');
+        const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
         try {
           const resp = await fetch(`${baseUrl}/api/jobs/recent?limit=3`, {
             headers: {

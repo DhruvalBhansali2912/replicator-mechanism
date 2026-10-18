@@ -63,6 +63,7 @@ export interface ExtractionOptions {
   waitForSelector?: string;
   timeoutMs?: number;
   recordedInteractions?: RecordedInteraction[];
+  tabsData?: any[];
   rootCssVariables?: Record<string, string>;
   pageTheme?: string;
 }

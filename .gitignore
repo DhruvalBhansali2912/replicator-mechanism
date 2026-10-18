@@ -14,3 +14,16 @@ yarn-error.log*
 scratch/
 typescript
 run-playwright-suite.*
+
+storage/*.png
+storage/*.mp4
+storage/*.html
+storage/*.json
+storage/*.css
+storage/benchmarks/
+storage/test_eval/
+storage/linear_section_1/
+storage/upwork_section_2/
+storage/upwork_section_3/
+*.zip
+dist-extension/

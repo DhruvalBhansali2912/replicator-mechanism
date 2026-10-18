@@ -50,12 +50,12 @@ export class ChromiumRenderWorker {
 
       try {
         if (isHtmlContent) {
-          await page.setContent(urlOrHtml, { waitUntil: 'load', timeout: 15000 });
+          await page.setContent(urlOrHtml, { waitUntil: 'domcontentloaded', timeout: 15000 });
         } else {
-          await page.goto(urlOrHtml, { waitUntil: 'load', timeout: 15000 }).catch(() => {});
+          await page.goto(urlOrHtml, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
         }
 
-        await page.waitForTimeout(300);
+        await page.waitForTimeout(500);
 
         for (const vp of viewports) {
           await page.setViewportSize({ width: vp.width, height: vp.height });

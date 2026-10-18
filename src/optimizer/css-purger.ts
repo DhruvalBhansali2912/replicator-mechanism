@@ -32,7 +32,7 @@ export class CssPurger {
    * Purges unused CSS rules that do not match elements in the given HTML,
    * then produces both beautified and minified outputs.
    */
-  public async purge(cssContent: string, htmlContent: string): Promise<PurgeResult> {
+  public async purge(cssContent: string, htmlContent: string, htmlSnapshot?: string): Promise<PurgeResult> {
     const originalBytes = Buffer.byteLength(cssContent || '', 'utf8');
     if (!cssContent || !cssContent.trim()) {
       return {
@@ -46,7 +46,38 @@ export class CssPurger {
 
     const $ = cheerio.load(htmlContent, { xmlMode: false }, false);
 
+    let $snap: any = null;
+    if (htmlSnapshot && htmlSnapshot.length > 50) {
+      try {
+        $snap = cheerio.load(htmlSnapshot, { xmlMode: false }, false);
+      } catch {}
+    }
+
     try {
+      const htmlClasses = new Set<string>();
+      const htmlIds = new Set<string>();
+      $('[class]').each((_, el) => {
+        const cls = $(el).attr('class') || '';
+        for (const c of cls.split(/\s+/)) {
+          if (c.trim()) htmlClasses.add(c.trim());
+        }
+      });
+      $('[id]').each((_, el) => {
+        const id = $(el).attr('id');
+        if (id && id.trim()) htmlIds.add(id.trim());
+      });
+
+      // Also ingest root body and html classes from snapshot to preserve ancestor-conditioned rules
+      if ($snap) {
+        const snapBodyCls = $snap('body').attr('class') || '';
+        const snapHtmlCls = $snap('html').attr('class') || '';
+        for (const c of `${snapBodyCls} ${snapHtmlCls}`.split(/\s+/)) {
+          if (c.trim()) htmlClasses.add(c.trim());
+        }
+      }
+
+      const unsafePrefixPattern = /:hover|:focus|:active|:checked|:disabled|:not|toggled|expanded|collapsed|\bopen\b|\bactive\b|is-open|is-active|drawer|modal|dialog|sticky|scrolled|is_stuck|stuck|secondary-navigation|single-product|woocommerce-checkout|header-[12356789]|\bcurrent\b|\bselected\b|\bloaded\b|\bplaying\b|\bended\b|\bpaused\b|\bshould-hide\b|\bhas-played\b|\bhide\b|\bshow\b|\bvisible\b|\bhidden\b|\bis-|\bhas-/i;
+
       const purgePlugin = {
         postcssPlugin: 'css-purger',
         Once(root: Root) {
@@ -57,6 +88,16 @@ export class CssPurger {
               return;
             }
 
+            const hasCustomProps = rule.nodes && rule.nodes.some((n: any) => n.type === 'decl' && n.prop.startsWith('--'));
+            const isVisibilityAltering = rule.nodes && rule.nodes.some((n: any) =>
+              n.type === 'decl' && (
+                n.prop === 'display' ||
+                n.prop === 'visibility' ||
+                n.prop === 'opacity' ||
+                n.prop === 'clip' ||
+                n.prop === 'clip-path'
+              )
+            );
             const rawSelectors = rule.selectors || [rule.selector];
             const matchingSelectors: string[] = [];
 
@@ -73,13 +114,67 @@ export class CssPurger {
                 continue;
               }
 
+              let directlyMatched = false;
               try {
                 if ($(cleanSelector).length > 0) {
                   matchingSelectors.push(selector);
+                  directlyMatched = true;
                 }
               } catch {
-                // If cheerio cannot parse advanced selector (e.g. :is, :has), keep it to be safe
                 matchingSelectors.push(selector);
+                directlyMatched = true;
+              }
+
+              // Check if any descendant part matches within the wrapped section and decouple ONLY if not directly matched
+              const hasSiblingCombinator = cleanSelector.includes('~') || cleanSelector.includes('+');
+              if (!directlyMatched && !hasSiblingCombinator && !isVisibilityAltering) {
+                const parts = cleanSelector.split(/\s*[\s>]\s*/).filter(Boolean);
+                if (parts.length > 1) {
+                  // If snapshot is available, verify that this rule actually matched in the snapshot DOM
+                  let snapshotMatches = true;
+                  if ($snap) {
+                    try {
+                      snapshotMatches = $snap(cleanSelector).length > 0;
+                    } catch {
+                      snapshotMatches = true;
+                    }
+                  }
+
+                  if (snapshotMatches) {
+                    for (let i = 1; i < parts.length; i++) {
+                      const prefix = cleanSelector.slice(0, cleanSelector.indexOf(parts[i])).trim();
+                      if (unsafePrefixPattern.test(prefix)) {
+                        continue;
+                      }
+
+                      const part = parts[i];
+                      const classesInPart = part.split('.').filter(Boolean).map(c => c.split(/[:#\[]/)[0]);
+                      const idsInPart = part.split('#').filter(Boolean).map(c => c.split(/[:.\[]/)[0]);
+
+                      const hasInstanceTarget =
+                        classesInPart.some(c => !isGenericPrimitive(c) && htmlClasses.has(c)) ||
+                        idsInPart.some(id => htmlIds.has(id));
+
+                      if (!hasInstanceTarget) continue;
+
+                      const sub = parts.slice(i).join(' ');
+                      try {
+                        if ($(sub).length > 0) {
+                          const startIdx = selector.indexOf(part);
+                          if (startIdx > 0) {
+                            const decoupled = selector.slice(startIdx).trim();
+                            if (decoupled && !matchingSelectors.includes(decoupled)) {
+                              matchingSelectors.push(decoupled);
+                            }
+                          }
+                          break;
+                        }
+                      } catch {}
+                    }
+                  }
+                } else if (hasCustomProps) {
+                  matchingSelectors.push(selector);
+                }
               }
             }
 
@@ -148,6 +243,10 @@ function shouldAlwaysKeepSelector(selector: string): boolean {
   ) {
     return true;
   }
+  // Universal: Never purge dynamic interaction states, drawer/modal states, media animation states, or ARIA state modifiers
+  if (/\b(?:is-open|open|active|show|visible|expanded|collapsed|checked|selected|modal|drawer|flyout|with-menu|menu-open|playing|loaded|anim|footnote|footnote-number)\b|sup\b|sub\b|aria-expanded|aria-modal|aria-controls|aria-hidden|data-state|data-open|:hover|:focus/i.test(s)) {
+    return true;
+  }
   return false;
 }
 
@@ -155,4 +254,126 @@ function stripPseudos(selector: string): string {
   return selector
     .replace(/::?(?:hover|focus|active|visited|focus-visible|focus-within|checked|disabled|enabled|before|after|placeholder|first-child|last-child|nth-child\([^)]*\)|first-of-type|last-of-type)/g, '')
     .trim();
+}
+
+export const GENERIC_PRIMITIVES = new Set([
+  'elementor-element',
+  'elementor-widget-container',
+  'elementor-widget',
+  'elementor-container',
+  'elementor-row',
+  'elementor-column',
+  'elementor-column-wrap',
+  'elementor-widget-wrap',
+  'elementor-button',
+  'elementor-button-link',
+  'elementor-button-text',
+  'elementor-button-wrapper',
+  'elementor-button-content-wrapper',
+  'elementor-heading-title',
+  'elementor-icon',
+  'elementor-icon-wrapper',
+  'elementor-image',
+  'elementor-star-rating',
+  'elementor-icon-list-item',
+  'elementor-icon-list-items',
+  'elementor-icon-list-text',
+  'elementor-icon-list-icon',
+  'elementor-swiper-button',
+  'elementor-swiper-button-prev',
+  'elementor-swiper-button-next',
+  'swiper-button-prev',
+  'swiper-button-next',
+  'swiper-slide',
+  'swiper-wrapper',
+  'swiper-pagination',
+  'swiper-pagination-bullet',
+  'menu-link',
+  'menu-item',
+  'sub-menu',
+  'sub-menu-item',
+  'nav-item',
+  'nav-link',
+  'nav-menu',
+  'navigation',
+  'main-header-menu',
+  'sub-arrow',
+  'amount',
+  'price',
+  'woocommerce-price-amount',
+  'woocommerce-price-currencysymbol',
+  'star-rating',
+  'review-rating',
+  'woocommerce-product-rating',
+  'container',
+  'container-fluid',
+  'row',
+  'col',
+  'col-12',
+  'col-6',
+  'btn',
+  'button',
+  'card',
+  'card-body',
+  'text',
+  'title',
+  'wrapper',
+  'inner',
+  'content',
+  'box',
+  'flex',
+  'grid',
+  'block',
+  'hidden',
+  'active',
+  'open',
+  'show',
+  'link',
+  'img',
+  'image',
+  'icon',
+  'list',
+  'item',
+  'badge',
+  'e-con',
+  'e-con-inner',
+  'e-con-full',
+  'e-con-boxed',
+  'e-flex',
+  'e-grid',
+  'e-child',
+  'e-parent',
+  'e-rating',
+  'e-rating-wrapper',
+  'e-icon',
+  'e-icon-wrapper',
+  'e-icon-marked',
+  'e-icon-unmarked'
+]);
+
+export function isGenericPrimitive(cls: string): boolean {
+  if (!cls) return true;
+  const lower = cls.toLowerCase();
+  if (lower.startsWith('elementor-element-')) return false;
+  if (lower.startsWith('w-node-')) return false;
+  if (lower === 'elementor-element') return true;
+
+  if (
+    lower.startsWith('elementor-widget-') ||
+    lower.startsWith('elementor-size-') ||
+    lower.startsWith('elementor-align-') ||
+    lower.startsWith('elementor-hidden-') ||
+    lower.startsWith('e-con') ||
+    lower.startsWith('e-flex') ||
+    lower.startsWith('e-grid') ||
+    lower.startsWith('e-child') ||
+    lower.startsWith('e-parent') ||
+    lower.startsWith('e-icon') ||
+    lower.startsWith('e-rating') ||
+    lower.startsWith('wp-block-') ||
+    lower.startsWith('ast-')
+  ) {
+    return true;
+  }
+  return GENERIC_PRIMITIVES.has(lower);
 }

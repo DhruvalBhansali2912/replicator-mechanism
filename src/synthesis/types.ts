@@ -86,6 +86,7 @@ export type SectionArchetype =
   | 'hero'
   | 'features'
   | 'tabs'
+  | 'carousel'
   | 'pricing'
   | 'testimonials'
   | 'faq'

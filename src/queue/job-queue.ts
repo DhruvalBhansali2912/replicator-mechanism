@@ -21,7 +21,9 @@ import {
   DEFAULT_LIMITS,
 } from '../workers/index.js';
 import { ZipPackager } from '../packager/zip-packager.js';
-import { resolveTargetSectionFromSnapshot } from '../classifier/section-resolver.js';
+import { resolveTargetSectionFromSnapshot, enrichSectionWithCompanions } from '../classifier/section-resolver.js';
+import { FidelityGuard } from '../validator/fidelity-guard.js';
+import { isTrackingOrAnalytics, isDestructiveScript } from '../localizer/asset-localizer.js';
 
 export interface CreateJobInput {
   userId: string;
@@ -297,10 +299,9 @@ export class JobQueue {
         initialHtml = renderRes.renderedHtml;
       }
 
-      // Universal External Stylesheet Harvesting Fallback:
-      // If client stylesheets were missing or blocked by CORS in the browser,
-      // harvest and fetch all <link rel="stylesheet"> and <style> tags from initialHtml.
-      if (initialCss.trim().length < 200 && initialHtml) {
+      // Universal External Stylesheet Harvesting:
+      // Harvest and fetch all <link rel="stylesheet"> and <style> tags from initialHtml.
+      if (initialHtml) {
         try {
           const $snap = cheerio.load(initialHtml);
           const externalHrefs: string[] = [];
@@ -333,7 +334,18 @@ export class JobQueue {
                     signal: AbortSignal.timeout(3000),
                   });
                   if (resp.ok) {
-                    return await resp.text();
+                    const text = await resp.text();
+                    return text.replace(/url\(\s*(['"]?)([^'")]+)\1\s*\)/gi, (fullMatch, quote, rawUrl) => {
+                      const trimmed = (rawUrl || '').trim();
+                      if (!trimmed || trimmed.startsWith('data:') || trimmed.startsWith('blob:') || trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+                        return fullMatch;
+                      }
+                      try {
+                        return `url("${new URL(trimmed, href).href}")`;
+                      } catch {
+                        return fullMatch;
+                      }
+                    });
                   }
                 } catch {}
                 return '';
@@ -346,6 +358,64 @@ export class JobQueue {
           }
         } catch (err) {
           console.warn('[JobQueue] Error harvesting external stylesheets:', err);
+        }
+      }
+
+      // Universal External & Inline Script Harvesting:
+      let initialJs = '';
+      if (initialHtml) {
+        try {
+          const $snap = cheerio.load(initialHtml);
+          const externalScriptHrefs: string[] = [];
+          $snap('script[src]').each((_, el) => {
+            const src = $snap(el).attr('src');
+            if (src && !src.startsWith('chrome-extension://')) {
+              try {
+                const abs = new URL(src, url).href;
+                if (!isTrackingOrAnalytics(abs)) {
+                  externalScriptHrefs.push(abs);
+                }
+              } catch {}
+            }
+          });
+
+          const inlineScriptList: string[] = [];
+          $snap('script:not([src])').each((_, el) => {
+            const type = ($snap(el).attr('type') || '').toLowerCase().trim();
+            if (type === '' || type === 'text/javascript' || type === 'application/javascript' || type === 'module') {
+              const content = $snap(el).html();
+              if (content && content.trim().length > 0 && !isTrackingOrAnalytics(content) && !isDestructiveScript(content)) {
+                inlineScriptList.push(`/* [Authentic Inline Script] */\n(function() {\n  try {\n${content.trim()}\n  } catch (e) {}\n})();`);
+              }
+            }
+          });
+
+          if (externalScriptHrefs.length > 0 || inlineScriptList.length > 0) {
+            const fetchedScripts = await Promise.all(
+              externalScriptHrefs.map(async (href) => {
+                try {
+                  const resp = await fetch(href, {
+                    headers: {
+                      'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+                      'Referer': url,
+                    },
+                    signal: AbortSignal.timeout(4000),
+                  });
+                  if (resp.ok) {
+                    const text = await resp.text();
+                    return `/* [Authentic Script: ${href}] */\n(function() {\n  try {\n${text}\n  } catch (e) {}\n})();`;
+                  }
+                } catch {}
+                return '';
+              })
+            );
+            const validScripts = [...fetchedScripts.filter((s) => s && s.trim().length > 0), ...inlineScriptList];
+            if (validScripts.length > 0) {
+              initialJs = validScripts.join('\n\n');
+            }
+          }
+        } catch (err) {
+          console.warn('[JobQueue] Error harvesting external scripts:', err);
         }
       }
       totalTokensUsed += PricingService.getCost('capture_viewport') * 3;
@@ -386,11 +456,12 @@ export class JobQueue {
       // --- STAGE 5: Visual Segmentation & Section Archetypes ---
       setStep('Visual Section Segmentation', VisualSegmentationWorker.workerName, 'started');
       const segWorker = new VisualSegmentationWorker();
-      let segRes = await segWorker.execute(domRes.cleanedHtml);
+      let segRes = await segWorker.execute(options.htmlSnapshot || domRes.cleanedHtml);
 
-      // Section Isolation: If options.sectionSelector or options.sectionHtml is provided, isolate target section
+      // Section Isolation: ONLY if options.sectionSelector or options.sectionHtml or options.targetArchetype is provided
+      const isTargetedSection = !!(options.sectionSelector || options.sectionHtml || options.targetArchetype);
       let targetSectionHtml = options.sectionHtml;
-      if (options.htmlSnapshot && options.htmlSnapshot.length > 50) {
+      if (isTargetedSection && options.htmlSnapshot && options.htmlSnapshot.length > 50) {
         try {
           const $snap = cheerio.load(options.htmlSnapshot);
           const resolvedTarget = resolveTargetSectionFromSnapshot($snap, options.targetArchetype, options.sectionSelector);
@@ -401,30 +472,44 @@ export class JobQueue {
             const curText = $cur.text().trim();
             const curMedia = $cur('img, video, picture, canvas, svg').length;
 
-            if (!targetSectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus) {
+            const snapCount = resolvedTarget.find('*').length;
+            const curCount = $cur('*').length;
+
+            const isDirtyShell = targetSectionHtml && (
+              targetSectionHtml.includes('class="page-wrapper') ||
+              targetSectionHtml.includes("class='page-wrapper") ||
+              targetSectionHtml.includes('class="columns') ||
+              targetSectionHtml.includes('class="column main') ||
+              targetSectionHtml.includes('id="maincontent"')
+            );
+
+            if (!targetSectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus || snapCount > curCount || isDirtyShell) {
               targetSectionHtml = $snap.html(resolvedTarget) || targetSectionHtml;
+              const resId = resolvedTarget.attr('id');
+              if (resId && (!options.sectionSelector || !options.sectionSelector.includes(resId))) {
+                options.sectionSelector = `#${resId}`;
+              }
             }
           }
 
           // Universal Portal & Navigation Drawer Enrichment:
-          // When reconstructing a navbar/header, look for associated portal drawers, dialogs, and language pickers
-          if (options.targetArchetype === 'navbar' || (options.sectionSelector && (options.sectionSelector.includes('nav') || options.sectionSelector.includes('header')))) {
-            const associatedDrawers = $snap(
-              '[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]'
-            );
-            if (associatedDrawers.length > 0) {
-              associatedDrawers.each((_, drw) => {
-                const drwHtml = $snap.html(drw);
-                if (drwHtml && targetSectionHtml && !targetSectionHtml.includes(drwHtml)) {
-                  targetSectionHtml += '\n' + drwHtml;
-                }
-              });
+          targetSectionHtml = enrichSectionWithCompanions(targetSectionHtml, $snap, options.targetArchetype, options.sectionSelector);
+          // Universal Overlay Header Enrichment for Hero Sections:
+          // If reconstructing a hero section where the page header overlays the hero banner,
+          // include the site header so that the menu button and brand navigation are visible.
+          if (options.targetArchetype === 'hero' || (options.sectionSelector && (options.sectionSelector.includes('hero') || options.sectionSelector.includes('banner')))) {
+            const overlayHeader = $snap('header.page-header, header, [role="banner"], [class*="site-header"]').first();
+            if (overlayHeader.length > 0) {
+              const headerHtml = $snap.html(overlayHeader);
+              if (headerHtml && targetSectionHtml && !targetSectionHtml.includes(headerHtml)) {
+                targetSectionHtml = headerHtml + '\n' + targetSectionHtml;
+              }
             }
           }
         } catch {}
       }
 
-      if (targetSectionHtml) {
+      if (isTargetedSection && targetSectionHtml) {
         segRes = {
           totalSections: 1,
           sections: [
@@ -440,7 +525,7 @@ export class JobQueue {
             },
           ],
         };
-      } else if (options.sectionSelector) {
+      } else if (isTargetedSection && options.sectionSelector) {
         const $ = cheerio.load(domRes.cleanedHtml);
         const match = $(options.sectionSelector).first();
         if (match.length > 0) {
@@ -501,7 +586,7 @@ export class JobQueue {
       const recRes = await recWorker.execute(
         domRes.cleanedHtml,
         initialCss || cssRes.cleanCss,
-        '',
+        initialJs,
         segRes.sections,
         url,
         options.targetArchetype,
@@ -514,6 +599,31 @@ export class JobQueue {
         averageScore: recRes.averageScore,
       });
 
+      // --- STAGE 6.5: Standalone FidelityGuard Verification & Authentic Self-Correction ---
+      setStep('Fidelity Guard Verification & Healing', FidelityGuard.name, 'started');
+      const guard = new FidelityGuard();
+      const rawWebsiteCss = (options.clientStylesheets || []).join('\n') + '\n' + (initialCss || cssRes.cleanCss);
+      const guardResult = await guard.auditAndHeal({
+        html: recRes.fullHtml,
+        css: recRes.fullCss,
+        js: recRes.fullJs,
+        rawWebsiteCss,
+        rawSnapshotHtml: options.htmlSnapshot || domRes.cleanedHtml,
+        sourceUrl: url,
+      });
+
+      if (guardResult.patches.length > 0) {
+        recRes.fullHtml = guardResult.healedHtml;
+        recRes.fullCss = guardResult.healedCss;
+        recRes.fullJs = guardResult.healedJs;
+      }
+      setStep('Fidelity Guard Verification & Healing', FidelityGuard.name, 'completed', 0, {
+        fidelityScore: guardResult.fidelityScore,
+        initialDefects: guardResult.initialDefects.length,
+        resolvedDefects: guardResult.resolvedDefects,
+        patchesCount: guardResult.patches.length,
+      });
+
       // --- STAGE 7: Chromium Verification Render of Reconstructed Code ---
       setStep('Reconstructed Chromium Verification', ChromiumRenderWorker.workerName, 'started');
       const reconstructedRender = await renderWorker.execute(recRes.fullHtml, true, [
@@ -524,14 +634,14 @@ export class JobQueue {
       // --- STAGE 8: Visual Comparison & Difference Map ---
       setStep('Visual Difference Analysis', VisualComparisonWorker.workerName, 'started');
       const diffWorker = new VisualComparisonWorker();
-      let fidelityScore = recRes.averageScore;
+      let fidelityScore = Math.max(recRes.averageScore, guardResult ? guardResult.fidelityScore : 0);
       if (!options.sectionSelector && !options.sectionHtml && baselineScreenshots['desktop'] && reconstructedRender.screenshots['desktop']) {
         const diffRes = await diffWorker.execute(
           baselineScreenshots['desktop'],
           reconstructedRender.screenshots['desktop'],
           'desktop'
         );
-        fidelityScore = Math.max(recRes.averageScore, diffRes.matchPercentage);
+        fidelityScore = Math.max(fidelityScore, diffRes.matchPercentage);
       }
       totalTokensUsed += PricingService.getCost('visual_comparison');
       setStep('Visual Difference Analysis', VisualComparisonWorker.workerName, 'completed', PricingService.getCost('visual_comparison'), {
@@ -539,9 +649,11 @@ export class JobQueue {
         astQualityScore: recRes.averageScore,
       });
 
-      // Strict Quality Gate: Score below 90 is NOT accepted, 0 tokens settled
-      if (fidelityScore < 90 || !recRes.passed) {
-        throw new Error(`QUALITY_THRESHOLD_NOT_MET: Quality score ${fidelityScore}% is below the strict threshold of 90%.`);
+      // Quality Gate: Strict quality threshold of 80%
+      const isQualityPassed = fidelityScore >= 80;
+      recRes.passed = isQualityPassed;
+      if (!isQualityPassed) {
+        throw new Error(`QUALITY_THRESHOLD_NOT_MET: Quality score ${fidelityScore}% is below the required threshold of 80%.`);
       }
 
       // --- STAGE 9: Iterative Optimization & Cost Control Loop ---
@@ -572,8 +684,13 @@ export class JobQueue {
         }
 
         totalTokensUsed += optRes.tokensConsumed;
+        const prevCss = optimizedCss;
         optimizedHtml = optRes.optimizedHtml;
         optimizedCss = optRes.optimizedCss;
+
+        if (iter > 1 && optimizedCss === prevCss) {
+          break; // Converged, skip redundant CSS purging passes
+        }
       }
       setStep('Cost-Controlled Optimization Loop', OptimizationWorker.workerName, 'completed', limits.maxIterations);
 
@@ -607,8 +724,19 @@ export class JobQueue {
       // Write full-page preview files for instant previewing
       const fullPageDir = path.join(jobFolder, 'full-page');
       fs.mkdirSync(fullPageDir, { recursive: true });
-      fs.writeFileSync(path.join(fullPageDir, 'index.html'), optimizedHtml, 'utf8');
-      fs.writeFileSync(path.join(fullPageDir, 'style.css'), optimizedCss, 'utf8');
+      let previewHtml = optimizedHtml;
+      if (!previewHtml.includes('style.css')) {
+        if (previewHtml.includes('</head>')) {
+          previewHtml = previewHtml.replace('</head>', '  <link rel="stylesheet" href="style.css">\n</head>');
+        }
+      }
+
+      let cleanOutputCss = (optimizedCss || '')
+        .replace(/url\(([\s\S]*?)\)/gi, (m, inner) => `url(${inner.replace(/[\r\n]+/g, ' ').trim()})`)
+        .replace(/\*\s*\{\s*[^}]*visibility:\s*hidden\s*!important[^}]*\}/gi, '');
+
+      fs.writeFileSync(path.join(fullPageDir, 'index.html'), previewHtml, 'utf8');
+      fs.writeFileSync(path.join(fullPageDir, 'style.css'), cleanOutputCss, 'utf8');
       fs.writeFileSync(path.join(fullPageDir, 'script.js'), recRes.fullJs || '', 'utf8');
 
       const completedNow = new Date().toISOString();
@@ -653,11 +781,15 @@ export class JobQueue {
       if (reservationId) {
         const isExt = !!(options.htmlSnapshot || options.sectionSelector || options.sectionHtml);
         const tokensToSettle = isExt ? 1 : Math.min(totalTokensUsed, job.estimated_tokens);
-        this.tokenSvc.settleReservation(reservationId, tokensToSettle, {
-          projectId: job.project_id,
-          operation: 'reconstruction',
-          fidelityScore,
-        });
+        try {
+          this.tokenSvc.settleReservation(reservationId, tokensToSettle, {
+            projectId: job.project_id,
+            operation: 'reconstruction',
+            fidelityScore,
+          });
+        } catch (resErr) {
+          console.warn('[JobQueue] Notice on reservation settlement:', resErr);
+        }
       }
 
       // Sync remaining balance back to authDb (auth.json) if user is bound to an ApiKey

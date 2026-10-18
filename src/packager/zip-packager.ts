@@ -5,579 +5,10 @@ import { ExtractionResult } from '../crawler/page-extractor.js';
 import { AssetLocalizer } from '../localizer/asset-localizer.js';
 import { ExtractionOptions, JobState, SectionMetadata } from '../types.js';
 import { CONFIG } from '../config.js';
+import { synthesisEngine } from '../synthesis/engine.js';
+import { JsTransformer } from '../transformer/js-transformer.js';
 import * as cheerio from 'cheerio';
 
-const REPLICATOR_NAV_PATCH_CSS = `
-/* Replicator Mobile Navigation Drilldown Glitch Fix */
-@media (max-width: 833px) {
-  #globalnav.globalnav-with-submenu-open .globalnav-submenu-trigger-group,
-  #globalnav.globalnav-with-submenu-open .globalnav-submenu-trigger-link,
-  #globalnav.globalnav-with-submenu-open .globalnav-item:not(.globalnav-item-flyout-open):not(.globalnav-item-flyout-change-next) .globalnav-link,
-  #globalnav.globalnav-with-submenu-open .globalnav-item-menu:not(.globalnav-item-flyout-open):not(.globalnav-item-flyout-change-next) {
-    display: none !important;
-    opacity: 0 !important;
-    visibility: hidden !important;
-    pointer-events: none !important;
-  }
-  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout,
-  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout {
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    transform: none !important;
-  }
-  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout .globalnav-submenu-list-item,
-  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout .globalnav-submenu-list-item,
-  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-open > .globalnav-flyout .globalnav-submenu-header,
-  #globalnav.globalnav-with-submenu-open .globalnav-item-flyout-change-next > .globalnav-flyout .globalnav-submenu-header {
-    opacity: 1 !important;
-    transform: none !important;
-    visibility: visible !important;
-  }
-  #globalnav.globalnav-with-submenu-open .globalnav-menuback {
-    display: block !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    transform: none !important;
-  }
-}
-`;
-
-const REPLICATOR_GLOBAL_PATCH_CSS = `
-/* Universal page scroll restoration across desktop and mobile */
-html, body {
-  overflow-x: hidden !important;
-  overflow-y: auto !important;
-  height: auto !important;
-  min-height: 100% !important;
-}
-
-body.tds-modal--is-open,
-body.tds-site-header-panel--is-open {
-  overflow-y: auto !important;
-}
-
-body.menu-open {
-  overflow: hidden !important;
-}
-
-/* Universal cleanup of obstructive cookie consent banners, geo/locale modals, and promotional overlays */
-.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track,
-.dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"],
-[class*="country-selector__container"], [class*="region-selector__container"], [class*="geo-selector"],
-[id*="locale-selector"], [id*="country-selector"], [class*="country-picker-modal"], [class*="location-prompt"],
-.tds-locale-selector-country, .tds-locale-selector-region, .tds-locale-selector-superregion {
-  display: none !important;
-}
-
-/* Ensure Header and Nav Items stay above any background dialogs and pinned to top */
-body:has(> header),
-body:has(> nav),
-body:has(> [role="banner"]),
-body:has(> .site-header),
-body:has(> [class*="site-header"]),
-body:has(> [class*="navbar"]),
-body:has(> [class*="globalnav"]),
-body:has(header),
-body:has(nav),
-body.has-navbar {
-  display: block !important;
-  place-items: unset !important;
-  justify-content: flex-start !important;
-  align-items: flex-start !important;
-}
-
-header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"], #tds-site-header, .tds-site-header, .tds-site-nav-items {
-  position: relative !important;
-  align-self: flex-start !important;
-  margin-top: 0 !important;
-  top: 0 !important;
-  width: 100% !important;
-  z-index: 600 !important;
-}
-
-/* Universal Desktop Mega-Menu: Hide completely when closed */
-dialog.tds-site-header-panel:not([open]):not(.open):not(.mobile-open),
-dialog.dx-mega-menu-panel:not([open]):not(.open):not(.mobile-open) {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  z-index: -1 !important;
-}
-
-/* Universal Desktop Mega-Menu: Show ONLY when open */
-dialog.tds-site-header-panel[open],
-dialog.dx-mega-menu-panel[open],
-dialog.tds-site-header-panel.open,
-dialog.dx-mega-menu-panel.open {
-  transform: translateY(0px) !important;
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  z-index: 500 !important;
-  position: absolute !important;
-  top: 0px !important;
-  left: 0px !important;
-  right: 0px !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  height: auto !important;
-  max-height: none !important;
-  overflow: visible !important;
-  background-color: #ffffff !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12) !important;
-}
-
-/* Universal Desktop (>= 1024px): Hide mobile navigation toggles and mobile header elements */
-@media (min-width: 1024px) {
-  .tds-panel-mobile-header,
-  .tds-panel-mobile-close,
-  .tds-mobile-nav-toggle,
-  [class*="mobile-nav-toggle"],
-  [class*="mobile-menu-btn"],
-  [class*="hamburger"],
-  [class*="nav-toggle"] {
-    display: none !important;
-    pointer-events: none !important;
-  }
-}
-
-/* Neutralize the slide-out transform on the header wrapper when menu is active or hovered */
-.dx-mega-menu,
-.dx-mega-menu.dx-mega-menu__slide-out,
-.dx-mega-menu.dx-mega-menu__slide-top {
-  top: 0px !important;
-}
-
-/* Remove blocking white pseudo-element overlay on mega-menu */
-.dx-mega-menu::after,
-.dx-mega-menu.dx-mega-menu__slide-in::after,
-.dx-mega-menu.dx-mega-menu__slide-out::after,
-.tds-menu-header-sticky .dx-mega-menu::after,
-.tds-theme--replicant .tds-modal::after,
-.tds-theme--replicant .tds-modal::before {
-  display: none !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
-/* Ensure mega-menu panel container fits content naturally without inner scrollbars */
-.dx-mega-menu .tds-site-header-panel-content,
-.tds-site-header-panel-content {
-  height: auto !important;
-  min-height: fit-content !important;
-  max-height: none !important;
-  overflow: visible !important;
-  transform: translateY(0px) !important;
-  padding-top: 64px !important;
-  padding-bottom: 24px !important;
-}
-
-.dx-mega-menu-panel-content {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-.dx-mega-menu-panel-content.active {
-  margin-top: 0px !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  position: relative !important;
-  display: grid !important;
-  z-index: 10 !important;
-}
-
-/* Ensure product links, cards, titles and thumbnails in mega-menu are crisp, visible, and interactive */
-.dx-mega-menu-product,
-.tds-site-header-panel[open] .dx-mega-menu-product,
-.tds-site-header-panel.open .dx-mega-menu-product {
-  opacity: 1 !important;
-  visibility: visible !important;
-  transform: none !important;
-}
-
-.dx-mega-menu-product-title,
-.dx-mega-menu .dx-mega-menu-link-group-title,
-.dx-mega-menu-products a,
-.dx-mega-menu-product-links a,
-.dx-mega-menu-secondary-links a,
-.dx-mega-menu-link-groups a,
-.dx-mega-menu a,
-.dx-mega-menu button {
-  color: #171a20 !important;
-  visibility: visible !important;
-}
-
-.dx-mega-menu-product-asset img {
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-.tds-site-header-panel[open] + .tds-modal-backdrop,
-.dx-mega-menu-panel[open] + .tds-modal-backdrop {
-  display: block !important;
-  opacity: 1 !important;
-  z-index: 480 !important;
-}
-
-/* Hero & Carousel Image/Animation Fallback Fix */
-.tcl-react-media-slide-in-animation,
-[class*="slide-in-animation"] {
-  opacity: 1 !important;
-  transform: none !important;
-  visibility: visible !important;
-}
-
-.tcl-flex-module-carousel__slide--active,
-.tcl-flex-module-carousel__slide--active picture,
-.tcl-flex-module-carousel__slide--active img {
-  opacity: 1 !important;
-  visibility: visible !important;
-}
-
-/* Universal Map & Widget Fallback Container Display */
-.charging-map-component__fallback-container,
-[class*="map-component__fallback-container"] {
-  display: block !important;
-  width: 100% !important;
-  min-height: 400px !important;
-  position: relative !important;
-}
-
-.charging-map-component__fallback-image,
-[class*="map-component__fallback-image"] {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-  object-fit: cover !important;
-}
-
-/* Universal Mobile Responsiveness (< 1024px and < 768px) */
-@media (max-width: 1024px) {
-  /* Prevent horizontal overflow across page shell */
-  html, body, .tds-shell, .tcl-page__shell, main, #main-content, .layout-content {
-    max-width: 100vw !important;
-    width: 100% !important;
-    overflow-x: hidden !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Universal Section and Dynamic Container Constraints */
-  section,
-  .tcl-section,
-  .tcl-section--constrained,
-  .tds-layout-item,
-  .tcl-layout__main,
-  .tcl-layout__child {
-    max-width: 100vw !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Responsive Multi-column Grids (collapse gracefully to single column) */
-  .tds-layout-2col.tds-layout-2col,
-  .tds-layout-2col-has_main,
-  .tds-layout-2col-spacious,
-  [class*="tds-layout-2col"] {
-    grid-template: 1fr / 1fr !important;
-    display: flex !important;
-    flex-direction: column !important;
-    max-width: 100vw !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Dynamic Section and Flex Module Sizing Override on Mobile */
-  [style*="--tcl-dynamic-section--width"] {
-    --tcl-dynamic-section--width: 100% !important;
-  }
-
-  [style*="--tcl-flex-module__container--computed-max-inline-size"] {
-    --tcl-flex-module__container--computed-max-inline-size: 100% !important;
-  }
-
-  .tcl-dynamic-section,
-  [class*="dynamic-section"] {
-    --tcl-dynamic-section--width: 100% !important;
-    --tcl-dynamic-section--max-width: 100% !important;
-    max-width: 100vw !important;
-    inline-size: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  .tcl-flex-module,
-  .tcl-flex-module .tcl-flex-module__container,
-  .tcl-flex-module__content {
-    --tcl-flex-module__container--computed-max-inline-size: 100% !important;
-    --tcl-flex-module__container--max-inline-size: 100% !important;
-    max-width: 100vw !important;
-    max-inline-size: 100% !important;
-    inline-size: 100% !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Expand flex module grid items to full viewport width on mobile */
-  .tcl-flex-module__content,
-  [class*="flex-module__content"] {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-  }
-
-  .tcl-flex-module__container,
-  [class*="flex-module__container"] {
-    grid-column: 1 / -1 !important;
-    grid-row: auto !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-    padding-inline: 16px !important;
-  }
-
-  /* Universal Media / Content Ordering on Mobile (Media/Video appears above Text/CTA) */
-  .tcl-flex-module__container--media_container,
-  [class*="media_container"],
-  [class*="media-container"] {
-    order: -1 !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-  }
-  .tcl-flex-module__container--content_container,
-  [class*="content_container"] {
-    order: 1 !important;
-    width: 100% !important;
-  }
-  .tcl-flex-module__container--cta_container,
-  [class*="cta_container"] {
-    order: 2 !important;
-    width: 100% !important;
-  }
-
-  .tcl-text-line {
-    word-break: normal !important;
-    overflow-wrap: break-word !important;
-    white-space: normal !important;
-  }
-
-  /* Neutralize backdrop interception when drawer is closed on mobile */
-  .tds-modal-backdrop:not(.mobile-open):not(.open) {
-    display: none !important;
-    pointer-events: none !important;
-  }
-
-  /* Freeflow Horizontal Carousel on Mobile: Slides must NEVER shrink */
-  .tcl-freeflow-carousel-container__slides {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scroll-snap-type: x mandatory !important;
-    padding-inline: 16px !important;
-    gap: 16px !important;
-    width: 100% !important;
-    max-width: 100vw !important;
-    box-sizing: border-box !important;
-  }
-
-  .tcl-freeflow-carousel-container__slide-container,
-  [class*="carousel-container__slide-container"],
-  [class*="freeflow-carousel"] [class*="slide"],
-  .tcl-freeflow-carousel-container__slides > * {
-    flex: 0 0 85vw !important;
-    width: 85vw !important;
-    min-width: 85vw !important;
-    max-width: 85vw !important;
-    inline-size: 85vw !important;
-    min-inline-size: 85vw !important;
-    max-inline-size: 85vw !important;
-    flex-shrink: 0 !important;
-    scroll-snap-align: start !important;
-    box-sizing: border-box !important;
-  }
-
-  .tcl-freeflow-carousel-container__slide-container .tcl-dynamic-section {
-    --tcl-dynamic-section--width: 100% !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .tcl-freeflow-carousel,
-  [class*="freeflow-carousel"]:not([class*="__container"]),
-  [class*="scroll-snap"] {
-    max-width: 100vw !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch !important;
-    scroll-snap-type: x mandatory !important;
-  }
-
-  /* Sticky Bar Mobile Containment */
-  .tcl-sticky-bar,
-  [class*="sticky-bar"] {
-    max-width: 100vw !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
-    overflow-x: hidden !important;
-  }
-
-  .tcl-sticky-bar .chat-container,
-  .tcl-sticky-bar__drive-cta {
-    max-width: 100% !important;
-    min-width: 0 !important;
-  }
-
-  /* Footer Links Wrap on Mobile */
-  .tds-list--horizontal,
-  .tcl-site-footer,
-  footer ul {
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-    max-width: 100vw !important;
-    box-sizing: border-box !important;
-  }
-
-  /* Mobile Header Layout */
-  #tds-site-header, .tds-site-header {
-    padding-inline: 16px !important;
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    flex-wrap: nowrap !important;
-    height: 56px !important;
-    min-height: 56px !important;
-  }
-
-  /* Hide overflowing desktop center nav on mobile */
-  #tds-site-header ol.tds-site-nav-items.tds-align--center,
-  .tds-site-header .tds-align--center {
-    display: none !important;
-  }
-
-  /* Hide utility icon-only navigation buttons on mobile so mobile menu toggle is prominent & clean */
-  .tds-site-nav-item--icon-only,
-  [class*="nav-item--icon-only"],
-  .tds-align--end li:has(.tds-site-nav-item--icon-only) {
-    display: none !important;
-  }
-
-  /* Style mobile menu toggle button */
-  .tds-mobile-nav-toggle {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    background: rgba(0, 0, 0, 0.06) !important;
-    backdrop-filter: blur(8px) !important;
-    -webkit-backdrop-filter: blur(8px) !important;
-    border-radius: 4px !important;
-    padding: 6px 14px !important;
-    font-size: 14px !important;
-    font-weight: 500 !important;
-    color: currentColor !important;
-    border: none !important;
-    cursor: pointer !important;
-  }
-
-  /* Mobile Navigation Drawer Sheet */
-  dialog.tds-site-header-panel.mobile-open,
-  dialog.dx-mega-menu-panel.mobile-open,
-  dialog.tds-modal.mobile-open,
-  .tds-site-header-panel.mobile-open,
-  .dx-mega-menu-panel.mobile-open {
-    position: fixed !important;
-    inset: 0 !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-    width: 100vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    background: #ffffff !important;
-    color: #111111 !important;
-    z-index: 99999 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow-y: auto !important;
-    padding: 20px 24px 40px !important;
-    transform: none !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-  }
-
-  .tds-site-header-panel.mobile-open .tds-site-header-panel-content,
-  .dx-mega-menu-panel.mobile-open .tds-site-header-panel-content {
-    margin-block-start: 12px !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 20px !important;
-    transform: none !important;
-    overflow: visible !important;
-    height: auto !important;
-    max-height: none !important;
-    padding-top: 0 !important;
-  }
-
-  .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content,
-  .dx-mega-menu-panel.mobile-open .dx-mega-menu-panel-content {
-    position: relative !important;
-    inset: auto !important;
-    transform: none !important;
-    margin: 0 !important;
-    opacity: 1 !important;
-    visibility: visible !important;
-    pointer-events: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    gap: 16px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-
-  .tds-site-header-panel.mobile-open .dx-mega-menu-products {
-    display: grid !important;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 12px !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    padding: 0 !important;
-  }
-
-  .tds-site-header-panel.mobile-open .dx-mega-menu-panel-content:nth-child(n+5) {
-    display: none !important;
-  }
-
-  /* Hero & Flex Module Responsive Tweaks */
-  .dx-hero__content, .tcl-flex-module__content {
-    width: 100% !important;
-    max-width: 100% !important;
-    padding-inline: 16px !important;
-    box-sizing: border-box !important;
-  }
-
-  .dx-hero__cta, .tcl-flex-module__cta {
-    flex-direction: column !important;
-    align-items: center !important;
-    width: 100% !important;
-    gap: 10px !important;
-  }
-
-  .dx-hero__cta button,
-  .dx-hero__cta a,
-  .tcl-flex-module__cta button,
-  .tcl-flex-module__cta a,
-  .permanent-cta---button-link {
-    width: 100% !important;
-    max-width: 320px !important;
-    min-width: 0 !important;
-  }
-}
-`;
 
 export class ZipPackager {
   private localizer = new AssetLocalizer();
@@ -632,14 +63,6 @@ export class ZipPackager {
       finalMinifiedCss = this.localizer.rewriteCssUrls(result.minifiedCss, url);
     }
 
-    if (finalCss.includes('globalnav') || finalHtml.includes('globalnav')) {
-      finalCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
-      finalMinifiedCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
-    }
-
-    finalCss += '\n' + REPLICATOR_GLOBAL_PATCH_CSS;
-    finalMinifiedCss += '\n' + REPLICATOR_GLOBAL_PATCH_CSS;
-
     // Canonicalize any remaining unlocalized root-relative URLs (/assets, /fonts) to original origin
     let origin = '';
     try {
@@ -688,6 +111,11 @@ export class ZipPackager {
         finalHtml = finalHtml.replace(hostRegex, `"domain":""`);
       } catch {}
 
+      // Convert protocol relative URLs in url() to https
+      finalCss = finalCss.replace(/url\(\s*(['"]?)\/\/([^'")]+)\1\s*\)/gi, 'url("https://$2")');
+      finalHtml = finalHtml.replace(/url\(\s*(['"]?)\/\/([^'")]+)\1\s*\)/gi, 'url("https://$2")');
+
+      // Canonicalize root-relative URLs in url() against base origin
       finalHtml = finalHtml.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
       finalCss = finalCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
       finalMinifiedCss = finalMinifiedCss.replace(/url\(\s*(['"]?)\/([^/'"][^'")]+)\1\s*\)/gi, `url("${origin}/$2")`);
@@ -728,7 +156,7 @@ export class ZipPackager {
         const srcset = (firstSource.attr('srcset') || firstSource.attr('src') || '').trim();
         if (srcset) {
           const firstUrl = srcset.split(/\s+/)[0];
-          $p.append(`<img src="${firstUrl}" class="tcl-react-media__asset" alt="">`);
+          $p.append(`<img src="${firstUrl}" alt="">`);
         }
       }
     });
@@ -771,57 +199,97 @@ export class ZipPackager {
 
     $cleanup('[data-component-list*="InlineMedia"] .inline-media-wrapper').addClass('loaded playing');
     $cleanup(`
-      .cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"], #onetrust-banner-sdk, #truste-consent-track,
-      .dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"],
-      [class*="country-selector__container"], [class*="region-selector__container"], [class*="geo-selector"],
-      [id*="locale-selector"], [id*="country-selector"], [class*="country-picker-modal"], [class*="location-prompt"],
-      .tds-locale-selector-country, .tds-locale-selector-region, .tds-locale-selector-superregion
+      .cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"],
+      [class*="country-picker-modal"], [class*="location-prompt"],
+      [aria-label*="welcome" i], [class*="welcome-modal"], [class*="welcome-screen"], iframe[src*="welcome"],
+      [data-base-ui-inert], [data-floating-ui-inert], [data-radix-focus-guard]
+    `).closest('[data-base-ui-portal], [id*="headlessui-portal-root"], [id*="portal"], [role="dialog"], [class*="modal"], [class*="popup"]').remove();
+    $cleanup(`
+      .cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-consent"],
+      [id*="truste"], [class*="truste"], [class*="trustarc"], [id*="trustarc"],
+      [class*="country-picker-modal"], [class*="location-prompt"],
+      [aria-label*="welcome" i], [class*="welcome-modal"], [class*="welcome-screen"], iframe[src*="welcome"],
+      [id*="__replicator_"], [class*="__replicator_"], #__replicator_picker_bar__, #__replicator_picker_overlay__
     `).remove();
 
-    // Universal DOM Sanitization: Remove modal classes, body scroll locks, open dialogs, and frozen inline panel heights
-    $cleanup('body').removeClass('tds-modal--is-open tds-site-header-panel--is-open overflow-hidden menu-open');
+    // Universal DOM Sanitization: Remove body scroll locks and open state artifacts
+    $cleanup('body').removeClass('overflow-hidden menu-open');
     const bodyStyle = $cleanup('body').attr('style');
     if (bodyStyle && bodyStyle.includes('overflow')) {
       $cleanup('body').attr('style', bodyStyle.replace(/overflow[^;]+;?/gi, ''));
     }
 
     $cleanup('dialog[open]').removeAttr('open');
-    $cleanup('.open, .tds-modal--open, .mobile-open').removeClass('open tds-modal--open mobile-open');
-
-    // Remove frozen inline --active-panel-height from hover captures
-    $cleanup('[style*="--active-panel-height"]').each((_, el) => {
-      const $el = $cleanup(el);
-      const s = $el.attr('style') || '';
-      $el.attr('style', s.replace(/--active-panel-height:\s*[^;]+;?/gi, ''));
-    });
-
-    // Normalize fixed 1024px inline style variables to responsive equivalents
-    $cleanup('[style*="--tcl-dynamic-section--width"]').each((_, el) => {
-      const $el = $cleanup(el);
-      const s = $el.attr('style') || '';
-      $el.attr('style', s.replace(/--tcl-dynamic-section--width:\s*1024px;?/gi, '--tcl-dynamic-section--width: min(1024px, 100vw);'));
-    });
-    $cleanup('[style*="--tcl-flex-module__container--computed-max-inline-size"]').each((_, el) => {
-      const $el = $cleanup(el);
-      const s = $el.attr('style') || '';
-      $el.attr('style', s.replace(/--tcl-flex-module__container--computed-max-inline-size:\s*1024px;?/gi, '--tcl-flex-module__container--computed-max-inline-size: min(1024px, 100%);'));
-    });
+    $cleanup('.open, .mobile-open, [class*="--show"], [class*="--layer-open"]').removeClass('open mobile-open srd19-gnb-search--show search--show');
+    $cleanup('section[class*="gnb-search"], [role="dialog"][class*="search"]').css('display', 'none');
     finalHtml = $cleanup.html();
 
     // Embed links to style.css and script.js in full-page index.html, remove redundant external css links
     finalHtml = injectStylesAndScripts(finalHtml);
 
-    // Ensure combined script is safely isolated in its own functional scope
-    let transformedJs = result.transformedJs || '';
-    if (transformedJs && !transformedJs.startsWith('(function()')) {
-      transformedJs = `(function() {\n  try {\n${transformedJs}\n  } catch (err) {\n    console.warn('Script initialization caught:', err);\n  }\n})();`;
+    // Dual-Engine Integration: Combine universal interactive resilience controller with authentic scripts
+    let syntheticSectionControllers = (result.sections || [])
+      .map((s) => {
+        try {
+          const syn = synthesisEngine.synthesizeSection(
+            s.cleanedHtml || s.rawHtml,
+            url,
+            finalCss,
+            s.meta?.id || 'main',
+            s.meta?.archetype || 'section',
+            finalHtml,
+            result.recordedInteractions
+          );
+          return syn.js;
+        } catch {
+          return '';
+        }
+      })
+      .filter(Boolean)
+      .join('\n\n');
+
+    if (!syntheticSectionControllers || !syntheticSectionControllers.trim()) {
+      try {
+        const fullSyn = synthesisEngine.synthesizeSection(
+          finalHtml,
+          url,
+          finalCss,
+          'full-page',
+          'body',
+          finalHtml,
+          result.recordedInteractions
+        );
+        syntheticSectionControllers = fullSyn.js;
+      } catch (err) {
+        // Fallback gracefully
+      }
+    }
+
+    let sanitizedAuthenticJs = JsTransformer.sanitizeModuleSyntax(result.transformedJs || '');
+    if (sanitizedAuthenticJs && sanitizedAuthenticJs.trim()) {
+      try {
+        new Function(sanitizedAuthenticJs);
+        if (!sanitizedAuthenticJs.startsWith('(function()')) {
+          sanitizedAuthenticJs = `(function() {\n  try {\n${sanitizedAuthenticJs}\n  } catch (err) {\n    console.warn('Authentic script initialization caught:', err);\n  }\n})();`;
+        }
+      } catch (err) {
+        sanitizedAuthenticJs = `/* [Authentic Origin JS Isolated Due to Syntax Errors] */\ntry {\n  new Function(${JSON.stringify(sanitizedAuthenticJs)})();\n} catch (e) {}\n`;
+      }
+    }
+
+    let dualEngineJs = '';
+    if (syntheticSectionControllers && syntheticSectionControllers.trim().length > 0) {
+      dualEngineJs = `/* [Universal Interactive Resilience Controllers] */\n${syntheticSectionControllers}\n\n`;
+    }
+    if (sanitizedAuthenticJs && sanitizedAuthenticJs.trim().length > 0) {
+      dualEngineJs += `/* [Authentic Harvested Scripts] */\n${sanitizedAuthenticJs}`;
     }
 
     // Save full page files
     fs.writeFileSync(path.join(fullPageDir, 'index.html'), finalHtml, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'style.css'), finalCss, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'style.min.css'), finalMinifiedCss, 'utf8');
-    fs.writeFileSync(path.join(fullPageDir, 'script.js'), transformedJs, 'utf8');
+    fs.writeFileSync(path.join(fullPageDir, 'script.js'), dualEngineJs, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'full-page.png'), result.fullPageScreenshot);
 
     // 2. Save individual sections
@@ -833,11 +301,7 @@ export class ZipPackager {
       fs.mkdirSync(secDir, { recursive: true });
 
       let secCss = sec.purgedCss;
-      let secMinCss = sec.minifiedCss;
-      if (secCss.includes('globalnav') || sec.cleanedHtml.includes('globalnav')) {
-        secCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
-        secMinCss += '\n' + REPLICATOR_NAV_PATCH_CSS;
-      }
+      const secMinCss = sec.minifiedCss;
 
       // Save HTML, CSS, JS
       fs.writeFileSync(path.join(secDir, 'section.html'), sec.cleanedHtml, 'utf8');
@@ -916,11 +380,12 @@ function injectStylesAndScripts(html: string): string {
   $('base').remove();
 
   // Universal removal of obstructive locale modals
-  $('.dx-mini-locale-selector__container, [class*="mini-locale-selector"], [class*="locale-selector__container"]').remove();
+  $('[class*="mini-locale-selector"], [class*="locale-selector__container"]').remove();
 
   // Ensure header has a mobile menu button if not already present
-  const headerEl = $('header, nav, [role="banner"], [class*="site-header"], [class*="page-header"]').first();
-  if (headerEl.length > 0 && headerEl.find('button[class*="hamburger"], [class*="hamburger"], button[aria-label*="menu" i], [class*="menu-trigger"], [class*="nav-toggle"], [class*="icon-bar"]').length === 0) {
+  const headerEl = $('header:not(.section-header):not([class*="section-header"]):not([class*="section_header"]), nav, [role="banner"], [class*="site-header"], [class*="page-header"]').first();
+  const hasNavContent = headerEl.find('nav, [role="navigation"], ul[class*="nav"], ul[class*="menu"], [class*="nav-item"], [class*="menu-item"], [class*="navbar"]').length > 0;
+  if (headerEl.length > 0 && hasNavContent && headerEl.find('button[class*="hamburger"], [class*="hamburger"], button[aria-label*="menu" i], [class*="menu-trigger"], [class*="nav-toggle"], [class*="icon-bar"]').length === 0) {
     const endNav = headerEl.find('ol:last-child, ul:last-child, [class*="end"], [class*="right"]').first();
     if (endNav.length > 0 && endNav.is('ul, ol')) {
       endNav.append(`<li><button type="button" class="universal-nav-toggle mobile-menu-btn" aria-label="Menu" style="background:transparent;border:none;cursor:pointer;padding:8px;font-size:16px;">☰ Menu</button></li>`);
@@ -1145,14 +610,14 @@ function injectStylesAndScripts(html: string): string {
   // Universal Cookie Banner & Modal Dismiss Handler (Runs in capture phase before frameworks mount)
   document.addEventListener('click', function(e) {
     var btn = e.target && e.target.closest ? e.target.closest(
-      '.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url, .dx-mini-locale-selector__close-icon-button, [class*="locale-selector"] button, [class*="country-selector"] button, [class*="modal-close"], [aria-label*="close" i]'
+      '[class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url, [class*="locale-selector"] button, [class*="country-selector"] button, [class*="modal-close"], [aria-label*="close" i]'
     ) : null;
     if (btn) {
       var banner = btn.closest(
-        '.cookie-banner, [class*="cookie-banner"]:not([class*="--"]), [class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"], .dx-mini-locale-selector__container, [class*="locale-selector"], [class*="country-selector"], [class*="geo-selector"]'
+        '.cookie-banner, [class*="cookie-banner"]:not([class*="--"]), [class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"]'
       );
       if (banner) {
-        banner.style.setProperty('display', 'none', 'important');
+        banner.style.display = 'none';
       }
     }
   }, true);
@@ -1161,11 +626,9 @@ function injectStylesAndScripts(html: string): string {
   if ($('head').length > 0) {
     $('head').prepend(requireShim);
     $('head').append('\n  <link rel="stylesheet" href="./style.css">\n');
-    $('head').append(`\n  <style id="replicator-universal-patches">\n${REPLICATOR_GLOBAL_PATCH_CSS}\n  </style>\n`);
   } else {
     $.root().prepend(requireShim);
     $.root().prepend('\n<link rel="stylesheet" href="./style.css">\n');
-    $.root().append(`\n<style id="replicator-universal-patches">\n${REPLICATOR_GLOBAL_PATCH_CSS}\n</style>\n`);
   }
 
   // Universal Header Navigation Controller (Desktop Hover Mega-Menu + Mobile Responsive Drawer)
@@ -1174,66 +637,51 @@ function injectStylesAndScripts(html: string): string {
   (function() {
     function initHeaderNavigation() {
       const getElements = function(sel) { return Array.from(document.querySelectorAll(sel)); };
-      const header = document.querySelector('#tds-site-header, .tds-site-header, header, [class*="site-header"]');
-      const megaPanel = document.querySelector('.tds-site-header-panel, .dx-mega-menu-panel, [class*="mega-menu-panel"]');
-      const backdrop = document.querySelector('.tds-modal-backdrop, [class*="menu-backdrop"]');
+      const header = document.querySelector('header, [role="banner"], [class*="site-header"], [class*="navbar"]');
+      const megaPanel = document.querySelector('dialog, [role="dialog"], [class*="mega-menu"], [class*="dropdown-menu"]');
+      const backdrop = document.querySelector('[class*="backdrop"], [class*="overlay"]');
 
-      // 1. Desktop Hover & Click Mega-Menu Controller
+      // 1. Desktop Hover & Click Navigation Controller
       if (header && megaPanel) {
-        const menuWrapper = header.closest('#mega-menu, .dx-mega-menu') || header;
+        const menuWrapper = header.closest('[class*="mega-menu"]') || header;
 
-        // Target only the top-level nav items in center navigation
         const navItems = Array.from(header.querySelectorAll(
-          'ol.tds-align--center > li > button, ol.tds-align--center > li > a, header nav > ul > li > a, header nav > ul > li > button, [role="navigation"] > ul > li > a, [role="navigation"] > ul > li > button'
+          'header nav > ul > li > a, header nav > ul > li > button, [role="navigation"] > ul > li > a, [role="navigation"] > ul > li > button, [role="navigation"] li > a, [role="navigation"] li > button'
         ));
 
-        // Target top-level category containers (Vehicles, Energy, Charging, Discover, Shop)
-        const contentWrapper = megaPanel.querySelector('.tds-site-header-panel-content') || megaPanel;
-        const categories = Array.from(contentWrapper.children).filter(function(el) {
-          return el.classList.contains('dx-mega-menu-panel-content') || el.hasAttribute('data-category');
-        }).slice(0, navItems.length);
+        const contentWrapper = megaPanel.querySelector('[class*="panel-content"], [class*="content"]') || megaPanel;
+        const categories = Array.from(contentWrapper.children).slice(0, navItems.length);
 
         let closeTimer = null;
 
         function openMegaCategory(index) {
           if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
           megaPanel.setAttribute('open', '');
-          megaPanel.classList.add('open', 'tds-modal--open');
-          megaPanel.style.setProperty('display', 'block', 'important');
-          megaPanel.style.setProperty('opacity', '1', 'important');
-          megaPanel.style.setProperty('visibility', 'visible', 'important');
-          megaPanel.style.setProperty('pointer-events', 'auto', 'important');
-          megaPanel.style.setProperty('height', 'auto', 'important');
-          megaPanel.style.setProperty('max-height', 'none', 'important');
-          megaPanel.style.setProperty('overflow', 'visible', 'important');
+          megaPanel.classList.add('open');
+          megaPanel.style.display = 'block';
+          megaPanel.style.opacity = '1';
+          megaPanel.style.visibility = 'visible';
+          megaPanel.style.pointerEvents = 'auto';
 
           if (backdrop) {
-            backdrop.style.setProperty('display', 'block', 'important');
-            backdrop.style.setProperty('opacity', '1', 'important');
-            backdrop.style.setProperty('pointer-events', 'auto', 'important');
+            backdrop.style.display = 'block';
+            backdrop.style.opacity = '1';
+            backdrop.style.pointerEvents = 'auto';
           }
 
           categories.forEach(function(cat, idx) {
             const isActive = idx === index;
             cat.classList.toggle('active', isActive);
             if (isActive) {
-              cat.style.setProperty('display', 'grid', 'important');
-              cat.style.setProperty('opacity', '1', 'important');
-              cat.style.setProperty('visibility', 'visible', 'important');
-              cat.style.setProperty('pointer-events', 'auto', 'important');
-              cat.style.setProperty('margin-top', '0px', 'important');
-
-              const catH = cat.scrollHeight || cat.offsetHeight;
-              if (catH > 0) {
-                contentWrapper.style.setProperty('height', (catH + 40) + 'px', 'important');
-                contentWrapper.style.setProperty('max-height', 'none', 'important');
-                contentWrapper.style.setProperty('overflow', 'visible', 'important');
-              }
+              cat.style.display = 'block';
+              cat.style.opacity = '1';
+              cat.style.visibility = 'visible';
+              cat.style.pointerEvents = 'auto';
             } else {
-              cat.style.setProperty('display', 'none', 'important');
-              cat.style.setProperty('opacity', '0', 'important');
-              cat.style.setProperty('visibility', 'hidden', 'important');
-              cat.style.setProperty('pointer-events', 'none', 'important');
+              cat.style.display = 'none';
+              cat.style.opacity = '0';
+              cat.style.visibility = 'hidden';
+              cat.style.pointerEvents = 'none';
             }
           });
 
@@ -1246,18 +694,18 @@ function injectStylesAndScripts(html: string): string {
           closeTimer = setTimeout(function() {
             if (!megaPanel.classList.contains('mobile-open')) {
               megaPanel.removeAttribute('open');
-              megaPanel.classList.remove('open', 'tds-modal--open');
+              megaPanel.classList.remove('open');
               categories.forEach(function(cat) {
                 cat.classList.remove('active');
-                cat.style.setProperty('display', 'none', 'important');
-                cat.style.setProperty('opacity', '0', 'important');
-                cat.style.setProperty('visibility', 'hidden', 'important');
-                cat.style.setProperty('pointer-events', 'none', 'important');
+                cat.style.display = 'none';
+                cat.style.opacity = '0';
+                cat.style.visibility = 'hidden';
+                cat.style.pointerEvents = 'none';
               });
               if (backdrop) {
-                backdrop.style.setProperty('display', 'none', 'important');
-                backdrop.style.setProperty('opacity', '0', 'important');
-                backdrop.style.setProperty('pointer-events', 'none', 'important');
+                backdrop.style.display = 'none';
+                backdrop.style.opacity = '0';
+                backdrop.style.pointerEvents = 'none';
               }
               navItems.forEach(function(btn) {
                 btn.setAttribute('aria-expanded', 'false');
@@ -1268,14 +716,10 @@ function injectStylesAndScripts(html: string): string {
 
         navItems.forEach(function(btn, idx) {
           btn.addEventListener('mouseenter', function() {
-            if (window.innerWidth >= 1024) {
-              openMegaCategory(idx);
-            }
+            if (window.innerWidth >= 1024) openMegaCategory(idx);
           });
           btn.addEventListener('mouseover', function() {
-            if (window.innerWidth >= 1024) {
-              openMegaCategory(idx);
-            }
+            if (window.innerWidth >= 1024) openMegaCategory(idx);
           });
           btn.addEventListener('click', function(e) {
             if (window.innerWidth >= 1024) {
@@ -1364,45 +808,24 @@ function injectStylesAndScripts(html: string): string {
             megaPanel.classList.toggle('mobile-open', willOpenMega);
             if (willOpenMega) {
               megaPanel.setAttribute('open', '');
-              megaPanel.style.setProperty('position', 'fixed', 'important');
-              megaPanel.style.setProperty('inset', '0', 'important');
-              megaPanel.style.setProperty('top', '0', 'important');
-              megaPanel.style.setProperty('z-index', '99999', 'important');
-              megaPanel.style.setProperty('display', 'flex', 'important');
-              megaPanel.style.setProperty('visibility', 'visible', 'important');
-              megaPanel.style.setProperty('opacity', '1', 'important');
-              megaPanel.style.setProperty('pointer-events', 'auto', 'important');
+              megaPanel.style.position = 'fixed';
+              megaPanel.style.top = '0';
+              megaPanel.style.left = '0';
+              megaPanel.style.right = '0';
+              megaPanel.style.bottom = '0';
+              megaPanel.style.zIndex = '99999';
+              megaPanel.style.display = 'flex';
+              megaPanel.style.visibility = 'visible';
+              megaPanel.style.opacity = '1';
+              megaPanel.style.pointerEvents = 'auto';
               document.body.classList.add('menu-open');
-              document.body.style.setProperty('overflow', 'hidden', 'important');
-              const categories = Array.from(megaPanel.querySelectorAll('[role="tabpanel"], [class*="panel-content"], [class*="menu-category"], [class*="panel-section"]'));
-              categories.forEach(function(cat, idx) {
-                cat.classList.add('active');
-                cat.style.setProperty('display', 'flex', 'important');
-                cat.style.setProperty('opacity', '1', 'important');
-                cat.style.setProperty('visibility', 'visible', 'important');
-                cat.style.setProperty('pointer-events', 'auto', 'important');
-                cat.style.setProperty('margin-top', '0px', 'important');
-
-                if (!cat.querySelector('.rep-mobile-cat-header')) {
-                  const title = cat.getAttribute('aria-label') || cat.getAttribute('data-title') || (cat.querySelector('h2, h3, h4, [class*="title"]') ? cat.querySelector('h2, h3, h4, [class*="title"]').textContent : '');
-                  if (title && title.trim()) {
-                    const hdr = document.createElement('div');
-                    hdr.className = 'rep-mobile-cat-header';
-                    hdr.style.cssText = 'grid-column: 1 / -1; font-weight: 700; font-size: 18px; margin: 16px 0 8px 0; color: #171a20; text-transform: uppercase; letter-spacing: 0.5px;';
-                    hdr.textContent = title.trim();
-                    cat.prepend(hdr);
-                  }
-                }
-              });
+              document.body.style.overflow = 'hidden';
             } else {
               megaPanel.removeAttribute('open');
-              megaPanel.style.removeProperty('position');
-              megaPanel.style.removeProperty('inset');
-              megaPanel.style.removeProperty('top');
-              megaPanel.style.removeProperty('z-index');
-              megaPanel.style.setProperty('display', 'none', 'important');
+              megaPanel.style.position = '';
+              megaPanel.style.display = 'none';
               document.body.classList.remove('menu-open');
-              document.body.style.removeProperty('overflow');
+              document.body.style.overflow = '';
             }
           }
 
@@ -1410,7 +833,7 @@ function injectStylesAndScripts(html: string): string {
           var menus = getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"], #nav-content, [class*="header_sidebar_menu"], [class*="nav-sections"]');
           var overlays = getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"], .bg');
           var willOpen = !menus.some(function(m) {
-            return m.classList.contains('mobile-menu-open') || m.classList.contains('open') || m.classList.contains('active') || m.style.transform === 'translateX(0px)';
+            return m.classList.contains('mobile-menu-open') || m.classList.contains('open') || m.classList.contains('active');
           });
 
           menus.forEach(function(m) {
@@ -1418,14 +841,12 @@ function injectStylesAndScripts(html: string): string {
             m.classList.toggle('open', willOpen);
             m.classList.toggle('active', willOpen);
             if (willOpen) {
-              m.style.setProperty('transform', 'translateX(0px)', 'important');
-              m.style.setProperty('left', '0px', 'important');
-              m.style.setProperty('visibility', 'visible', 'important');
-              m.style.setProperty('opacity', '1', 'important');
-              m.style.setProperty('pointer-events', 'auto', 'important');
+              m.style.visibility = 'visible';
+              m.style.opacity = '1';
+              m.style.pointerEvents = 'auto';
             } else {
-              m.style.removeProperty('transform');
-              m.style.removeProperty('left');
+              m.style.visibility = '';
+              m.style.opacity = '';
             }
           });
           overlays.forEach(function(o) {
@@ -1433,13 +854,13 @@ function injectStylesAndScripts(html: string): string {
             o.classList.toggle('open', willOpen);
             o.classList.toggle('active', willOpen);
             if (willOpen) {
-              o.style.setProperty('display', 'block', 'important');
-              o.style.setProperty('visibility', 'visible', 'important');
-              o.style.setProperty('opacity', '1', 'important');
+              o.style.display = 'block';
+              o.style.visibility = 'visible';
+              o.style.opacity = '1';
             } else {
-              o.style.removeProperty('display');
-              o.style.removeProperty('visibility');
-              o.style.removeProperty('opacity');
+              o.style.display = '';
+              o.style.visibility = '';
+              o.style.opacity = '';
             }
           });
           document.body.classList.toggle('menu-open', willOpen || (megaPanel && megaPanel.classList.contains('mobile-open')));
@@ -1448,31 +869,24 @@ function injectStylesAndScripts(html: string): string {
         }
 
         // B. Mobile Close Button or Overlay Click
-        var closeBtn = target.closest('.mobile-menu-close, [aria-label*="close" i], [class*="close-menu"], [class*="menu_close"], [class*="nav-close"], [class*="closeButton" i], [class*="close-button" i], .close-btn, .rep-nav-close');
+        var closeBtn = target.closest('.mobile-menu-close, [aria-label*="close" i], [class*="close-menu"], [class*="menu_close"], [class*="nav-close"], [class*="closeButton" i], [class*="close-button" i], .close-btn');
         var overlay = target.closest('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"], .bg');
         if (closeBtn || (overlay && target === overlay)) {
           if (megaPanel) {
-            megaPanel.classList.remove('mobile-open', 'open', 'tds-modal--open');
+            megaPanel.classList.remove('mobile-open', 'open');
             megaPanel.removeAttribute('open');
-            megaPanel.style.removeProperty('position');
-            megaPanel.style.removeProperty('inset');
-            megaPanel.style.removeProperty('top');
-            megaPanel.style.removeProperty('z-index');
-            megaPanel.style.setProperty('display', 'none', 'important');
+            megaPanel.style.position = '';
+            megaPanel.style.display = 'none';
           }
           getElements('.mobile-menu, [class*="mobile-nav"], [class*="nav-drawer"], [class*="mobile-sidebar"], #nav-content, [class*="header_sidebar_menu"], [class*="nav-sections"]').forEach(function(el) {
             el.classList.remove('mobile-menu-open', 'open', 'active', 'show');
-            el.style.removeProperty('transform');
-            el.style.removeProperty('left');
           });
           getElements('.mobile-overlay, [class*="menu-overlay"], [class*="backdrop"], .bg').forEach(function(el) {
             el.classList.remove('show', 'open', 'active');
-            el.style.removeProperty('display');
-            el.style.removeProperty('visibility');
-            el.style.removeProperty('opacity');
+            el.style.display = '';
           });
           document.body.classList.remove('menu-open', 'mobile-menu-open', 'overflow-hidden');
-          document.body.style.removeProperty('overflow');
+          document.body.style.overflow = '';
           return;
         }
 
@@ -1487,14 +901,14 @@ function injectStylesAndScripts(html: string): string {
           }
         }
 
-        // D. Cookie Banner & Consent Dismiss Click
+        // D. Cookie Banner Dismiss Click
         var cookieBtn = target.closest(
-          '.tds-btn--cookie, [class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action], .cookie-settings-url'
+          '[class*="cookie"] button, button[class*="cookie"], [id*="cookie"] button, [data-cookie-action]'
         );
         if (cookieBtn) {
-          var banner = cookieBtn.closest('.cookie-banner') || cookieBtn.closest('[class*="cookie-banner"]:not([class*="--"])') || cookieBtn.closest('[class*="cookie-consent"], [id*="cookie-banner"], [class*="cookie-modal"]');
+          var banner = cookieBtn.closest('.cookie-banner, [class*="cookie-banner"], [class*="cookie-consent"], [id*="cookie-banner"]');
           if (banner) {
-            banner.style.setProperty('display', 'none', 'important');
+            banner.style.display = 'none';
           }
           return;
         }
@@ -1514,9 +928,9 @@ function injectStylesAndScripts(html: string): string {
   <script>
   (function() {
     function initUniversalCarousels() {
-      // 1. Universal Stacked / Fade / Active-Class Carousels (e.g. Tesla Hero, Apple Media Gallery, Swiper Fade, Slick)
+      // 1. Universal Stacked / Fade / Active-Class Carousels
       const stackedCarousels = document.querySelectorAll(
-        '.tcl-flex-module-carousel--homepage_hero_carousel, .tcl-flex-module-stacked-carousel, .media-gallery, [class*="gallery-container"], [class*="stacked-carousel"], [class*="carousel-fade"]'
+        '[class*="carousel-fade"], [class*="stacked-carousel"], [class*="gallery-container"], [data-carousel="fade"]'
       );
 
       stackedCarousels.forEach(function(carousel) {
@@ -1524,31 +938,25 @@ function injectStylesAndScripts(html: string): string {
         carousel.setAttribute('data-rep-init', 'true');
 
         const slides = Array.from(
-          carousel.querySelectorAll('.tcl-flex-module-carousel__slide, .media-gallery-item, [role="tabpanel"], [class*="__slide"]')
+          carousel.querySelectorAll('[role="tabpanel"], [class*="__slide"], [class*="slide-item"]')
         ).filter(function(el) {
           const cls = el.className || '';
-          return !el.classList.contains('tcl-flex-module-carousel__slides') &&
-                 !cls.includes('__slides') &&
+          return !cls.includes('__slides') &&
                  !cls.includes('__track') &&
                  !cls.includes('carousel-container') &&
-                 !el.closest('.tcl-freeflow-carousel') &&
                  !el.closest('[class*="freeflow"]');
         });
 
         if (slides.length <= 1) return;
 
-        const isMediaGallery = carousel.classList.contains('media-gallery') || carousel.querySelector('.media-gallery-item');
-        const allTabLists = Array.from(carousel.querySelectorAll('.tds-tab-list--dots, .tcl-carousel__tab-list, .media-gallery-dotnav, [role="tablist"], [class*="dot-list"]'));
-        const nextBtns = Array.from(carousel.querySelectorAll('.tcl-carousel__nav--inline-end, [aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
-        const prevBtns = Array.from(carousel.querySelectorAll('.tcl-carousel__nav--inline-start, [aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
+        const isMediaGallery = carousel.classList.contains('media-gallery') || carousel.querySelector('[class*="gallery-item"]');
+        const allTabLists = Array.from(carousel.querySelectorAll('[role="tablist"], [class*="dot-list"], [class*="dots"]'));
+        const nextBtns = Array.from(carousel.querySelectorAll('[aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
+        const prevBtns = Array.from(carousel.querySelectorAll('[aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
 
         let currentIndex = 0;
         slides.forEach(function(s, idx) {
-          if (
-            s.classList.contains('tcl-flex-module-carousel__slide--active') ||
-            s.classList.contains('active') ||
-            s.classList.contains('current-item')
-          ) {
+          if (s.classList.contains('active') || s.classList.contains('current-item')) {
             currentIndex = idx;
           }
         });
@@ -1561,8 +969,6 @@ function injectStylesAndScripts(html: string): string {
             const offset = idx - currentIndex;
             const isActive = idx === currentIndex;
 
-            item.classList.toggle('tcl-flex-module-carousel__slide--active', isActive);
-            item.classList.toggle('current-item', isActive);
             item.classList.toggle('active', isActive);
             item.setAttribute('aria-hidden', isActive ? 'false' : 'true');
 
@@ -1583,13 +989,12 @@ function injectStylesAndScripts(html: string): string {
           });
 
           allTabLists.forEach(function(tabList) {
-            const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], .media-gallery-dotnav-link, .dotnav-link, button'));
+            const dots = Array.from(tabList.querySelectorAll('[role="tab"], button'));
             dots.forEach(function(trigger, idx) {
               const isSelected = idx === currentIndex;
               trigger.setAttribute('aria-selected', isSelected ? 'true' : 'false');
               trigger.classList.toggle('current', isSelected);
               trigger.classList.toggle('active', isSelected);
-              trigger.classList.toggle('tds-tab--selected', isSelected);
               if (trigger.parentElement) {
                 trigger.parentElement.classList.toggle('current', isSelected);
                 trigger.parentElement.classList.toggle('active', isSelected);
@@ -1619,7 +1024,7 @@ function injectStylesAndScripts(html: string): string {
         });
 
         allTabLists.forEach(function(tabList) {
-          const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], .media-gallery-dotnav-link, .dotnav-link, button'));
+          const dots = Array.from(tabList.querySelectorAll('[role="tab"], button'));
           dots.forEach(function(trigger, idx) {
             trigger.addEventListener('click', function(e) {
               e.preventDefault();
@@ -1650,35 +1055,28 @@ function injectStylesAndScripts(html: string): string {
         startAutoPlay();
       });
 
-      // 2. Universal Horizontal Freeflow & Scroll-Snap Carousels (e.g. Tesla Product Grids, E-Commerce Rows)
+      // 2. Universal Horizontal Freeflow & Scroll-Snap Carousels
       const freeflowContainers = document.querySelectorAll(
-        '.tcl-freeflow-carousel__container, [class*="freeflow-carousel__container"], .tcl-freeflow-carousel, [class*="horizontal-carousel"]'
+        '[class*="freeflow-carousel"], [class*="horizontal-carousel"], [class*="scroll-snap"]'
       );
 
       freeflowContainers.forEach(function(container) {
         if (container.hasAttribute('data-rep-ff-init')) return;
         container.setAttribute('data-rep-ff-init', 'true');
 
-        const scrollEl = container.querySelector('.tcl-freeflow-carousel-container__slides') ||
-          (container.classList.contains('tcl-freeflow-carousel')
-            ? container
-            : (container.querySelector('.tcl-freeflow-carousel, [class*="freeflow-carousel"]:not([class*="__container"])') || container));
-
+        const scrollEl = container.querySelector('[class*="slides"], [class*="track"]') || container;
         const slides = Array.from(
-          container.querySelectorAll('.tcl-freeflow-carousel-container__slide-container, [class*="slide-container"], [class*="carousel-card"]')
+          container.querySelectorAll('[class*="slide-container"], [class*="carousel-card"], [class*="__slide"]')
         );
         if (slides.length <= 1) return;
 
-        const tabLists = Array.from(container.querySelectorAll('.tds-tab-list--dots, .tcl-carousel__tab-list, [role="tablist"], [class*="dot-list"]'));
-        const nextBtns = Array.from(container.querySelectorAll('.tcl-carousel__nav--inline-end, [aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
-        const prevBtns = Array.from(container.querySelectorAll('.tcl-carousel__nav--inline-start, [aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
+        const tabLists = Array.from(container.querySelectorAll('[role="tablist"], [class*="dot-list"], [class*="dots"]'));
+        const nextBtns = Array.from(container.querySelectorAll('[aria-label*="next" i], [class*="nav-next"], button[class*="next"]'));
+        const prevBtns = Array.from(container.querySelectorAll('[aria-label*="prev" i], [aria-label*="previous" i], [class*="nav-prev"], button[class*="prev"]'));
 
         let currentIndex = 0;
         slides.forEach(function(s, idx) {
-          if (
-            s.classList.contains('tcl-freeflow-carousel-container__slide-container--active') ||
-            s.classList.contains('active')
-          ) {
+          if (s.classList.contains('active')) {
             currentIndex = idx;
           }
         });
@@ -1688,7 +1086,6 @@ function injectStylesAndScripts(html: string): string {
 
           slides.forEach(function(slide, idx) {
             const isActive = idx === currentIndex;
-            slide.classList.toggle('tcl-freeflow-carousel-container__slide-container--active', isActive);
             slide.classList.toggle('active', isActive);
           });
 
@@ -1703,13 +1100,12 @@ function injectStylesAndScripts(html: string): string {
           }
 
           tabLists.forEach(function(tabList) {
-            const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], button'));
+            const dots = Array.from(tabList.querySelectorAll('[role="tab"], button'));
             dots.forEach(function(dot, idx) {
               const isSelected = idx === currentIndex;
               dot.setAttribute('aria-selected', isSelected ? 'true' : 'false');
               dot.classList.toggle('active', isSelected);
               dot.classList.toggle('current', isSelected);
-              dot.classList.toggle('tds-tab--selected', isSelected);
               if (dot.parentElement) {
                 dot.parentElement.classList.toggle('active', isSelected);
                 dot.parentElement.classList.toggle('current', isSelected);
@@ -1737,7 +1133,7 @@ function injectStylesAndScripts(html: string): string {
         });
 
         tabLists.forEach(function(tabList) {
-          const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], button'));
+          const dots = Array.from(tabList.querySelectorAll('[role="tab"], button'));
           dots.forEach(function(dot, idx) {
             dot.addEventListener('click', function(e) {
               e.preventDefault();
@@ -1777,17 +1173,15 @@ function injectStylesAndScripts(html: string): string {
               currentIndex = closestIdx;
               slides.forEach(function(slide, idx) {
                 const isActive = idx === currentIndex;
-                slide.classList.toggle('tcl-freeflow-carousel-container__slide-container--active', isActive);
                 slide.classList.toggle('active', isActive);
               });
               tabLists.forEach(function(tabList) {
-                const dots = Array.from(tabList.querySelectorAll('.tds-tab, [role="tab"], button'));
+                const dots = Array.from(tabList.querySelectorAll('[role="tab"], button'));
                 dots.forEach(function(dot, idx) {
                   const isSelected = idx === currentIndex;
                   dot.setAttribute('aria-selected', isSelected ? 'true' : 'false');
                   dot.classList.toggle('active', isSelected);
                   dot.classList.toggle('current', isSelected);
-                  dot.classList.toggle('tds-tab--selected', isSelected);
                 });
               });
             }
@@ -1804,10 +1198,13 @@ function injectStylesAndScripts(html: string): string {
   })();
   </script>`;
 
-  if ($('body').length > 0) {
-    $('body').append('\n  <script src="./script.js" defer></script>\n' + mobileNavShim + '\n' + carouselShim + '\n');
-  } else {
-    $.root().append('\n<script src="./script.js" defer></script>\n' + mobileNavShim + '\n' + carouselShim + '\n');
+  const hasAuthenticScripts = $('script[src*="assets/"], script[src^="./assets/"], script[src^="assets/"]').length > 0;
+  if (!hasAuthenticScripts) {
+    if ($('body').length > 0) {
+      $('body').append('\n  <script src="./script.js" defer></script>\n' + mobileNavShim + '\n' + carouselShim + '\n');
+    } else {
+      $.root().append('\n<script src="./script.js" defer></script>\n' + mobileNavShim + '\n' + carouselShim + '\n');
+    }
   }
 
   let finalHtmlStr = $.html();
@@ -1829,9 +1226,7 @@ function generateStandaloneSectionHtml(title: string, html: string, css: string,
   <style>
     /* Reset & Base */
     *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: block !important; place-items: unset !important; }
-    body:has(> [data-theme="dark"]), body:has(> .section[data-theme="dark"]), body:has(> header[data-theme="dark"]), body:has(> nav[data-theme="dark"]), body[data-theme="dark"], body.theme-dark { background-color: #0f172a !important; color: #f8fafc; }
-    header, nav, [role="banner"], .site-header, [class*="site-header"], [class*="navbar"], [class*="globalnav"] { width: 100% !important; align-self: flex-start !important; top: 0 !important; margin-top: 0 !important; }
+    body { margin: 0; padding: 0; }
     ${css}
   </style>
 </head>

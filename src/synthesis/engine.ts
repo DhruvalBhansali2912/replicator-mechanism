@@ -6,7 +6,7 @@ import { JsSynthesizer } from './js-synthesizer.js';
 import { QualityScorer } from './scorer.js';
 import { SynthesizedSectionResult, SectionAST } from './types.js';
 import { RecordedInteraction } from '../types.js';
-import { resolveTargetSectionFromSnapshot } from '../classifier/section-resolver.js';
+import { resolveTargetSectionFromSnapshot, enrichSectionWithCompanions } from '../classifier/section-resolver.js';
 
 export class GroundUpSynthesisEngine {
   private inspector = new SectionInspector();
@@ -43,27 +43,16 @@ export class GroundUpSynthesisEngine {
           const curText = $cur.text().trim();
           const curMedia = $cur('img, video, picture, canvas, svg').length;
 
-          // If current sectionHtml is empty, lacks content, or snapshot has richer menus/structure
-          if (!sectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus) {
+          // If current sectionHtml is empty, lacks content, or snapshot has richer menus/structure or more complete container hierarchy
+          const snapCount = resolvedTarget.find('*').length;
+          const curCount = $cur('*').length;
+          if (!sectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus || snapCount > curCount) {
             sectionHtml = $snap.html(resolvedTarget) || sectionHtml;
           }
         }
 
         // Universal Portal & Navigation Drawer Enrichment:
-        // When reconstructing a navbar/header, look for associated portal drawers, dialogs, and language pickers
-        if (targetArchetypeHint === 'navbar' || (sourceSelector && (sourceSelector.includes('nav') || sourceSelector.includes('header')))) {
-          const associatedDrawers = $snap(
-            '[data-testid*="drawer"], [role="dialog"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"]'
-          );
-          if (associatedDrawers.length > 0) {
-            associatedDrawers.each((_, drw) => {
-              const drwHtml = $snap.html(drw);
-              if (drwHtml && !sectionHtml.includes(drwHtml)) {
-                sectionHtml += '\n' + drwHtml;
-              }
-            });
-          }
-        }
+        sectionHtml = enrichSectionWithCompanions(sectionHtml, $snap, targetArchetypeHint, sourceSelector);
       } catch {}
     }
 
@@ -81,9 +70,19 @@ export class GroundUpSynthesisEngine {
     // 4. Self-Healing Pass if score < 90
     if (!scoring.passed) {
       console.warn(`[SynthesisEngine] Score ${scoring.totalScore} < 90. Applying self-healing adjustments...`);
-      // Inject missing hover states or aria attributes if flagged
+      if (!css.includes('--color-primary') && !css.includes(':root')) {
+        css = `:root {\n  --color-primary: ${ast.tokens?.colors?.primary || '#111827'};\n  --color-bg: ${ast.tokens?.colors?.background || '#ffffff'};\n  --font-family: ${ast.tokens?.typography?.fontFamily || 'system-ui, sans-serif'};\n}\n` + css;
+      }
       if (!css.includes(':hover')) {
-        css += '\n.btn:hover { transform: translateY(-2px); }\n';
+        css += '\n.btn:hover, button.btn:hover { opacity: 0.9; transition: opacity 0.2s ease; }\n';
+      }
+      if (!css.includes('@media')) {
+        css += '\n@media (max-width: 768px) { [class*="container"] { width: 100%; padding: 0 16px; } }\n';
+      }
+      if (!html.includes('class="container') && !html.includes('class="wrapper') && !html.includes('class="module')) {
+        const $h = cheerio.load(html, null, false);
+        $h('*').first().addClass('container');
+        html = $h.html();
       }
       scoring = this.scorer.evaluate(ast, html, css);
     }
@@ -149,16 +148,12 @@ export class GroundUpSynthesisEngine {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <title>Synthesized Page</title>
-  <style>
-${combinedCss}
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 ${combinedSectionsHtml}
 
-  <script>
-${combinedJs}
-  </script>
+  <script src="script.js" defer></script>
 </body>
 </html>
 `.trim();

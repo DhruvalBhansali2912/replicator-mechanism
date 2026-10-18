@@ -4,13 +4,14 @@ import { HtmlTransformer } from '../transformer/html-transformer.js';
 import { CssTransformer } from '../transformer/css-transformer.js';
 import { JsTransformer } from '../transformer/js-transformer.js';
 import { CssPurger } from '../optimizer/css-purger.js';
-import { AssetLocalizer } from '../localizer/asset-localizer.js';
+import { AssetLocalizer, isTrackingOrAnalytics } from '../localizer/asset-localizer.js';
 import { ExtractionOptions, ExtractedSection, JobState, RecordedInteraction } from '../types.js';
 import { CONFIG } from '../config.js';
 import * as cheerio from 'cheerio';
 import fs from 'fs';
 import path from 'path';
 import axios from 'axios';
+import { synthesisEngine } from '../synthesis/engine.js';
 
 export interface BaselineScreenshots {
   desktop?: Buffer;
@@ -135,13 +136,23 @@ export class PageExtractor {
           html: secHtml,
         });
 
+        const synSec = synthesisEngine.synthesizeSection(
+          secHtml,
+          url,
+          combinedCss,
+          `${tag}:nth-of-type(${i + 1})`,
+          options.targetArchetype,
+          options.htmlSnapshot,
+          options.recordedInteractions
+        );
+
         sections.push({
           meta,
           rawHtml: secHtml,
-          cleanedHtml: secHtml,
-          purgedCss: combinedCss,
-          minifiedCss: combinedCss,
-          scopedJs: '',
+          cleanedHtml: synSec.html,
+          purgedCss: synSec.css,
+          minifiedCss: synSec.css,
+          scopedJs: synSec.js,
           classMapping: {},
           idMapping: {},
         });
@@ -149,6 +160,8 @@ export class PageExtractor {
     });
 
     onProgress?.('Snapshot extraction completed', 100);
+
+    const fullJs = sections.map((s) => s.scopedJs).filter(Boolean).join('\n\n');
 
     return {
       fullPageScreenshot: baselineScreenshots.desktop || Buffer.alloc(0),
@@ -158,8 +171,8 @@ export class PageExtractor {
       originalCss: combinedCss,
       transformedCss: combinedCss,
       minifiedCss: combinedCss,
-      originalJs: '',
-      transformedJs: '',
+      originalJs: fullJs,
+      transformedJs: fullJs,
       sections,
       assetCount: $('img, svg, picture, video').length,
       recordedInteractions: options.recordedInteractions,
@@ -196,10 +209,23 @@ export class PageExtractor {
     }
 
     const { context, page } = pageObj;
+    const networkCapturedCss = new Map<string, string>();
     try {
       // 1. Visit URL / Load Snapshot
       const hasSnapshot = !!(options.htmlSnapshot && options.htmlSnapshot.length > 500);
       console.log(`[Crawler] Extraction start: ${url} | hasSnapshot: ${hasSnapshot} (${options.htmlSnapshot?.length || 0} bytes) | clientScreenshot: ${!!options.clientScreenshot} | stylesheets: ${options.clientStylesheets?.length || 0}`);
+
+      // Capture all external CSS stylesheets at the network layer to bypass CORS restrictions
+      page.on('response', async (res: any) => {
+        try {
+          const ct = (res.headers()['content-type'] || '').toLowerCase();
+          const reqUrl = res.url();
+          if (ct.includes('text/css') || reqUrl.endsWith('.css') || reqUrl.includes('.css?')) {
+            const text = await res.text();
+            if (text && text.trim()) networkCapturedCss.set(reqUrl, text);
+          }
+        } catch {}
+      });
 
       if (hasSnapshot) {
         onProgress?.('Loading client-authenticated snapshot & styles...', 20);
@@ -254,8 +280,53 @@ export class PageExtractor {
 
       // 2. Trigger lazy loading, dynamic hydration, and animations
       onProgress?.('Triggering animations & lazy-loaded assets...', 30);
-      await this.scrollAndSettlePage(page, hasSnapshot);
+      await this.scrollAndSettlePage(page, hasSnapshot, (options as any).animationDelayMs || (options as any).settleWaitMs);
       await page.waitForTimeout(hasSnapshot ? 300 : CONFIG.crawler.settleWaitMs);
+
+      // Dismiss cookie/GDPR banners on live page before capturing baselines
+      await page.evaluate(() => {
+        const cookieSelectors = [
+          '[id*="onetrust-accept"]',
+          '[class*="cookie"] button[class*="accept"]',
+          '[class*="cookie"] button[class*="agree"]',
+          'button[aria-label*="accept" i]',
+          'button[aria-label*="agree" i]',
+          '#truste-consent-button',
+          '.cc-btn.cc-allow',
+          '[id*="cookie-banner"] button',
+          '[class*="cookie-banner"] button',
+          '.cookie-banner button'
+        ];
+        for (const sel of cookieSelectors) {
+          try {
+            const btn = document.querySelector(sel) as HTMLElement;
+            if (btn) btn.click();
+          } catch {}
+        }
+      });
+      await page.waitForTimeout(300);
+
+      // Universal Navigation Blocker: Prevent link clicks, form submits, and redirects from destroying the page during exploration
+      await page.evaluate(() => {
+        window.addEventListener('beforeunload', (e) => {
+          e.preventDefault();
+          e.returnValue = '';
+          return '';
+        }, true);
+        document.addEventListener('click', (e) => {
+          const a = (e.target as HTMLElement)?.closest?.('a');
+          if (a && a.getAttribute('href') && !a.getAttribute('href')?.startsWith('#')) {
+            e.preventDefault();
+          }
+        }, true);
+        document.addEventListener('submit', (e) => {
+          e.preventDefault();
+        }, true);
+        try {
+          window.history.pushState = function() {};
+          window.history.replaceState = function() {};
+        } catch {}
+      });
 
       // 2b. Capture multi-viewport baselines for Visual QA
       onProgress?.('Capturing multi-viewport visual baselines...', 35);
@@ -337,6 +408,24 @@ export class PageExtractor {
               canvas.parentNode?.replaceChild(img, canvas);
             }
           } catch {}
+        });
+
+        // Automatically hydrate lazy images and picture elements
+        document.querySelectorAll('img').forEach((img) => {
+          const dataSrc = img.getAttribute('data-desktop-src') ||
+                          img.getAttribute('data-src') ||
+                          img.getAttribute('data-original') ||
+                          img.getAttribute('data-lazy-src') ||
+                          img.getAttribute('data-mobile-src');
+          if (dataSrc && (!img.src || img.src.startsWith('data:image/gif') || img.src.includes('base64,R0lG') || img.src === window.location.href)) {
+            img.src = dataSrc.startsWith('//') ? 'https:' + dataSrc : dataSrc;
+          }
+        });
+        document.querySelectorAll('source').forEach((source) => {
+          const dataSrcset = source.getAttribute('data-srcset');
+          if (dataSrcset && (!source.srcset || source.srcset.startsWith('data:image/gif') || source.srcset.includes('base64,R0lG'))) {
+            source.srcset = dataSrcset.startsWith('//') ? 'https:' + dataSrcset : dataSrcset;
+          }
         });
 
         // Normalize inline SVGs by stamping real computed dimensions
@@ -431,6 +520,11 @@ export class PageExtractor {
       };
 
       const resolvedStylesheets: string[] = [];
+      // Merge network-intercepted stylesheets from CDN domains (CORS bypass)
+      for (const [netUrl, netText] of networkCapturedCss.entries()) {
+        resolvedStylesheets.push(resolveCssUrls(netText, netUrl));
+      }
+
       if (options.clientStylesheets && options.clientStylesheets.length > 0) {
         for (const item of options.clientStylesheets) {
           if (item && item.trim()) {
@@ -444,6 +538,31 @@ export class PageExtractor {
 
       // Also gather external CSS links
       const $ = cheerio.load(renderedHtml);
+
+      // Universal protocol-relative URL normalization
+      $('[src], [href], [srcset], [poster], [data-src], [data-desktop-src], [data-original]').each((_, el) => {
+        const $el = $(el);
+        ['src', 'href', 'srcset', 'poster', 'data-src', 'data-desktop-src', 'data-original'].forEach((attr) => {
+          let v = $el.attr(attr);
+          if (v && typeof v === 'string') {
+            if (v.startsWith('//')) {
+              v = 'https:' + v;
+              $el.attr(attr, v);
+            }
+          }
+        });
+      });
+
+      // Ensure all images have their src populated from lazy attributes
+      $('img').each((_, el) => {
+        const $el = $(el);
+        const curSrc = $el.attr('src');
+        const dataSrc = $el.attr('data-desktop-src') || $el.attr('data-src') || $el.attr('data-original') || $el.attr('data-mobile-src');
+        if ((!curSrc || curSrc.startsWith('data:image/gif') || curSrc.includes('base64,R0lG') || curSrc === '') && dataSrc) {
+          $el.attr('src', dataSrc.startsWith('//') ? 'https:' + dataSrc : dataSrc);
+        }
+      });
+
       const externalCssLinks: string[] = [];
       $('link[rel="stylesheet"]').each((_, el) => {
         const media = $(el).attr('media');
@@ -475,11 +594,10 @@ export class PageExtractor {
       }
 
       // Extract inline scripts (ONLY executable JavaScript, ignore JSON data scripts)
+      // Note: External <script src="..."> tags are preserved in HTML and downloaded by AssetLocalizer
       const inlineScripts: string[] = [];
-      $('script').each((_, el) => {
+      $('script:not([src])').each((_, el) => {
         const type = ($(el).attr('type') || '').toLowerCase().trim();
-        const src = $(el).attr('src');
-        if (src) return; // External script, kept in HTML or handled by localizer
         if (
           type === '' ||
           type === 'text/javascript' ||
@@ -487,8 +605,8 @@ export class PageExtractor {
           type === 'module'
         ) {
           const scriptText = $(el).html();
-          if (scriptText && scriptText.trim()) {
-            inlineScripts.push(`(function() {\n  try {\n${scriptText}\n  } catch (e) {\n    // Protected inline script execution\n  }\n})();`);
+          if (scriptText && scriptText.trim() && !isTrackingOrAnalytics(scriptText)) {
+            inlineScripts.push(`/* [Authentic Inline Script] */\n(function() {\n  try {\n${scriptText}\n  } catch (e) {\n    // Protected inline script execution\n  }\n})();`);
           }
         }
       });
@@ -660,7 +778,7 @@ export class PageExtractor {
     }
   }
 
-  private async scrollAndSettlePage(page: any, isSnapshot: boolean = false): Promise<void> {
+  private async scrollAndSettlePage(page: any, isSnapshot: boolean = false, customDelayMs?: number): Promise<void> {
     if (isSnapshot) {
       // For client-provided DOM snapshots, DOM is already fully hydrated and animated
       await page.evaluate(() => {
@@ -697,7 +815,6 @@ export class PageExtractor {
     await page.waitForLoadState('networkidle', { timeout: 3500 }).catch(() => {});
 
     // 3. Monitor dynamic skeleton loaders / pulse animations / placeholders
-    // Wait until placeholders are replaced by real content (up to 4.5 seconds max)
     const settleStart = Date.now();
     while (Date.now() - settleStart < 4500) {
       const hasActiveSkeletons = await page.evaluate(() => {
@@ -779,14 +896,14 @@ export class PageExtractor {
       });
     } catch {}
 
-    // 6. Pre-hover header navigation elements to trigger dynamic SPA hydration & render dropdown DOM
+    // 6. Pre-hover header navigation elements (including Samsung GNB, BEM l0-menu, and aria-haspopup items)
     try {
       const navHandles = await page.$$(
-        'header nav li button, header nav li a, [class*="nav-items"] > li > button, [class*="nav-items"] > li > a, [role="navigation"] button, [role="navigation"] a'
+        'header nav li button, header nav li a, [class*="nav-items"] > li > button, [class*="nav-items"] > li > a, [role="navigation"] button, [role="navigation"] a, [class*="l0-menu"] button, [class*="l0-menu"] a, [class*="gnb"] button, [class*="gnb"] a, button[aria-haspopup="true"], [role="button"][aria-haspopup="true"]'
       );
-      for (let i = 0; i < Math.min(navHandles.length, 8); i++) {
+      for (let i = 0; i < Math.min(navHandles.length, 12); i++) {
         await navHandles[i].hover({ timeout: 1500 }).catch(() => {});
-        await page.waitForTimeout(150);
+        await page.waitForTimeout(300); // Allow full CSS transition & DOM render
       }
       await page.mouse.move(0, 0);
 
@@ -799,6 +916,69 @@ export class PageExtractor {
         document.querySelectorAll('.open, .mobile-open, [class*="modal--open"]').forEach((el) => el.classList.remove('open', 'mobile-open'));
       });
     } catch {}
+
+    // 7. Active Carousel Discovery & Cycling (Hydrates all slides & lazy images across carousels)
+    try {
+      await page.evaluate(async () => {
+        const carouselContainers = Array.from(document.querySelectorAll(
+          '[class*="carousel"], [class*="slider"], [class*="swiper"], [class*="slick"], [role="region"][aria-roledescription="carousel"]'
+        )).filter(el => {
+          const cls = (el.className || '').toLowerCase();
+          return !cls.includes('nav') && !cls.includes('header') && !cls.includes('menu');
+        });
+
+        for (const container of carouselContainers.slice(0, 5)) {
+          const nextBtn = container.querySelector(
+            'button[class*="next"], [class*="navigator__button--next"], .swiper-button-next, .slick-next, [class*="arrow-next"], [aria-label*="next" i], [class*="indicator--next"], [class*="indicator__arrow"][class*="next"], button[data-testid*="next" i]'
+          );
+          if (nextBtn && (nextBtn as HTMLElement).offsetParent !== null) {
+            container.scrollIntoView({ behavior: 'auto', block: 'center' });
+            await new Promise(r => setTimeout(r, 200));
+
+            // Cycle next slides to trigger dynamic slide DOM and lazy images
+            for (let c = 0; c < 3; c++) {
+              (nextBtn as HTMLElement).click();
+              await new Promise(r => setTimeout(r, 350));
+            }
+
+            // Cycle back to initial slide
+            const prevBtn = container.querySelector(
+              'button[class*="prev"], [class*="navigator__button--prev"], .swiper-button-prev, .slick-prev, [class*="arrow-prev"], [aria-label*="prev" i], [class*="indicator--prev"], [class*="indicator__arrow"][class*="prev"]'
+            );
+            if (prevBtn && (prevBtn as HTMLElement).offsetParent !== null) {
+              for (let c = 0; c < 3; c++) {
+                (prevBtn as HTMLElement).click();
+                await new Promise(r => setTimeout(r, 150));
+              }
+            }
+          }
+        }
+      });
+    } catch {}
+
+    // 8. Universal Lazy Media Promotion in live DOM
+    await page.evaluate(() => {
+      document.querySelectorAll('img').forEach((img) => {
+        const lazySrc = img.getAttribute('data-desktop-src') || img.getAttribute('data-src') || img.getAttribute('data-original') || img.getAttribute('data-lazy-src');
+        if (lazySrc && (!img.src || img.src.startsWith('data:image/gif') || img.src.startsWith('data:image/svg'))) {
+          img.src = lazySrc;
+        }
+        const lazySrcset = img.getAttribute('data-srcset');
+        if (lazySrcset && !img.srcset) {
+          img.srcset = lazySrcset;
+        }
+      });
+      document.querySelectorAll('picture source').forEach((s) => {
+        const dSet = s.getAttribute('data-srcset');
+        if (dSet && !s.getAttribute('srcset')) {
+          s.setAttribute('srcset', dSet);
+        }
+      });
+    });
+
+    // 9. Animation Settling Window (Allow page animations to play; supports user delay up to 120s / 2 mins)
+    const settleDelay = Math.min(customDelayMs || 2000, 120000);
+    await page.waitForTimeout(settleDelay);
   }
 
   private async detectSections(page: any, targetArchetype?: string): Promise<
@@ -918,8 +1098,11 @@ export class PageExtractor {
         }
       }
 
-      // De-duplicate
-      const uniqueElements = Array.from(new Set(candidateElements));
+      // De-duplicate and filter nested candidates so top-level containers own their subcomponents
+      const rawCandidates = Array.from(new Set(candidateElements));
+      const uniqueElements = rawCandidates.filter((el) => {
+        return !rawCandidates.some((other) => other !== el && other.contains(el));
+      });
 
       // Filter and collect geometry
       let validSectionIndex = 0;
@@ -960,25 +1143,25 @@ export class PageExtractor {
 
   /**
    * Universally hovers and focuses interactive triggers to reveal dynamic submenus and portals.
+   * Explicitly waits for CSS animations, Framer Motion, and React portal mounts (300ms).
    */
   private async revealDynamicSections(page: any): Promise<void> {
     try {
-      await page.evaluate(async () => {
-        const triggers = Array.from(document.querySelectorAll(
-          'header button, header a, nav button, nav a, [role="navigation"] button, [role="navigation"] a, [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [class*="nav-item"] button, [class*="nav-item"] a'
-        )).slice(0, 25);
-
-        const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-        for (const el of triggers) {
-          try {
-            el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, view: window }));
-            el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
-            el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, view: window }));
-            (el as HTMLElement).focus?.({ preventScroll: true });
-          } catch {}
-          await sleep(40);
-        }
-      });
+      const handles = await page.$$(
+        'header button, header a, nav button, nav a, [role="navigation"] button, [role="navigation"] a, [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [class*="nav-item"] button, [class*="nav-item"] a, [class*="filter"] button, [role="tab"]'
+      );
+      for (const h of handles.slice(0, 16)) {
+        try {
+          if (await h.isVisible().catch(() => false)) {
+            const box = await h.boundingBox().catch(() => null);
+            if (box && box.width > 0 && box.height > 0) {
+              await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+              await page.waitForTimeout(200);
+            }
+          }
+        } catch {}
+      }
+      await page.mouse.move(0, 0);
       await page.waitForTimeout(200);
     } catch (e) {
       console.warn('[PageExtractor] Dynamic section reveal pass skipped:', e);
