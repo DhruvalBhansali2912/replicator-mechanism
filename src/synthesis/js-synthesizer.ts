@@ -2276,6 +2276,26 @@ export class JsSynthesizer {
 
       if (tabs.length <= 1) return;
 
+      // If this trigger group represents carousel pagination / dotnav / indicators,
+      // or if its targets reside within a sliding carousel/gallery track, skip it
+      // so the Universal Carousel Engine can manage sliding transitions without hiding slides!
+      const isCarouselIndicator = group.closest('[class*="dotnav"], [class*="pagination"], [class*="indicator"], [data-media-gallery]') ||
+                                  tabs.some(function(t) {
+                                    const c = (t.className || '').toLowerCase();
+                                    return c.includes('dotnav') || c.includes('bullet') || c.includes('indicator') || c.includes('slider-dot');
+                                  });
+      const hasDirectCarouselTarget = tabs.some(function(t) {
+        const id = t.getAttribute('aria-controls') || t.getAttribute('data-target') || (t.getAttribute('href') || '').replace(/^#/, '');
+        const targetEl = id ? document.getElementById(id) : null;
+        return targetEl && (
+          targetEl.closest('[class*="media-gallery-item-container"], [class*="gallery-item-container"], [class*="slider-track"], [class*="swiper-wrapper"], .media-gallery') ||
+          (targetEl.parentElement && (targetEl.parentElement.style.transform || '').includes('translate'))
+        );
+      });
+      if (isCarouselIndicator || hasDirectCarouselTarget) {
+        return;
+      }
+
       // Identify initial active button and diff active/inactive classes
       let initialActiveIdx = tabs.findIndex(function(t) {
         const cls = (typeof t.className === 'string' ? t.className : (t.getAttribute && t.getAttribute('class')) || '').toLowerCase();
@@ -2879,7 +2899,7 @@ export class JsSynthesizer {
         if (kids.some(function(k) {
           const t = (k.tagName || '').toUpperCase();
           const kc = (typeof k.className === 'string' ? k.className : '').toLowerCase();
-          return t === 'HEADER' || t === 'NAV' || t === 'FOOTER' || kc.includes('header') || kc.includes('heading') || kc.includes('gallery');
+          return t === 'HEADER' || t === 'NAV' || t === 'FOOTER' || kc.includes('header') || kc.includes('heading') || (kc.includes('gallery') && !kc.includes('gallery-item') && !kc.includes('gallery__item'));
         })) return false;
 
         return kids.some(function(k) {
@@ -2898,6 +2918,13 @@ export class JsSynthesizer {
     const pComp = (parent && parent.getAttribute && parent.getAttribute('data-component-list') || '').toLowerCase();
     const tComp = (t.getAttribute && t.getAttribute('data-component-list') || '').toLowerCase();
 
+    // If track or parent explicitly has gallery/carousel container or inline transform, it is a sliding track!
+    const tTransform = (t.style && t.style.transform) || '';
+    const hasSlidingTransform = tTransform.includes('translate');
+    if (hasSlidingTransform || tCls.includes('media-gallery') || tCls.includes('gallery-item-container') || tCls.includes('swiper-wrapper') || tCls.includes('slider-track')) {
+      return false;
+    }
+
     if (tCls.includes('fade') || tCls.includes('crossfade') || tCls.includes('stack') ||
         pCls.includes('fade') || pCls.includes('crossfade') || pCls.includes('stack') ||
         tComp.includes('fade') || tComp.includes('crossfade') || tComp.includes('stack') ||
@@ -2913,9 +2940,6 @@ export class JsSynthesizer {
 
     const s0 = slides[0];
     const s1 = slides[1];
-    if (s0.getAttribute('role') === 'tabpanel' || s1.getAttribute('role') === 'tabpanel') {
-      return true;
-    }
 
     try {
       const s0Style = window.getComputedStyle(s0);
@@ -2984,6 +3008,14 @@ export class JsSynthesizer {
       });
       const uniqueSlides = nonDupSlides.length > 0 ? nonDupSlides : allSlides;
       const baseIdx = Math.max(allSlides.indexOf(uniqueSlides[0]), 0);
+
+      // Ensure all slides in sliding carousel track are visible and not hidden by snapshot artifacts
+      allSlides.forEach(function(s) {
+        if (s.style && s.style.display === 'none') {
+          s.style.removeProperty('display');
+        }
+        s.classList.remove('should-hide');
+      });
 
       // Locate container and enclosing carousel scope
       const container = (transformTrack.parentElement && !['SECTION', 'BODY', 'MAIN', 'HTML'].includes(transformTrack.parentElement.tagName)) ? transformTrack.parentElement : transformTrack;
@@ -3115,7 +3147,12 @@ export class JsSynthesizer {
       const hasAutoplay = !!playPauseBtn || hasTimedNav;
       let isPlaying = hasAutoplay;
 
-      const isFullWidthSlider = allSlides.length > 0 && (
+      const hasTileWidth = Boolean(
+        (window.getComputedStyle(transformTrack).getPropertyValue('--media-gallery-tile-width') || '').trim() ||
+        (window.getComputedStyle(transformTrack).getPropertyValue('--tile-width') || '').trim() ||
+        (typeof transformTrack.className === 'string' && transformTrack.className.includes('media-gallery-item-container'))
+      );
+      const isFullWidthSlider = !hasTileWidth && allSlides.length > 0 && (
         (parseFloat(allSlides[0].style.width || '0') >= ((container.clientWidth || 1200) * 0.80)) ||
         (allSlides[0].offsetWidth >= ((container.clientWidth || 1200) * 0.80))
       );
@@ -3123,6 +3160,18 @@ export class JsSynthesizer {
       function updateSlideDimensions() {
         if (!container) return;
         const cW = container.clientWidth || carouselScope.clientWidth || sectionScope.clientWidth || window.innerWidth;
+        if (hasTileWidth) {
+          try {
+            const compStyle = window.getComputedStyle(transformTrack);
+            const tileW = parseFloat(compStyle.getPropertyValue('--media-gallery-tile-width') || '');
+            if (tileW > 50) {
+              allSlides.forEach(function(s) {
+                s.style.width = tileW + 'px';
+              });
+            }
+          } catch (_) {}
+          return;
+        }
         if (cW > 0 && isFullWidthSlider) {
           allSlides.forEach(function(s) {
             s.style.width = cW + 'px';
@@ -3140,6 +3189,24 @@ export class JsSynthesizer {
           const step = uniqueSlides[1].offsetLeft - uniqueSlides[0].offsetLeft;
           if (step > 30) return step;
         }
+        // Check if slides have inline transform differences (e.g. translate(0px) vs translate(943px))
+        if (uniqueSlides.length > 1) {
+          const t0 = (uniqueSlides[0].getAttribute('style') || '');
+          const t1 = (uniqueSlides[1].getAttribute('style') || '');
+          const m0 = t0.match(/translate(?:3d)?\\(\\s*(-?\\d+(?:\\.\\d+)?px)/);
+          const m1 = t1.match(/translate(?:3d)?\\(\\s*(-?\\d+(?:\\.\\d+)?px)/);
+          if (m0 && m1) {
+            const diff = Math.abs(parseFloat(m0[1]) - parseFloat(m1[1]));
+            if (diff > 50) return diff;
+          }
+        }
+        // Check CSS custom properties on container or track (e.g. --media-gallery-tile-width + --media-gallery-tile-gap)
+        try {
+          const compStyle = window.getComputedStyle(transformTrack);
+          const tileW = parseFloat(compStyle.getPropertyValue('--media-gallery-tile-width') || '');
+          const gap = parseFloat(compStyle.getPropertyValue('--media-gallery-tile-gap') || '0');
+          if (tileW > 50) return tileW + gap;
+        } catch (_) {}
         if (uniqueSlides.length > 0 && uniqueSlides[0].offsetWidth > 30) {
           return uniqueSlides[0].offsetWidth;
         }
@@ -3214,7 +3281,8 @@ export class JsSynthesizer {
             s.style.setProperty('display', 'block', 'important');
           });
         } else {
-          let offset = isFullWidthSlider
+          const usesTransformsOrSameOffset = hasExistingTransforms || (uniqueSlides.length > 1 && uniqueSlides[1].offsetLeft === uniqueSlides[0].offsetLeft);
+          let offset = (isFullWidthSlider || usesTransformsOrSameOffset)
             ? (baseIdx + currentIndex) * step
             : ((targetSlide && typeof targetSlide.offsetLeft === 'number' && targetSlide.offsetLeft > 0)
                 ? targetSlide.offsetLeft
@@ -3250,6 +3318,9 @@ export class JsSynthesizer {
             s.classList.toggle('is-active', isActive);
             s.classList.toggle('current', isActive);
             s.classList.toggle('current-item', isActive);
+            s.setAttribute('aria-hidden', String(!isActive));
+            s.style.removeProperty('display');
+            s.classList.remove('should-hide');
           });
         }
 
@@ -3261,9 +3332,11 @@ export class JsSynthesizer {
           b.classList.toggle('is-active', isActive);
           b.classList.toggle('active', isActive);
           b.classList.toggle('current', isActive);
-          if (b.parentElement && b.parentElement.tagName === 'LI') {
-            b.parentElement.classList.toggle('current', isActive);
-            b.parentElement.classList.toggle('dotnav-focused', isActive);
+          const parentLi = b.closest('.media-gallery-dotnav-item, .dotnav-item, li') || b.parentElement;
+          if (parentLi) {
+            parentLi.classList.toggle('current', isActive);
+            parentLi.classList.toggle('dotnav-focused', isActive);
+            parentLi.classList.toggle('active', isActive);
           }
           b.setAttribute('aria-selected', String(isActive));
           b.setAttribute('tabindex', isActive ? '0' : '-1');
@@ -3377,6 +3450,15 @@ export class JsSynthesizer {
           goToSlide(idx, false);
           if (isPlaying) resetAutoplay();
         });
+        const parentLi = bar.closest('.media-gallery-dotnav-item, .dotnav-item, li');
+        if (parentLi && parentLi !== bar && !parentLi.__hasCarouselDotBound) {
+          parentLi.__hasCarouselDotBound = true;
+          parentLi.addEventListener('click', function(e) {
+            e.preventDefault();
+            goToSlide(idx, false);
+            if (isPlaying) resetAutoplay();
+          });
+        }
       });
 
       // Bind navigation buttons (loops seamlessly when reaching edges)

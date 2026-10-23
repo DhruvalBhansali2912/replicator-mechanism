@@ -31,6 +31,7 @@ import { jobQueue } from './queue/job-queue.js';
 import { FidelityGuard } from './validator/fidelity-guard.js';
 import { comparisonEngine } from './validator/comparison-engine.js';
 import { trialErrorOptimizer } from './optimizer/trial-error-optimizer.js';
+import { optimizeCssForDocument } from './optimizer/css-purger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -615,6 +616,18 @@ export function createServer(): express.Application {
   app.get('/api/jobs/:id/style.css', (req: Request, res: Response) => {
     const p = path.join(CONFIG.jobsDir, req.params.id, 'full-page', 'style.css');
     if (fs.existsSync(p)) {
+      try {
+        const stat = fs.statSync(p);
+        if (stat.size > 200 * 1024) {
+          const raw = fs.readFileSync(p, 'utf8');
+          const indexPath = path.join(CONFIG.jobsDir, req.params.id, 'full-page', 'index.html');
+          const html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
+          const opt = optimizeCssForDocument(raw, html);
+          if (opt && opt.length < raw.length) {
+            fs.writeFileSync(p, opt, 'utf8');
+          }
+        }
+      } catch (_) {}
       res.setHeader('Content-Type', 'text/css');
       return res.sendFile(p);
     }
@@ -657,6 +670,18 @@ export function createServer(): express.Application {
     if (req.path === '/style.css') {
       const cssPath = path.join(jobDir, 'style.css');
       if (fs.existsSync(cssPath)) {
+        try {
+          const stat = fs.statSync(cssPath);
+          if (stat.size > 200 * 1024) {
+            const raw = fs.readFileSync(cssPath, 'utf8');
+            const indexPath = path.join(jobDir, 'index.html');
+            const html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
+            const opt = optimizeCssForDocument(raw, html);
+            if (opt && opt.length < raw.length) {
+              fs.writeFileSync(cssPath, opt, 'utf8');
+            }
+          }
+        } catch (_) {}
         res.type('text/css').sendFile(cssPath);
         return;
       }
@@ -1372,6 +1397,10 @@ ${sectionHtmlOutput}
     } catch (guardErr) {
       console.warn('[Server] FidelityGuard verification notice:', guardErr);
     }
+
+    try {
+      synthesizedResult.fullCss = optimizeCssForDocument(synthesizedResult.fullCss, synthesizedResult.fullHtml);
+    } catch (_) {}
 
     job.status = 'packaging';
     job.currentStep = 'Packaging synthesized files and creating archive...';

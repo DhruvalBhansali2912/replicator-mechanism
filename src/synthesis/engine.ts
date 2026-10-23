@@ -7,6 +7,7 @@ import { QualityScorer } from './scorer.js';
 import { SynthesizedSectionResult, SectionAST } from './types.js';
 import { RecordedInteraction } from '../types.js';
 import { resolveTargetSectionFromSnapshot, enrichSectionWithCompanions } from '../classifier/section-resolver.js';
+import { optimizeCssForDocument } from '../optimizer/css-purger.js';
 
 export class GroundUpSynthesisEngine {
   private inspector = new SectionInspector();
@@ -87,6 +88,8 @@ export class GroundUpSynthesisEngine {
       scoring = this.scorer.evaluate(ast, html, css);
     }
 
+    css = optimizeCssForDocument(css, html);
+
     const interactiveFeatures: string[] = [];
     if (ast.interactive.hoverStates.length > 0) {
       interactiveFeatures.push(`Hover transitions (${ast.interactive.hoverStates.length} elements)`);
@@ -164,7 +167,7 @@ ${combinedSectionsHtml}
 
     return {
       fullHtml,
-      fullCss: combinedCss,
+      fullCss: optimizeCssForDocument(combinedCss, fullHtml),
       fullJs: combinedJs,
       sections: results,
       averageScore,
