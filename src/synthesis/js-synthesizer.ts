@@ -379,14 +379,17 @@ export class JsSynthesizer {
       rawLower.includes('<nav') ||
       rawLower.includes('<header') ||
       rawLower.includes('mega-menu') ||
-      rawLower.includes('site-header');
+      rawLower.includes('site-header') ||
+      rawLower.includes('masthead') ||
+      rawLower.includes('menu-button') ||
+      rawLower.includes('data-menu-toggle');
 
     if (isNavigationSection) {
       scripts.push(`
   // Navigation & Dropdown Mega-Menu Controller
-  const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header');
+  const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header, .masthead, .main-section');
   const allMenuBtnCandidates = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"]'
+    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i]'
   )).map(function(el) {
     return el.closest('button, [role="button"], a, div[tabindex]') || el;
   }) : [];
@@ -461,7 +464,7 @@ export class JsSynthesizer {
     if (menuBtns && menuBtns.includes(el)) return false;
     if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'SPAN' || el.tagName === 'LI') return false;
     const cls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
-    if (cls.includes('btn') || cls.includes('toggle') || cls.includes('trigger') || cls.includes('hamburger')) return false;
+    if (cls.includes('btn') || cls.includes('toggle') || cls.includes('trigger') || cls.includes('hamburger') || cls.includes('pw') || cls.includes('paywall')) return false;
     return true;
   }
 
@@ -476,6 +479,9 @@ export class JsSynthesizer {
   if (!drawer) {
     const drawerSelectors = [
       '.universal-mobile-menu-drawer',
+      'nav.hamburger-menu',
+      '[class*="hamburger-menu"]',
+      '[class*="content-drawer"]',
       '[data-elementor-type="popup"]',
       '[class*="location-popup"]',
       '[id*="elementor-popup"]',
@@ -487,7 +493,7 @@ export class JsSynthesizer {
       '[class*="header_sidebar_menu"]',
       '[class*="offcanvas"]',
       '[class*="off-canvas"]',
-      '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="btn"])',
+      '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="pw"]):not([class*="paywall"]):not([class*="btn"])',
       '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
       '#nav-content',
       '[class*="navigation-menu__content"]',
@@ -986,8 +992,9 @@ export class JsSynthesizer {
         drawer.style.removeProperty('left');
         drawer.removeAttribute('data-offscreen-offset');
       }
-      if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+      if (drawer.classList.contains('universal-mobile-menu-drawer') || drawerCls.includes('hamburger-menu')) {
         drawer.classList.remove('is-open');
+        drawer.setAttribute('inert', '');
         drawer.style.setProperty('display', 'none', 'important');
         if (typeof resetMobDrawer === 'function') resetMobDrawer();
       }
@@ -1002,7 +1009,7 @@ export class JsSynthesizer {
       }
       applyFrameworkStateClasses(drawer, false);
     }
-    document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open');
+    document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open');
     document.documentElement.classList.remove('menu-open');
     menuBtns.forEach(function(btn) {
       btn.setAttribute('aria-expanded', 'false');
@@ -1110,12 +1117,17 @@ export class JsSynthesizer {
         navDropdownItems.forEach(function(it) {
           closeFlyoutItem(it);
         });
-        document.body.classList.add('menu-open', 'nav-open', 'sidebar-open');
+        document.body.classList.add('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open');
         document.documentElement.classList.add('menu-open');
+
+        if (!drawer) {
+          drawer = (navRoot ? navRoot.querySelector('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]') : null) || document.querySelector('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]');
+        }
 
         if (drawer) {
           drawer.classList.add('is-open', 'open', 'active', 'show', 'w--open');
           drawer.setAttribute('aria-hidden', 'false');
+          drawer.removeAttribute('inert');
           drawer.setAttribute('data-state', 'open');
           drawer.setAttribute('data-status', 'open');
           drawer.style.setProperty('visibility', 'visible', 'important');
@@ -1131,6 +1143,39 @@ export class JsSynthesizer {
           drawer.style.setProperty('transform', 'none', 'important');
 
           const drawerCls = (typeof drawer.className === 'string' ? drawer.className : (drawer.getAttribute && drawer.getAttribute('class')) || '').toLowerCase();
+          if (drawerCls.includes('hamburger-menu')) {
+            drawer.style.setProperty('position', 'fixed', 'important');
+            drawer.style.setProperty('top', '0px', 'important');
+            drawer.style.setProperty('right', '0px', 'important');
+            drawer.style.setProperty('bottom', '0px', 'important');
+            drawer.style.setProperty('width', 'min(380px, 100vw)', 'important');
+            drawer.style.setProperty('max-width', '100vw', 'important');
+            drawer.style.setProperty('height', '100vh', 'important');
+            drawer.style.setProperty('height', '100dvh', 'important');
+            drawer.style.setProperty('background', '#faf7f5', 'important');
+            drawer.style.setProperty('z-index', '2147483647', 'important');
+            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('transform', 'none', 'important');
+
+            drawer.querySelectorAll('.close-button, [aria-label*="close" i], [title*="close" i]').forEach(function(cb) {
+              cb.onclick = function(ev) {
+                ev.stopPropagation();
+                closeAllNav();
+              };
+            });
+            drawer.querySelectorAll('.accordion-button').forEach(function(accBtn) {
+              accBtn.onclick = function(ev) {
+                ev.stopPropagation();
+                const parent = accBtn.closest('.vertical-sub-list-item, li, div');
+                const sublist = parent ? parent.querySelector('.vertical-sub-list, ul, [class*="sub-list"]') : null;
+                if (sublist) {
+                  const isExp = accBtn.getAttribute('aria-expanded') === 'true' || sublist.style.display === 'block';
+                  accBtn.setAttribute('aria-expanded', isExp ? 'false' : 'true');
+                  sublist.style.display = isExp ? 'none' : 'block';
+                }
+              };
+            });
+          }
           if (drawer.classList.contains('w-nav-overlay') || drawerCls.includes('nav-overlay') || drawer.hasAttribute('data-wf-ignore')) {
             drawer.style.setProperty('width', '100%', 'important');
             drawer.style.setProperty('min-height', '100vh', 'important');
@@ -1293,7 +1338,7 @@ export class JsSynthesizer {
     if (e.key === 'Escape') closeAllNav();
   });
   document.addEventListener('click', function(e) {
-    if (e.target && (e.target.matches('.universal-drawer-close, .dialog-close-button, [data-action="close"], .fa-times, .fa-xmark') || e.target.closest('.universal-drawer-close, .dialog-close-button, [data-action="close"]'))) {
+    if (e.target && (e.target.matches('.universal-drawer-close, .close-button, [aria-label*="close" i], [title*="close" i], .dialog-close-button, [data-action="close"], .fa-times, .fa-xmark') || e.target.closest('.universal-drawer-close, .close-button, [aria-label*="close" i], [title*="close" i], .dialog-close-button, [data-action="close"]'))) {
       closeAllNav();
       return;
     }

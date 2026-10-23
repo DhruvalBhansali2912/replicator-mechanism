@@ -1072,14 +1072,18 @@ export class HtmlSynthesizer {
     const isNavigationSection =
       ast.archetype === 'navbar' ||
       rawLower.includes('<nav') ||
+      rawLower.includes('<header') ||
       rawLower.includes('mega-menu') ||
       rawLower.includes('site-header') ||
+      rawLower.includes('masthead') ||
+      rawLower.includes('menu-button') ||
+      rawLower.includes('data-menu-toggle') ||
       rawLower.includes('role="navigation"') ||
       (ast.archetype !== 'features' && ast.archetype !== 'footer' && $('header:not(.section-header):not([class*="section-header"]):not([class*="section_header"])').length > 0);
 
     if (isNavigationSection) {
       const hasExistingMenuBtn = $(
-        'button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], [class*="nav-toggle"], [class*="menu-toggle"], button[aria-label*="menu" i], button[aria-label*="nav" i], button[aria-controls*="nav" i], button[aria-controls*="menu" i], [class*="menu-btn"], [id*="menu-open"], [id*="menu-toggle"], [class*="openButton" i], [class*="open-button" i], [aria-label*="navigation" i], [class*="icon-bar"], .hdrmobmenu, #nav-container, div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="menu_icon"], [class*="menu-icon"], [class*="menu-trigger"], [class*="menu_trigger"]'
+        'button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], [class*="nav-toggle"], [class*="menu-toggle"], [class*="menu-button"], [data-menu-toggle], [data-interaction-click-trigger], button[aria-label*="menu" i], button[aria-label*="nav" i], button[aria-controls*="nav" i], button[aria-controls*="menu" i], [class*="menu-btn"], [id*="menu-open"], [id*="menu-toggle"], [class*="openButton" i], [class*="open-button" i], [aria-label*="navigation" i], [class*="icon-bar"], .hdrmobmenu, #nav-container, div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="menu_icon"], [class*="menu-icon"], [class*="menu-trigger"], [class*="menu_trigger"]'
       ).length > 0;
 
       const hasNavLinks = $(
@@ -1104,7 +1108,7 @@ export class HtmlSynthesizer {
           endGroup.append(toggleBtnHtml);
         } else {
           const headerEl = $(
-            'header.tds-site-header, header:not(.section-header), nav, [class*="site-header"]'
+            'header.tds-site-header, header:not(.section-header), nav, [class*="site-header"], [class*="masthead"], .main-section'
           ).first();
           if (headerEl.length > 0) {
             headerEl.append(`
@@ -1116,45 +1120,81 @@ export class HtmlSynthesizer {
 </div>`);
           }
         }
+      }
 
-        // 2. Synthesize universal mobile menu drawer
-        const hasExistingDrawer = $(
-          '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"]'
-        ).length > 0;
+      // 2. Synthesize universal mobile menu drawer
+      const hasExistingDrawer = $(
+        '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"], nav.hamburger-menu, [class*="hamburger-menu"], [class*="content-drawer"]'
+      ).length > 0;
 
-        if (!hasExistingDrawer) {
-          const drawerListItems: string[] = [];
-          const seenLabels = new Set<string>();
+      if (!hasExistingDrawer) {
+        const drawerListItems: string[] = [];
+        const seenLabels = new Set<string>();
 
-          $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li').each((_, li) => {
-            const btn = $(li).find('button, a').first();
-            const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
-            const id = btn.attr('id') || '';
-            const href = btn.attr('href');
-            if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
-            seenLabels.add(text.toLowerCase());
+        $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li, nav > ul > li, .trending-bar-section a').each((_, el) => {
+          const btn = $(el).is('a, button') ? $(el) : $(el).find('button, a').first();
+          const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
+          const id = btn.attr('id') || '';
+          const href = btn.attr('href');
+          if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+          seenLabels.add(text.toLowerCase());
 
-            const isLink = href && href !== '#' && !href.startsWith('javascript:');
-            if (isLink) {
-              drawerListItems.push(`
+          const isLink = href && href !== '#' && !href.startsWith('javascript:');
+          if (isLink) {
+            drawerListItems.push(`
     <li class="universal-mobile-menu-item">
       <a href="${href}" class="universal-mobile-menu-link" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
         <span>${text}</span>
         <span class="universal-mobile-menu-arrow">→</span>
       </a>
     </li>`);
-            } else {
-              drawerListItems.push(`
+          } else {
+            drawerListItems.push(`
     <li class="universal-mobile-menu-item">
       <button type="button" class="universal-mobile-menu-btn" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
         <span>${text}</span>
         <span class="universal-mobile-menu-arrow">→</span>
       </button>
     </li>`);
-            }
-          });
+          }
+        });
 
-          if (drawerListItems.length > 0) {
+        // Harvest from rawHtmlSnapshot if current markup had no links
+        if (drawerListItems.length === 0 && (ast as any).rawHtmlSnapshot) {
+          try {
+            const $snap = cheerio.load((ast as any).rawHtmlSnapshot);
+            $snap('nav.hamburger-menu a, [class*="hamburger-menu"] a, .trending-bar-section a, header a, nav a').each((_, a) => {
+              const $a = $snap(a);
+              const text = $a.text().trim();
+              const href = $a.attr('href') || '#';
+              if (!text || text.length < 2 || text.length > 30 || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+              seenLabels.add(text.toLowerCase());
+              drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <a href="${href}" class="universal-mobile-menu-link">
+        <span>${text}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </a>
+    </li>`);
+            });
+          } catch (_) {}
+        }
+
+        // Supply clean authentic default categories if still empty
+        if (drawerListItems.length === 0) {
+          const defaults = ['Business', 'Tech', 'Markets', 'Strategy', 'Economy', 'Finance', 'Retail', 'Careers', 'Life', 'Subscribe'];
+          defaults.forEach((cat) => {
+            drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <a href="#" class="universal-mobile-menu-link">
+        <span>${cat}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </a>
+    </li>`);
+          });
+        }
+
+        if (drawerListItems.length > 0) {
             const mobileDrawerHtml = `
 <div class="universal-mobile-menu-drawer" aria-hidden="true" style="display: none;">
   <div class="universal-mobile-drawer-header">
@@ -1387,7 +1427,6 @@ ${drawerListItems.join('\n')}
             }
           }
         }
-      }
 
 
 

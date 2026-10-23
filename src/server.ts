@@ -671,7 +671,16 @@ export function createServer(): express.Application {
         }
 
         // Universal Navigation Header Repair: inject mobile toggle, mobile nav CSS & mobile menu drawer
-        if (html.includes('<header') || html.includes('authentic-navbar') || html.includes('tds-site-header')) {
+        if (
+          html.includes('<header') ||
+          html.includes('authentic-navbar') ||
+          html.includes('tds-site-header') ||
+          html.includes('masthead') ||
+          html.includes('menu-button') ||
+          html.includes('data-menu-toggle') ||
+          html.includes('main-section') ||
+          html.includes('universal-nav-toggle')
+        ) {
           const $h = cheerio.load(html);
           let modified = false;
 
@@ -922,6 +931,156 @@ export function createServer(): express.Application {
     display: none !important;
   }
 }
+
+/* Authentic Masthead & Modern Header Layout Normalization */
+.main-section.masthead-animation,
+.main-section {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 60px !important;
+  max-height: 60px !important;
+  height: 60px !important;
+  padding: 0 24px !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  position: relative !important;
+}
+
+.logo-link svg,
+svg.logo-inline,
+.main-section svg.logo-inline {
+  max-height: 28px !important;
+  width: auto !important;
+  max-width: 240px !important;
+  display: block !important;
+}
+
+.masthead-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-left: auto !important;
+}
+
+.masthead-icon-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.masthead-icon-button,
+.menu-button,
+.account-btn button,
+.account-text-logged-in {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  color: inherit !important;
+}
+
+.subscribe-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 16px !important;
+  background: #002aff !important;
+  color: #ffffff !important;
+  border-radius: 4px !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+}
+
+/* Authentic Hamburger Menu Drawer */
+nav.hamburger-menu,
+.hamburger-menu {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 360px !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  background: #faf7f5 !important;
+  color: #0a0a0a !important;
+  z-index: 2147483647 !important;
+  overflow-y: auto !important;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.15) !important;
+  display: none !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  padding: 20px 24px !important;
+  transition: transform 0.3s ease !important;
+}
+
+nav.hamburger-menu.is-open,
+.hamburger-menu.is-open,
+body.content-drawer-open nav.hamburger-menu,
+body.content-drawer-open .hamburger-menu {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  right: 0 !important;
+  left: auto !important;
+}
+
+.hamburger-menu .close-button {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 24px !important;
+  padding: 8px !important;
+  align-self: flex-end !important;
+  color: #0a0a0a !important;
+}
+
+.hamburger-menu-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  flex: 1 !important;
+}
+
+.hamburger-menu a {
+  color: #0a0a0a !important;
+  text-decoration: none !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+.hamburger-menu a:hover {
+  color: #002aff !important;
+}
+
+.hamburger-menu .accordion-button {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  padding: 10px 0 !important;
+  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+  color: #0a0a0a !important;
+}
+
+.drawer-pw,
+[class*="drawer-pw"] {
+  display: none !important;
+}
 `;
 
           if ($h('#universal-mobile-nav-css').length === 0) {
@@ -970,40 +1129,102 @@ export function createServer(): express.Application {
             }
           }
 
-          if ($h('.universal-mobile-menu-drawer').length === 0) {
-            const drawerListItems: string[] = [];
-            const seenLabels = new Set<string>();
+          const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+          let jobData: any = {};
+          if (fs.existsSync(metaPath)) {
+            try {
+              jobData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+            } catch (_) {}
+          }
 
-            $h('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li').each((_, li) => {
-              const btn = $h(li).find('button, a').first();
-              const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
-              const id = btn.attr('id') || '';
-              const href = btn.attr('href');
-              if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
-              seenLabels.add(text.toLowerCase());
+          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
+            // First check if htmlSnapshot has authentic hamburger menu
+            if (jobData?.options?.htmlSnapshot) {
+              try {
+                const $snap = cheerio.load(jobData.options.htmlSnapshot);
+                const hMenu = $snap('nav.hamburger-menu, [class*="hamburger-menu"]').first();
+                if (hMenu.length > 0) {
+                  hMenu.removeAttr('inert');
+                  hMenu.find('.drawer-pw, [class*="drawer-pw"]').remove();
+                  const outer = $snap.html(hMenu);
+                  if (outer && outer.length > 50) {
+                    $h('body').append(outer);
+                    modified = true;
+                  }
+                }
+              } catch (_) {}
+            }
 
-              const isLink = href && href !== '#' && !href.startsWith('javascript:');
-              if (isLink) {
-                drawerListItems.push(`
+            // If still no drawer, synthesize universal mobile menu drawer
+            if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
+              const drawerListItems: string[] = [];
+              const seenLabels = new Set<string>();
+
+              $h('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li, nav > ul > li').each((_, li) => {
+                const btn = $h(li).find('button, a').first();
+                const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
+                const id = btn.attr('id') || '';
+                const href = btn.attr('href');
+                if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+                seenLabels.add(text.toLowerCase());
+
+                const isLink = href && href !== '#' && !href.startsWith('javascript:');
+                if (isLink) {
+                  drawerListItems.push(`
     <li class="universal-mobile-menu-item">
       <a href="${href}" class="universal-mobile-menu-link" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
         <span>${text}</span>
         <span class="universal-mobile-menu-arrow">→</span>
       </a>
     </li>`);
-              } else {
-                drawerListItems.push(`
+                } else {
+                  drawerListItems.push(`
     <li class="universal-mobile-menu-item">
       <button type="button" class="universal-mobile-menu-btn" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
         <span>${text}</span>
         <span class="universal-mobile-menu-arrow">→</span>
       </button>
     </li>`);
-              }
-            });
+                }
+              });
 
-            if (drawerListItems.length > 0) {
-              const mobileDrawerHtml = `
+              // Harvest from jobData htmlSnapshot if empty
+              if (drawerListItems.length === 0 && jobData?.options?.htmlSnapshot) {
+                try {
+                  const $snap = cheerio.load(jobData.options.htmlSnapshot);
+                  $snap('nav.hamburger-menu a, [class*="hamburger-menu"] a, .trending-bar-section a, header a, nav a').each((_, a) => {
+                    const $a = $snap(a);
+                    const text = $a.text().trim();
+                    const href = $a.attr('href') || '#';
+                    if (!text || text.length < 2 || text.length > 30 || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+                    seenLabels.add(text.toLowerCase());
+                    drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <a href="${href}" class="universal-mobile-menu-link">
+        <span>${text}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </a>
+    </li>`);
+                  });
+                } catch (_) {}
+              }
+
+              // Default categories if still empty
+              if (drawerListItems.length === 0) {
+                const defaults = ['Business', 'Tech', 'Markets', 'Strategy', 'Economy', 'Finance', 'Retail', 'Careers', 'Life', 'Subscribe'];
+                defaults.forEach((cat) => {
+                  drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <a href="#" class="universal-mobile-menu-link">
+        <span>${cat}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </a>
+    </li>`);
+                });
+              }
+
+              if (drawerListItems.length > 0) {
+                const mobileDrawerHtml = `
 <div class="universal-mobile-menu-drawer" aria-hidden="true" style="display: none;">
   <div class="universal-mobile-drawer-header">
     <button type="button" class="universal-mobile-drawer-back" style="display: none;" aria-label="Back">← Back</button>
@@ -1017,13 +1238,14 @@ ${drawerListItems.join('\n')}
     <div class="universal-mobile-subpanel-container" style="display: none;"></div>
   </div>
 </div>`;
-              const bodyEl = $h('body');
-              if (bodyEl.length > 0) {
-                bodyEl.append(mobileDrawerHtml);
-              } else {
-                $h.root().append(mobileDrawerHtml);
+                const bodyEl = $h('body');
+                if (bodyEl.length > 0) {
+                  bodyEl.append(mobileDrawerHtml);
+                } else {
+                  $h.root().append(mobileDrawerHtml);
+                }
+                modified = true;
               }
-              modified = true;
             }
           }
 
@@ -1263,6 +1485,156 @@ ${drawerListItems.join('\n')}
     display: none !important;
   }
 }
+
+/* Authentic Masthead & Modern Header Layout Normalization */
+.main-section.masthead-animation,
+.main-section {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  min-height: 60px !important;
+  max-height: 60px !important;
+  height: 60px !important;
+  padding: 0 24px !important;
+  background: #ffffff !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  position: relative !important;
+}
+
+.logo-link svg,
+svg.logo-inline,
+.main-section svg.logo-inline {
+  max-height: 28px !important;
+  width: auto !important;
+  max-width: 240px !important;
+  display: block !important;
+}
+
+.masthead-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-left: auto !important;
+}
+
+.masthead-icon-buttons {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.masthead-icon-button,
+.menu-button,
+.account-btn button,
+.account-text-logged-in {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 6px !important;
+  color: inherit !important;
+}
+
+.subscribe-link {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 16px !important;
+  background: #002aff !important;
+  color: #ffffff !important;
+  border-radius: 4px !important;
+  text-decoration: none !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  line-height: 1.2 !important;
+}
+
+/* Authentic Hamburger Menu Drawer */
+nav.hamburger-menu,
+.hamburger-menu {
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 360px !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  height: 100dvh !important;
+  background: #faf7f5 !important;
+  color: #0a0a0a !important;
+  z-index: 2147483647 !important;
+  overflow-y: auto !important;
+  box-shadow: -4px 0 20px rgba(0,0,0,0.15) !important;
+  display: none !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  padding: 20px 24px !important;
+  transition: transform 0.3s ease !important;
+}
+
+nav.hamburger-menu.is-open,
+.hamburger-menu.is-open,
+body.content-drawer-open nav.hamburger-menu,
+body.content-drawer-open .hamburger-menu {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  transform: none !important;
+  right: 0 !important;
+  left: auto !important;
+}
+
+.hamburger-menu .close-button {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 24px !important;
+  padding: 8px !important;
+  align-self: flex-end !important;
+  color: #0a0a0a !important;
+}
+
+.hamburger-menu-content {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  flex: 1 !important;
+}
+
+.hamburger-menu a {
+  color: #0a0a0a !important;
+  text-decoration: none !important;
+  font-size: 16px !important;
+  font-weight: 500 !important;
+}
+
+.hamburger-menu a:hover {
+  color: #002aff !important;
+}
+
+.hamburger-menu .accordion-button {
+  background: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  padding: 10px 0 !important;
+  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
+  color: #0a0a0a !important;
+}
+
+.drawer-pw,
+[class*="drawer-pw"] {
+  display: none !important;
+}
 `;
             raw += '\n' + mobileNavCss;
             fs.writeFileSync(cssPath, raw, 'utf8');
@@ -1284,7 +1656,7 @@ ${drawerListItems.join('\n')}
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
       let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
-      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
         const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
         let jobData: any = {};
         if (fs.existsSync(metaPath)) {

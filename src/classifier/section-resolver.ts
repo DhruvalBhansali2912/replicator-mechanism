@@ -353,11 +353,15 @@ export function enrichSectionWithCompanions(
 
   const isNav =
     targetArchetype === 'navbar' ||
-    (sourceSelector && (sourceSelector.includes('nav') || sourceSelector.includes('header'))) ||
+    (sourceSelector && (sourceSelector.includes('nav') || sourceSelector.includes('header') || sourceSelector.includes('masthead'))) ||
     targetHtml.includes('<header') ||
     targetHtml.includes('<nav') ||
+    targetHtml.includes('masthead') ||
     targetHtml.includes('site-header') ||
-    targetHtml.includes('location-header');
+    targetHtml.includes('location-header') ||
+    targetHtml.includes('menu-button') ||
+    targetHtml.includes('data-menu-toggle') ||
+    targetHtml.includes('hamburger');
 
   if (!isNav) return targetHtml;
 
@@ -368,6 +372,12 @@ export function enrichSectionWithCompanions(
 
     function addCompanion(el: any) {
       if (!el) return;
+      // If el is an internal element inside an off-canvas or companion container, climb to the container root
+      const containerParent = $snap(el).closest('nav.hamburger-menu, [class*="hamburger-menu"], [class*="drawer"], [role="dialog"], [class*="popup"]');
+      if (containerParent.length > 0 && !containerParent.is('html, body, main, section.main-section, header')) {
+        el = containerParent.get(0);
+      }
+
       const $el = $snap(el);
       const outer = $snap.html($el);
       const id = ($el.attr('id') || '').trim();
@@ -410,14 +420,20 @@ export function enrichSectionWithCompanions(
         cls.includes('dialog-off-canvas-main-canvas')
       ) return;
 
-      // An off-canvas or companion drawer must NEVER enclose the primary page content (<main>, <footer>, <article>)
-      if ($el.find('main, footer').length > 0 || $el.is('main, footer')) return;
+      // An off-canvas or companion drawer must NEVER enclose the primary page content (<main>, primary page footer, <article>)
+      if (
+        $el.is('main, article') ||
+        $el.find('main, article').length > 0 ||
+        $el.find('footer:not([class*="menu"]):not([class*="drawer"]):not([class*="panel"]):not([class*="popup"]):not([class*="modal"]):not([class*="dialog"])').length > 0 ||
+        ($el.is('footer') && !cls.includes('menu') && !cls.includes('drawer'))
+      ) return;
 
       // Sanitize companion to resting closed state
       const $clone = cheerio.load(outer, { xmlMode: false }, false);
       $clone.root().children().each((_, ch) => {
         const $ch = $clone(ch);
         $ch.removeAttr('data-open');
+        $ch.removeAttr('inert');
         if ($ch.attr('data-state') === 'open') $ch.attr('data-state', 'closed');
         if ($ch.attr('aria-expanded') === 'true') $ch.attr('aria-expanded', 'false');
       });
@@ -432,7 +448,7 @@ export function enrichSectionWithCompanions(
     // 1. Declarative Target Inspection:
     // Look at all buttons, links, toggles, icons inside targetHtml
     $target(
-      'button, a, [role="button"], [class*="toggle"], [class*="burger"], [class*="hamburger"], [class*="menu-btn"], [class*="icon"], [aria-controls], [data-target], [data-bs-target], [data-elementor-open-popup]'
+      'button, a, [role="button"], [class*="toggle"], [class*="burger"], [class*="hamburger"], [class*="menu-btn"], [class*="menu-button"], [data-menu-toggle], [data-interaction-click-trigger], [class*="icon"], [aria-controls], [data-target], [data-bs-target], [data-elementor-open-popup]'
     ).each((_, trg) => {
       const $trg = $target(trg);
       const ariaCtrl = $trg.attr('aria-controls');
@@ -440,6 +456,13 @@ export function enrichSectionWithCompanions(
       const dataTarget = $trg.attr('data-target') || $trg.attr('data-bs-target');
       const href = $trg.attr('href') || '';
       const elemPopup = $trg.attr('data-elementor-open-popup') || $trg.attr('data-popup-id');
+      const clickTrigger = $trg.attr('data-interaction-click-trigger') || '';
+
+      // 0. Interaction trigger (e.g. data-interaction-click-trigger="hamburger-menu")
+      if (clickTrigger.includes('hamburger') || clickTrigger.includes('menu')) {
+        const hMenu = $snap('nav.hamburger-menu, [class*="hamburger-menu"], [class*="content-drawer"]').first();
+        if (hMenu.length > 0) addCompanion(hMenu.get(0));
+      }
 
       // A. aria-controls & aria-owns
       [ariaCtrl, ariaOwns].forEach((id) => {
@@ -504,7 +527,7 @@ export function enrichSectionWithCompanions(
     // If target section has a hamburger/menu toggle OR user targeted a navbar, scan for detached navigation drawers
     const hasMenuIndicator =
       $target(
-        '[class*="burger"], [class*="hamburger"], [class*="menu-toggle"], [class*="nav-toggle"], [aria-label*="menu" i], [aria-label*="navigation" i], [class*="icon-bars"], .fa-bars, [data-action="toggle-nav"], a[href*="popup"], button[class*="menutrigger"]'
+        '[class*="burger"], [class*="hamburger"], [class*="menu-toggle"], [class*="nav-toggle"], [class*="menu-button"], [data-menu-toggle], [data-interaction-click-trigger], [aria-label*="menu" i], [aria-label*="navigation" i], [title*="menu" i], [class*="icon-bars"], .fa-bars, [data-action="toggle-nav"], a[href*="popup"], button[class*="menutrigger"]'
       ).length > 0;
 
     if (hasMenuIndicator || isNav) {
@@ -514,6 +537,11 @@ export function enrichSectionWithCompanions(
         '[id*="elementor-popup"]',
         'nav[class*="popup"]',
         '[class*="popup"]:not([class*="cookie"]):not([class*="cart"]):not([class*="modal"]):not([class*="toast"]):not([class*="alert"])',
+        'nav.hamburger-menu',
+        '[class*="hamburger-menu"]',
+        '[class*="hamburger_menu"]',
+        '[class*="content-drawer"]',
+        '[class*="drawer-menu"]',
         '[class*="mobile-nav-drawer"]',
         '[class*="mobile-menu"]',
         '[class*="menu-drawer"]',
@@ -521,7 +549,7 @@ export function enrichSectionWithCompanions(
         '[class*="header_sidebar_menu"]',
         '[class*="offcanvas"]:not([class*="main-canvas"]):not([class*="canvas-main"])',
         '[class*="off-canvas"]:not([class*="main-canvas"]):not([class*="canvas-main"])',
-        '[class*="drawer"]:not([class*="cart"]):not([class*="product"])',
+        '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="pw"]):not([class*="paywall"])',
         '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
         '[class*="side-nav"]',
         '[class*="site-menu"]',
@@ -540,10 +568,11 @@ export function enrichSectionWithCompanions(
         // Reject utility / non-navigation popups
         if (
           cls.includes('cookie') || cls.includes('consent') || cls.includes('gdpr') ||
+          cls.includes('pw') || cls.includes('paywall') ||
           cls.includes('newsletter') || cls.includes('toast') || cls.includes('alert') ||
           cls.includes('chat') || cls.includes('review') || cls.includes('feedback') ||
           cls.includes('login') || cls.includes('cart') || cls.includes('filter') ||
-          id.includes('cookie') || id.includes('consent') || id.includes('cart')
+          id.includes('cookie') || id.includes('consent') || id.includes('cart') || id.includes('paywall')
         ) {
           return;
         }
