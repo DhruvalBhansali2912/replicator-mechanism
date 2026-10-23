@@ -1040,14 +1040,44 @@ nav.hamburger-menu.is-open,
   left: auto !important;
 }
 
-.hamburger-menu .close-button {
+.hamburger-menu-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  margin-bottom: 24px !important;
+}
+
+.hamburger-menu .monogram-tap-target svg {
+  height: 28px !important;
+  width: auto !important;
+  max-width: 48px !important;
+  display: block !important;
+}
+
+.hamburger-menu .close-button,
+.close-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   background: none !important;
   border: none !important;
   cursor: pointer !important;
   font-size: 24px !important;
-  padding: 8px !important;
-  align-self: flex-end !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 6px !important;
   color: #0a0a0a !important;
+  border-radius: 50% !important;
+}
+
+.hamburger-menu .close-button svg,
+.close-button svg {
+  width: 20px !important;
+  height: 20px !important;
+  display: block !important;
 }
 
 .hamburger-menu-content {
@@ -1143,9 +1173,14 @@ nav.hamburger-menu.is-open,
             } catch (_) {}
           }
 
-          // Ensure any existing drawer in $h is closed and hidden initially
-          $h('nav.hamburger-menu, [class*="hamburger-menu"], .universal-mobile-menu-drawer').each((_, el) => {
+          // Ensure any existing drawer in $h is closed and hidden initially, but children remain visible
+          $h('nav.hamburger-menu, .hamburger-menu, .universal-mobile-menu-drawer').each((_, el) => {
             const $el = $h(el);
+            if ($el.parents('nav.hamburger-menu, .hamburger-menu, .universal-mobile-menu-drawer').length > 0) return;
+            $el.find('.hamburger-menu-top, .hamburger-menu-content, .hamburger-menu-footer, .close-button, .monogram-tap-target').each((_, ch) => {
+              const s = $h(ch).attr('style');
+              if (s && s.includes('display: none')) $h(ch).removeAttr('style');
+            });
             if (!$el.hasClass('is-open')) {
               $el.attr('style', 'display: none !important;');
               $el.removeAttr('inert');
@@ -1154,16 +1189,17 @@ nav.hamburger-menu.is-open,
             }
           });
 
-          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
+          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, .hamburger-menu').length === 0) {
             // First check if htmlSnapshot has authentic hamburger menu
             if (jobData?.options?.htmlSnapshot) {
               try {
                 const $snap = cheerio.load(jobData.options.htmlSnapshot);
-                const hMenu = $snap('nav.hamburger-menu, [class*="hamburger-menu"]').first();
+                const hMenu = $snap('nav.hamburger-menu, .hamburger-menu').first();
                 if (hMenu.length > 0) {
                   hMenu.removeAttr('inert');
                   hMenu.removeClass('is-open open active show');
                   hMenu.find('.drawer-pw, [class*="drawer-pw"]').remove();
+                  hMenu.find('.hamburger-menu-top, .hamburger-menu-content, .hamburger-menu-footer, .close-button, .monogram-tap-target').removeAttr('style');
                   hMenu.attr('style', 'display: none !important;');
                   const outer = $snap.html(hMenu);
                   if (outer && outer.length > 50) {
@@ -1173,18 +1209,6 @@ nav.hamburger-menu.is-open,
                 }
               } catch (_) {}
             }
-
-            // If still no drawer, synthesize universal mobile menu drawer
-            // Ensure any existing drawer in $h is closed and hidden initially
-          $h('nav.hamburger-menu, [class*="hamburger-menu"], .universal-mobile-menu-drawer').each((_, el) => {
-            const $el = $h(el);
-            if (!$el.hasClass('is-open')) {
-              $el.attr('style', 'display: none !important;');
-              $el.removeAttr('inert');
-              $el.find('.drawer-pw, [class*="drawer-pw"]').remove();
-              modified = true;
-            }
-          });
 
           if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
               const drawerListItems: string[] = [];
@@ -1623,14 +1647,44 @@ nav.hamburger-menu.is-open,
   left: auto !important;
 }
 
-.hamburger-menu .close-button {
+.hamburger-menu-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  margin-bottom: 24px !important;
+}
+
+.hamburger-menu .monogram-tap-target svg {
+  height: 28px !important;
+  width: auto !important;
+  max-width: 48px !important;
+  display: block !important;
+}
+
+.hamburger-menu .close-button,
+.close-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   background: none !important;
   border: none !important;
   cursor: pointer !important;
   font-size: 24px !important;
-  padding: 8px !important;
-  align-self: flex-end !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 6px !important;
   color: #0a0a0a !important;
+  border-radius: 50% !important;
+}
+
+.hamburger-menu .close-button svg,
+.close-button svg {
+  width: 20px !important;
+  height: 20px !important;
+  display: block !important;
 }
 
 .hamburger-menu-content {

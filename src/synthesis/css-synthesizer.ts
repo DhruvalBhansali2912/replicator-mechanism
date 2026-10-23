@@ -3977,14 +3977,44 @@ nav.hamburger-menu.is-open,
   left: auto !important;
 }
 
-.hamburger-menu .close-button {
+.hamburger-menu-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  margin-bottom: 24px !important;
+}
+
+.hamburger-menu .monogram-tap-target svg {
+  height: 28px !important;
+  width: auto !important;
+  max-width: 48px !important;
+  display: block !important;
+}
+
+.hamburger-menu .close-button,
+.close-button {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   background: none !important;
   border: none !important;
   cursor: pointer !important;
   font-size: 24px !important;
-  padding: 8px !important;
-  align-self: flex-end !important;
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 6px !important;
   color: #0a0a0a !important;
+  border-radius: 50% !important;
+}
+
+.hamburger-menu .close-button svg,
+.close-button svg {
+  width: 20px !important;
+  height: 20px !important;
+  display: block !important;
 }
 
 .hamburger-menu-content {

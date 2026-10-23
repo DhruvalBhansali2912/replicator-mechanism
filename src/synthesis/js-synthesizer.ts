@@ -1157,6 +1157,12 @@ export class JsSynthesizer {
             drawer.style.setProperty('display', 'flex', 'important');
             drawer.style.setProperty('transform', 'none', 'important');
 
+            drawer.querySelectorAll('.hamburger-menu-top, .hamburger-menu-content, .hamburger-menu-footer, .close-button, .monogram-tap-target').forEach(function(child) {
+              if (child.style && child.style.display === 'none') {
+                child.style.removeProperty('display');
+              }
+            });
+
             drawer.querySelectorAll('.close-button, [aria-label*="close" i], [title*="close" i]').forEach(function(cb) {
               cb.onclick = function(ev) {
                 ev.stopPropagation();
