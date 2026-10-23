@@ -661,7 +661,16 @@ export function createServer(): express.Application {
       }
       const indexPath = path.join(jobDir, 'index.html');
       if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
+        let html = fs.readFileSync(indexPath, 'utf8');
+        // Prune mistakenly dragged full page canvas from isolated navbar
+        if (html.includes('dialog-off-canvas-main-canvas') || (html.includes('tds-shell') && html.includes('<header'))) {
+          const $h = cheerio.load(html);
+          $h('.dialog-off-canvas-main-canvas, .tds-shell').remove();
+          html = $h.html();
+          fs.writeFileSync(indexPath, html, 'utf8');
+        }
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.send(html);
         return;
       }
     }
@@ -689,7 +698,31 @@ export function createServer(): express.Application {
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
       if (fs.existsSync(jsPath)) {
-        res.type('application/javascript').sendFile(jsPath);
+        let js = fs.readFileSync(jsPath, 'utf8');
+        if (!js.includes('dx-mega-menu-panel') && fs.existsSync(path.join(jobDir, 'index.html'))) {
+          const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+          if (fs.existsSync(metaPath)) {
+            try {
+              const jobData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+              if (jobData && jobData.options) {
+                const ast = (synthesisEngine as any).inspector.inspect(
+                  fs.readFileSync(path.join(jobDir, 'index.html'), 'utf8'),
+                  jobData.url || 'https://example.com',
+                  '',
+                  jobData.options.sectionSelector || 'header',
+                  jobData.options.targetArchetype || 'navbar',
+                  jobData.options.htmlSnapshot
+                );
+                const freshJs = (synthesisEngine as any).jsSynthesizer.synthesize(ast);
+                if (freshJs && freshJs.length > 50) {
+                  js = freshJs;
+                  fs.writeFileSync(jsPath, js, 'utf8');
+                }
+              }
+            } catch (_) {}
+          }
+        }
+        res.type('application/javascript').send(js);
         return;
       }
     }

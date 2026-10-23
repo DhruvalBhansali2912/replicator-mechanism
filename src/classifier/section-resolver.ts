@@ -402,8 +402,16 @@ export function enrichSectionWithCompanions(
         cls.includes('page-wrapper') ||
         cls.includes('main-wrapper') ||
         cls.includes('site-wrapper') ||
-        cls.includes('layout-wrapper')
+        cls.includes('layout-wrapper') ||
+        cls.includes('main-canvas') ||
+        cls.includes('canvas-main') ||
+        cls.includes('page__shell') ||
+        cls.includes('site-shell') ||
+        cls.includes('dialog-off-canvas-main-canvas')
       ) return;
+
+      // An off-canvas or companion drawer must NEVER enclose the primary page content (<main>, <footer>, <article>)
+      if ($el.find('main, footer').length > 0 || $el.is('main, footer')) return;
 
       // Sanitize companion to resting closed state
       const $clone = cheerio.load(outer, { xmlMode: false }, false);
@@ -511,8 +519,8 @@ export function enrichSectionWithCompanions(
         '[class*="menu-drawer"]',
         '[class*="nav-drawer"]',
         '[class*="header_sidebar_menu"]',
-        '[class*="offcanvas"]',
-        '[class*="off-canvas"]',
+        '[class*="offcanvas"]:not([class*="main-canvas"]):not([class*="canvas-main"])',
+        '[class*="off-canvas"]:not([class*="main-canvas"]):not([class*="canvas-main"])',
         '[class*="drawer"]:not([class*="cart"]):not([class*="product"])',
         '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
         '[class*="side-nav"]',

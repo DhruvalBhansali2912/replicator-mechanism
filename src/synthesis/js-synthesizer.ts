@@ -616,6 +616,27 @@ export class JsSynthesizer {
         }
       }
     }
+    // Universal Detached Mega-Menu & Dialog Panels Resolution (e.g. Tesla, Radix)
+    if (!match) {
+      const megaPanels = Array.from(new Set(document.querySelectorAll(
+        '.dx-mega-menu-panel-content, [class*="dx-mega-menu-panel-content"], dialog[class*="mega-menu"] .dx-mega-menu-panel-content, [class*="site-header-panel-content"] > div, [class*="mega-menu-panel-content"]:not([class*="site-header-panel-content"])'
+      )));
+      if (megaPanels.length > 0) {
+        let itemEl = item;
+        if (item.parentElement && item.parentElement.tagName === 'LI') {
+          itemEl = item.parentElement;
+        }
+        if (itemEl.parentElement) {
+          const peerItems = Array.from(itemEl.parentElement.children).filter(function(c) {
+            return c.matches('li, button, a') || c.querySelector('button, a');
+          });
+          const idx = peerItems.indexOf(itemEl);
+          if (idx >= 0 && idx < megaPanels.length) {
+            match = megaPanels[idx];
+          }
+        }
+      }
+    }
     return match || null;
   }
 
@@ -772,6 +793,20 @@ export class JsSynthesizer {
       itDropdown.setAttribute('aria-hidden', 'true');
       itDropdown.style.removeProperty('--flyout-height');
       itDropdown.style.removeProperty('--l1-container-current-height');
+
+      // Close parent dialog if itDropdown is inside a detached dialog
+      const parentDialog = itDropdown.closest('dialog') || (itDropdown.parentElement && itDropdown.parentElement.closest('dialog'));
+      if (parentDialog) {
+        parentDialog.removeAttribute('open');
+        parentDialog.classList.remove('is-open', 'open');
+        parentDialog.style.display = 'none';
+      }
+      const backdrops = Array.from(document.querySelectorAll('.tds-modal-backdrop, [class*="modal-backdrop"], [class*="scrim"]'));
+      backdrops.forEach(function(b) {
+        b.setAttribute('aria-hidden', 'true');
+        b.classList.remove('is-open');
+        b.style.display = 'none';
+      });
       if (it.classList.contains('w-dropdown') || it.querySelector('.w-dropdown')) {
         const wDd = it.classList.contains('w-dropdown') ? it : it.querySelector('.w-dropdown');
         wDd.classList.remove('w--open');
@@ -1400,6 +1435,9 @@ export class JsSynthesizer {
     const triggers = Array.from(item.querySelectorAll(':scope > a, :scope > button, :scope > span, button, a, span, [role="button"], [class*="trigger"], a.nav-link, button.nav-link, [class*="link"]')).filter(function(el) {
       return !dropdown.contains(el);
     });
+    if ((item.matches('button, a, [role="button"]') || item.tagName === 'BUTTON' || item.tagName === 'A') && !triggers.includes(item)) {
+      triggers.unshift(item);
+    }
 
     function openFlyout() {
       clearTimeout(flyoutLeaveTimer);
@@ -1480,6 +1518,41 @@ export class JsSynthesizer {
       dropdown.setAttribute('data-state', 'open');
       dropdown.setAttribute('aria-hidden', 'false');
       dropdown.classList.add('is-open', 'open', 'show', 'active');
+
+      // Support detached dialog containers (e.g. Tesla, Radix)
+      const parentDialog = dropdown.closest('dialog') || (dropdown.parentElement && dropdown.parentElement.closest('dialog'));
+      if (parentDialog) {
+        parentDialog.setAttribute('open', '');
+        parentDialog.classList.add('is-open', 'open');
+        parentDialog.style.setProperty('display', 'block', 'important');
+        parentDialog.style.setProperty('visibility', 'visible', 'important');
+        parentDialog.style.setProperty('opacity', '1', 'important');
+      }
+
+      if (dropdown.parentElement && dropdown.parentElement.matches('[class*="panel-content"], [class*="header-panel"]')) {
+        dropdown.parentElement.style.setProperty('display', 'block', 'important');
+        dropdown.parentElement.style.setProperty('visibility', 'visible', 'important');
+        dropdown.parentElement.style.setProperty('opacity', '1', 'important');
+      }
+
+      // Hide sibling panels inside the same panel container
+      if (dropdown.parentElement) {
+        Array.from(dropdown.parentElement.children).forEach(function(sib) {
+          if (sib !== dropdown && (sib.matches('[class*="panel"], [class*="content"]') || sib.classList.contains('dx-mega-menu-panel-content'))) {
+            sib.setAttribute('aria-hidden', 'true');
+            sib.style.setProperty('display', 'none', 'important');
+          }
+        });
+      }
+
+      // Unhide backdrop
+      const backdrops = Array.from(document.querySelectorAll('.tds-modal-backdrop, [class*="modal-backdrop"], [class*="scrim"]'));
+      backdrops.forEach(function(b) {
+        b.setAttribute('aria-hidden', 'false');
+        b.classList.add('is-open');
+        b.style.setProperty('display', 'block', 'important');
+        b.style.setProperty('opacity', '1', 'important');
+      });
 
       // Support dynamic BEM mega-menu state classes
       Array.from(item.classList).forEach(function(c) {
@@ -1702,6 +1775,19 @@ export class JsSynthesizer {
     if (!isInsideNav && !isInsideDropdown) {
       scheduleFlyoutClose();
     }
+  });
+
+  // Dialog & modal close button handler
+  const dialogCloseButtons = Array.from(document.querySelectorAll(
+    'dialog [class*="close"], dialog button.tds-modal-close, [class*="modal-close"], .tds-modal-backdrop'
+  ));
+  dialogCloseButtons.forEach(function(cBtn) {
+    if (cBtn.hasAttribute('data-dialog-close-bound')) return;
+    cBtn.setAttribute('data-dialog-close-bound', 'true');
+    cBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      closeAllNav();
+    });
   });
 
   // Close dropdowns & mobile menu on escape or outside click

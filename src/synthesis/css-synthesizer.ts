@@ -3308,6 +3308,102 @@ a.tile-link, [class*="tile-link"], [class*="overlay-link"] {
     cursor: pointer !important;
   }
 
+  /* Universal Responsive Navigation Bar for Horizontal Group Navs */
+  .tds-site-header,
+  .authentic-navbar,
+  header.authentic-section {
+    flex-wrap: wrap !important;
+  }
+  .tds-site-header .tds-site-nav-items.tds-align--center,
+  .tds-site-header .dx-nav-item-group.tds-align--center,
+  header .tds-align--center {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 6px 12px !important;
+    gap: 8px !important;
+    order: 3 !important;
+  }
+  .tds-site-header .tds-site-nav-items.tds-align--center::-webkit-scrollbar,
+  header .tds-align--center::-webkit-scrollbar {
+    display: none !important;
+  }
+  .tds-site-header .tds-site-nav-items.tds-align--center li,
+  header .tds-align--center li {
+    flex-shrink: 0 !important;
+    display: inline-flex !important;
+  }
+  .tds-site-header .tds-site-nav-items.tds-align--center .tds-site-nav-item,
+  header .tds-align--center .tds-site-nav-item {
+    padding: 6px 14px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    border-radius: 4px !important;
+    background: rgba(0, 0, 0, 0.05) !important;
+  }
+  .tds-site-header .tds-align--start,
+  header .tds-align--start {
+    order: 1 !important;
+  }
+  .tds-site-header .tds-align--end,
+  header .tds-align--end {
+    order: 2 !important;
+  }
+
+  /* Universal Responsive Mega-Menu Dialogs & Drawers on Mobile */
+  dialog[open].tds-site-header-panel,
+  dialog[open].dx-mega-menu-panel,
+  dialog[open][class*="site-header-panel"],
+  dialog[open][class*="mega-menu"],
+  .tds-site-header-panel[open] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    background: #ffffff !important;
+    z-index: 1000000 !important;
+    overflow-y: auto !important;
+    padding: 24px 16px 60px !important;
+    box-sizing: border-box !important;
+  }
+  dialog[open] .dx-mega-menu-products,
+  dialog[open] [class*="menu-products"] {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px !important;
+  }
+  dialog[open] .dx-mega-menu-products img,
+  dialog[open] [class*="menu-products"] img {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+  dialog[open] button.tds-modal-close,
+  dialog[open] [class*="modal-close"] {
+    position: absolute !important;
+    top: 16px !important;
+    right: 16px !important;
+    z-index: 1000001 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: rgba(0, 0, 0, 0.08) !important;
+    border: none !important;
+    cursor: pointer !important;
+  }
+
   #globalnav.globalnav-with-submenu-open .globalnav-item-menu:not(.globalnav-item-flyout-open),
   #globalnav.globalnav-with-submenu-open .globalnav-item-submenu:not(.globalnav-item-flyout-open),
   nav.with-submenu-open [class*="item-menu"]:not(.is-open),
