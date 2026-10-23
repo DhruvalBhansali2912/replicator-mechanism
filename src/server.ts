@@ -662,10 +662,11 @@ export function createServer(): express.Application {
       const indexPath = path.join(jobDir, 'index.html');
       if (fs.existsSync(indexPath)) {
         let html = fs.readFileSync(indexPath, 'utf8');
-        // Prune mistakenly dragged full page canvas from isolated navbar
-        if (html.includes('dialog-off-canvas-main-canvas') || (html.includes('tds-shell') && html.includes('<header'))) {
+        // Prune mistakenly dragged full page canvas from isolated navbar and sanitize resting body open classes
+        if (html.includes('dialog-off-canvas-main-canvas') || (html.includes('tds-shell') && html.includes('<header')) || html.includes('content-drawer-open')) {
           const $h = cheerio.load(html);
           $h('.dialog-off-canvas-main-canvas, .tds-shell').remove();
+          $h('body').removeClass('content-drawer-open menu-open sidebar-open nav-open');
           html = $h.html();
           fs.writeFileSync(indexPath, html, 'utf8');
         }
@@ -1021,10 +1022,15 @@ nav.hamburger-menu,
   transition: transform 0.3s ease !important;
 }
 
+nav.hamburger-menu:not(.is-open),
+.hamburger-menu:not(.is-open) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 nav.hamburger-menu.is-open,
-.hamburger-menu.is-open,
-body.content-drawer-open nav.hamburger-menu,
-body.content-drawer-open .hamburger-menu {
+.hamburger-menu.is-open {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;
@@ -1137,6 +1143,17 @@ body.content-drawer-open .hamburger-menu {
             } catch (_) {}
           }
 
+          // Ensure any existing drawer in $h is closed and hidden initially
+          $h('nav.hamburger-menu, [class*="hamburger-menu"], .universal-mobile-menu-drawer').each((_, el) => {
+            const $el = $h(el);
+            if (!$el.hasClass('is-open')) {
+              $el.attr('style', 'display: none !important;');
+              $el.removeAttr('inert');
+              $el.find('.drawer-pw, [class*="drawer-pw"]').remove();
+              modified = true;
+            }
+          });
+
           if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
             // First check if htmlSnapshot has authentic hamburger menu
             if (jobData?.options?.htmlSnapshot) {
@@ -1145,7 +1162,9 @@ body.content-drawer-open .hamburger-menu {
                 const hMenu = $snap('nav.hamburger-menu, [class*="hamburger-menu"]').first();
                 if (hMenu.length > 0) {
                   hMenu.removeAttr('inert');
+                  hMenu.removeClass('is-open open active show');
                   hMenu.find('.drawer-pw, [class*="drawer-pw"]').remove();
+                  hMenu.attr('style', 'display: none !important;');
                   const outer = $snap.html(hMenu);
                   if (outer && outer.length > 50) {
                     $h('body').append(outer);
@@ -1156,7 +1175,18 @@ body.content-drawer-open .hamburger-menu {
             }
 
             // If still no drawer, synthesize universal mobile menu drawer
-            if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
+            // Ensure any existing drawer in $h is closed and hidden initially
+          $h('nav.hamburger-menu, [class*="hamburger-menu"], .universal-mobile-menu-drawer').each((_, el) => {
+            const $el = $h(el);
+            if (!$el.hasClass('is-open')) {
+              $el.attr('style', 'display: none !important;');
+              $el.removeAttr('inert');
+              $el.find('.drawer-pw, [class*="drawer-pw"]').remove();
+              modified = true;
+            }
+          });
+
+          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
               const drawerListItems: string[] = [];
               const seenLabels = new Set<string>();
 
@@ -1575,10 +1605,15 @@ nav.hamburger-menu,
   transition: transform 0.3s ease !important;
 }
 
+nav.hamburger-menu:not(.is-open),
+.hamburger-menu:not(.is-open) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 nav.hamburger-menu.is-open,
-.hamburger-menu.is-open,
-body.content-drawer-open nav.hamburger-menu,
-body.content-drawer-open .hamburger-menu {
+.hamburger-menu.is-open {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;

@@ -3959,10 +3959,15 @@ nav.hamburger-menu,
   transition: transform 0.3s ease !important;
 }
 
+nav.hamburger-menu:not(.is-open),
+.hamburger-menu:not(.is-open) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 nav.hamburger-menu.is-open,
-.hamburger-menu.is-open,
-body.content-drawer-open nav.hamburger-menu,
-body.content-drawer-open .hamburger-menu {
+.hamburger-menu.is-open {
   display: flex !important;
   visibility: visible !important;
   opacity: 1 !important;

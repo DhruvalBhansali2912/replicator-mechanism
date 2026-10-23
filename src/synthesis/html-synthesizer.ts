@@ -1067,6 +1067,10 @@ export class HtmlSynthesizer {
       $(el).css({ opacity: '1', visibility: 'visible' });
     });
 
+    // Clean up resting open drawer state classes from body and menus
+    $('body').removeClass('content-drawer-open menu-open sidebar-open nav-open');
+    $('nav.hamburger-menu, .hamburger-menu, .universal-mobile-menu-drawer').removeClass('is-open open active show').attr('style', 'display: none !important;');
+
     // 4. Ensure universal mobile toggle and curtain/backdrop exist for navbars
     const rawLower = (ast.rawSectionHtml || '').toLowerCase();
     const isNavigationSection =
