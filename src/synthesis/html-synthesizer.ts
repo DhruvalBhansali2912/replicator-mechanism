@@ -1087,19 +1087,95 @@ export class HtmlSynthesizer {
       ).length > 0;
 
       if (!hasExistingMenuBtn && hasNavLinks) {
-        const toggleBtn = `
-<div class="universal-nav-toggle-wrapper">
-  <button class="universal-nav-toggle" aria-label="Toggle navigation" type="button" aria-expanded="false">
-    <span class="nav-toggle-line"></span>
-    <span class="nav-toggle-line"></span>
-    <span class="nav-toggle-line"></span>
+        // 1. Inject Menu button into header end navigation or header bar
+        const endGroup = $(
+          'ol.tds-align--end, ul.tds-align--end, [class*="align--end"], [class*="nav-end"], [class*="navbar-end"], [class*="header-end"], [class*="nav-right"], [class*="header-right"], [class*="header-actions"]'
+        ).first();
+
+        const toggleBtnHtml = `
+<li class="universal-nav-toggle-item">
+  <button class="universal-nav-toggle mobile-menu-btn" aria-label="Toggle navigation" type="button" aria-expanded="false">
+    <span class="nav-toggle-icon">☰</span>
+    <span class="nav-toggle-label">Menu</span>
   </button>
-</div>`;
-        const headerEl = $('nav, [role="navigation"], header:not(.section-header):not([class*="section-header"]):not([class*="section_header"]), [class*="site-header"]').first();
-        if (headerEl.length > 0) {
-          headerEl.append(toggleBtn);
+</li>`;
+
+        if (endGroup.length > 0 && endGroup.is('ol, ul')) {
+          endGroup.append(toggleBtnHtml);
         } else {
-          $.root().append(toggleBtn);
+          const headerEl = $(
+            'header.tds-site-header, header:not(.section-header), nav, [class*="site-header"]'
+          ).first();
+          if (headerEl.length > 0) {
+            headerEl.append(`
+<div class="universal-nav-toggle-wrapper">
+  <button class="universal-nav-toggle mobile-menu-btn" aria-label="Toggle navigation" type="button" aria-expanded="false">
+    <span class="nav-toggle-icon">☰</span>
+    <span class="nav-toggle-label">Menu</span>
+  </button>
+</div>`);
+          }
+        }
+
+        // 2. Synthesize universal mobile menu drawer
+        const hasExistingDrawer = $(
+          '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"]'
+        ).length > 0;
+
+        if (!hasExistingDrawer) {
+          const drawerListItems: string[] = [];
+          const seenLabels = new Set<string>();
+
+          $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li').each((_, li) => {
+            const btn = $(li).find('button, a').first();
+            const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
+            const id = btn.attr('id') || '';
+            const href = btn.attr('href');
+            if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+            seenLabels.add(text.toLowerCase());
+
+            const isLink = href && href !== '#' && !href.startsWith('javascript:');
+            if (isLink) {
+              drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <a href="${href}" class="universal-mobile-menu-link" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
+        <span>${text}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </a>
+    </li>`);
+            } else {
+              drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <button type="button" class="universal-mobile-menu-btn" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
+        <span>${text}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </button>
+    </li>`);
+            }
+          });
+
+          if (drawerListItems.length > 0) {
+            const mobileDrawerHtml = `
+<div class="universal-mobile-menu-drawer" aria-hidden="true" style="display: none;">
+  <div class="universal-mobile-drawer-header">
+    <button type="button" class="universal-mobile-drawer-back" style="display: none;" aria-label="Back">← Back</button>
+    <span class="universal-mobile-drawer-title">Menu</span>
+    <button type="button" class="universal-mobile-drawer-close" aria-label="Close menu">✕</button>
+  </div>
+  <div class="universal-mobile-drawer-body">
+    <ul class="universal-mobile-menu-list">
+${drawerListItems.join('\n')}
+    </ul>
+    <div class="universal-mobile-subpanel-container" style="display: none;"></div>
+  </div>
+</div>`;
+            const bodyEl = $('body');
+            if (bodyEl.length > 0) {
+              bodyEl.append(mobileDrawerHtml);
+            } else {
+              $.root().append(mobileDrawerHtml);
+            }
+          }
         }
       }
 

@@ -421,6 +421,7 @@ export class JsSynthesizer {
 
   // 1. Resolve drawer via Elementor action href, W3C aria-controls, data-target, or standard mobile drawer selectors
   let drawer = null;
+  let resetMobDrawer = function() {};
   if (!drawer && menuBtn && (menuBtn.getAttribute('href') || '').includes('elementor-action')) {
     try {
       const decodedHref = decodeURIComponent(menuBtn.getAttribute('href') || '');
@@ -453,25 +454,40 @@ export class JsSynthesizer {
       drawer = document.querySelector(href);
     }
   }
+
+  function isValidDrawer(el) {
+    if (!el) return false;
+    if (el === menuBtn || (menuBtn && el.contains(menuBtn))) return false;
+    if (menuBtns && menuBtns.includes(el)) return false;
+    if (el.tagName === 'BUTTON' || el.tagName === 'A' || el.tagName === 'SPAN' || el.tagName === 'LI') return false;
+    const cls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
+    if (cls.includes('btn') || cls.includes('toggle') || cls.includes('trigger') || cls.includes('hamburger')) return false;
+    return true;
+  }
+
+  if (!drawer) {
+    drawer = (navRoot ? navRoot.querySelector('.universal-mobile-menu-drawer') : null) || document.querySelector('.universal-mobile-menu-drawer');
+  }
   if (!drawer && navRoot) {
     drawer = navRoot.querySelector(
-      '[class*="gnb"][class*="container"], #nav-content, [class*="header_sidebar_menu"], [class*="mobile-nav-drawer"], [class*="mobile-menu"], [class*="menu-drawer"], [class*="mobile-nav"], [class*="nav-drawer"], [class*="nav-sections"], [class*="navigation-menu__content"], [class*="navigation-menu-content"], [role="dialog"]:not([class*="search"]):not([class*="video"]), [role="navigation"]:not(header > nav)'
+      '[class*="gnb"][class*="container"], #nav-content, [class*="header_sidebar_menu"], [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button), [class*="menu-drawer"], [class*="mobile-nav"], [class*="nav-drawer"], [class*="nav-sections"], [class*="navigation-menu__content"], [class*="navigation-menu-content"], [role="dialog"]:not([class*="search"]):not([class*="video"]), [role="navigation"]:not(header > nav)'
     );
   }
   if (!drawer) {
     const drawerSelectors = [
+      '.universal-mobile-menu-drawer',
       '[data-elementor-type="popup"]',
       '[class*="location-popup"]',
       '[id*="elementor-popup"]',
       '[class*="mobile-nav-drawer"]',
-      '[class*="mobile-menu"]',
+      '[class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button)',
       '[class*="menu-drawer"]',
       '[class*="mobile-nav"]',
       '[class*="nav-drawer"]',
       '[class*="header_sidebar_menu"]',
       '[class*="offcanvas"]',
       '[class*="off-canvas"]',
-      '[class*="drawer"]:not([class*="cart"]):not([class*="product"])',
+      '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="btn"])',
       '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
       '#nav-content',
       '[class*="navigation-menu__content"]',
@@ -480,11 +496,14 @@ export class JsSynthesizer {
     ];
     for (let i = 0; i < drawerSelectors.length; i++) {
       const match = (navRoot ? navRoot.querySelector(drawerSelectors[i]) : null) || document.querySelector(drawerSelectors[i]);
-      if (match && match !== menuBtn && !match.contains(menuBtn)) {
+      if (match && isValidDrawer(match)) {
         drawer = match;
         break;
       }
     }
+  }
+  if (drawer && !isValidDrawer(drawer)) {
+    drawer = null;
   }
   const menuBackBtn = navRoot ? navRoot.querySelector('[class*="menuback"]') : null;
 
@@ -510,6 +529,9 @@ export class JsSynthesizer {
       if (isMobile) {
         const isOpen = menuBtn.getAttribute('aria-expanded') === 'true' || drawer.classList.contains('is-open');
         if (!isOpen) {
+          if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+            drawer.style.setProperty('display', 'none', 'important');
+          }
           drawer.style.visibility = 'hidden';
           drawer.style.opacity = '0';
           drawer.style.pointerEvents = 'none';
@@ -517,13 +539,17 @@ export class JsSynthesizer {
         }
       } else {
         // Desktop viewport: restore author styles
-        drawer.style.visibility = '';
-        drawer.style.opacity = '';
-        drawer.style.pointerEvents = '';
-        drawer.setAttribute('aria-hidden', 'false');
-        if (drawer.getAttribute('data-offscreen-offset')) {
-          drawer.style.transform = '';
-          drawer.removeAttribute('data-offscreen-offset');
+        if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+          drawer.style.setProperty('display', 'none', 'important');
+        } else {
+          drawer.style.visibility = '';
+          drawer.style.opacity = '';
+          drawer.style.pointerEvents = '';
+          drawer.setAttribute('aria-hidden', 'false');
+          if (drawer.getAttribute('data-offscreen-offset')) {
+            drawer.style.transform = '';
+            drawer.removeAttribute('data-offscreen-offset');
+          }
         }
       }
     } catch (_) {}
@@ -649,6 +675,9 @@ export class JsSynthesizer {
   }) : [];
 
   const allNavCandidates = Array.from(new Set(rawNavCandidates.concat(ariaCandidates))).filter(function(el) {
+    if (el.matches('.universal-nav-toggle-item, .universal-nav-toggle, .universal-mobile-menu-drawer, [class*="nav-toggle"]') || el.querySelector('.universal-nav-toggle, [class*="nav-toggle"]')) {
+      return false;
+    }
     const cls = (el.getAttribute('class') || '').toLowerCase();
     const isItem = cls.includes('item') || cls.includes('menuitem') || el.tagName === 'LI';
     // Exclude dropdown/flyout panels themselves from being considered nav items
@@ -671,7 +700,8 @@ export class JsSynthesizer {
     if (item.tagName === 'UL' || item.tagName === 'OL' || item.tagName === 'NAV' || item.tagName === 'HEADER') return false;
     if (drawer && (drawer === item || item.classList.contains('mobile-nav-drawer'))) return false;
     if (item.matches('[class*="drawer"], [class*="menu-container"], [class*="menuback"], [class*="menutrigger"], [class*="menu-trigger"], [class*="hamburger"], [id*="menutrigger"]')) return false;
-    if (menuBtns && menuBtns.includes(item)) return false;
+    if (menuBtns && (menuBtns.includes(item) || menuBtns.some(function(b) { return item.contains(b); }))) return false;
+    if (item.matches('.universal-nav-toggle-item, .universal-nav-toggle, .universal-mobile-menu-drawer, [class*="nav-toggle"]') || item.querySelector('.universal-nav-toggle, [class*="nav-toggle"]')) return false;
 
     // 2. Dropdown element must exist for this item
     const dd = getDropdownFor(item);
@@ -956,6 +986,11 @@ export class JsSynthesizer {
         drawer.style.removeProperty('left');
         drawer.removeAttribute('data-offscreen-offset');
       }
+      if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+        drawer.classList.remove('is-open');
+        drawer.style.setProperty('display', 'none', 'important');
+        if (typeof resetMobDrawer === 'function') resetMobDrawer();
+      }
       if (drawer.classList.contains('w-nav-overlay') || drawerCls.includes('nav-overlay') || drawer.hasAttribute('data-wf-ignore')) {
         drawer.classList.remove('w--open');
         drawer.style.setProperty('display', 'none', 'important');
@@ -1086,9 +1121,14 @@ export class JsSynthesizer {
           drawer.style.setProperty('visibility', 'visible', 'important');
           drawer.style.setProperty('opacity', '1', 'important');
           drawer.style.setProperty('pointer-events', 'auto', 'important');
-          drawer.style.setProperty('display', 'block', 'important');
+          if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('z-index', '2147483647', 'important');
+          } else {
+            drawer.style.setProperty('display', 'block', 'important');
+            drawer.style.setProperty('z-index', '999990', 'important');
+          }
           drawer.style.setProperty('transform', 'none', 'important');
-          drawer.style.setProperty('z-index', '999990', 'important');
 
           const drawerCls = (typeof drawer.className === 'string' ? drawer.className : (drawer.getAttribute && drawer.getAttribute('class')) || '').toLowerCase();
           if (drawer.classList.contains('w-nav-overlay') || drawerCls.includes('nav-overlay') || drawer.hasAttribute('data-wf-ignore')) {
@@ -1105,80 +1145,94 @@ export class JsSynthesizer {
               navMenu.style.setProperty('background-color', 'var(--_color-theme---background, #faf9f5)', 'important');
             }
           }
-          const isOffCanvas = drawer.hasAttribute('data-elementor-type') ||
-            drawerCls.includes('popup') || drawerCls.includes('offcanvas') || drawerCls.includes('location-popup') || drawerCls.includes('drawer') || drawerCls.includes('sidebar');
-
-          if (isOffCanvas) {
+          if (drawer.classList.contains('universal-mobile-menu-drawer')) {
             drawer.style.setProperty('position', 'fixed', 'important');
             drawer.style.setProperty('top', '0px', 'important');
+            drawer.style.setProperty('left', '0px', 'important');
             drawer.style.setProperty('right', '0px', 'important');
             drawer.style.setProperty('bottom', '0px', 'important');
-            drawer.style.setProperty('width', 'min(500px, 100vw)', 'important');
-            drawer.style.setProperty('max-width', '100vw', 'important');
+            drawer.style.setProperty('width', '100vw', 'important');
             drawer.style.setProperty('height', '100vh', 'important');
-            drawer.style.setProperty('background-color', '#ffffff', 'important');
-            drawer.style.setProperty('box-shadow', '-5px 0 30px rgba(0,0,0,0.2)', 'important');
-            drawer.style.setProperty('overflow-y', 'auto', 'important');
-            drawer.style.setProperty('z-index', '999999', 'important');
-
-            if (!drawer.querySelector('.universal-drawer-close, .dialog-close-button, [data-action="close"]')) {
-              const closeBtn = document.createElement('button');
-              closeBtn.className = 'universal-drawer-close';
-              closeBtn.innerHTML = '✕';
-              closeBtn.setAttribute('aria-label', 'Close menu');
-              Object.assign(closeBtn.style, {
-                position: 'absolute',
-                top: '20px',
-                right: '24px',
-                background: 'rgba(0,0,0,0.06)',
-                border: 'none',
-                borderRadius: '50%',
-                width: '36px',
-                height: '36px',
-                fontSize: '18px',
-                lineHeight: '36px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                color: '#111827',
-                zIndex: '1000000',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '0'
-              });
-              closeBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                closeAllNav();
-              });
-              drawer.prepend(closeBtn);
-            }
+            drawer.style.setProperty('height', '100dvh', 'important');
+            drawer.style.setProperty('z-index', '2147483647', 'important');
+            drawer.style.setProperty('display', 'flex', 'important');
           } else {
-            const cs = window.getComputedStyle(drawer);
-            const isContained = (!drawer.style.position && (cs.position === 'static' || cs.position === 'relative')) || cs.position === 'static';
-            const isMobileViewport = window.innerWidth <= 900 || (menuBtn && isElementVisible(menuBtn));
-            if (isContained && isMobileViewport) {
-              drawer.setAttribute('data-mobile-fixed', 'true');
-              const navRect = (navRoot || drawer.parentElement).getBoundingClientRect();
-              const btnRect = menuBtn ? menuBtn.getBoundingClientRect() : null;
-              const topOffset = btnRect && btnRect.bottom > 0 && btnRect.bottom < 120
-                ? Math.min(Math.max(48, Math.round(btnRect.bottom + 8)), 72)
-                : Math.min(Math.max(48, Math.round(navRect.bottom || 56)), 72);
+            const isOffCanvas = drawer.hasAttribute('data-elementor-type') ||
+              drawerCls.includes('popup') || drawerCls.includes('offcanvas') || drawerCls.includes('location-popup') || drawerCls.includes('drawer') || drawerCls.includes('sidebar');
+
+            if (isOffCanvas) {
               drawer.style.setProperty('position', 'fixed', 'important');
-              drawer.style.setProperty('top', topOffset + 'px', 'important');
-              drawer.style.setProperty('left', '0px', 'important');
+              drawer.style.setProperty('top', '0px', 'important');
               drawer.style.setProperty('right', '0px', 'important');
-              drawer.style.setProperty('width', '100vw', 'important');
+              drawer.style.setProperty('bottom', '0px', 'important');
+              drawer.style.setProperty('width', 'min(500px, 100vw)', 'important');
+              drawer.style.setProperty('max-width', '100vw', 'important');
+              drawer.style.setProperty('height', '100vh', 'important');
               drawer.style.setProperty('background-color', '#ffffff', 'important');
-              drawer.style.setProperty('box-shadow', '0 10px 30px rgba(0,0,0,0.15)', 'important');
-              drawer.style.setProperty('padding', '24px', 'important');
-              drawer.style.setProperty('max-height', 'calc(100vh - ' + topOffset + 'px)', 'important');
+              drawer.style.setProperty('box-shadow', '-5px 0 30px rgba(0,0,0,0.2)', 'important');
               drawer.style.setProperty('overflow-y', 'auto', 'important');
-              const innerList = drawer.querySelector('ul, [role="list"], [role="menu"]');
-              if (innerList && !innerList.matches('[class*="trigger-group"], [class*="submenu"]')) {
-                innerList.style.setProperty('display', 'flex', 'important');
-                innerList.style.setProperty('flex-direction', 'column', 'important');
-                innerList.style.setProperty('align-items', 'flex-start', 'important');
-                innerList.style.setProperty('gap', '16px', 'important');
+              drawer.style.setProperty('z-index', '2147483647', 'important');
+
+              if (!drawer.querySelector('.universal-drawer-close, .dialog-close-button, [data-action="close"]')) {
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'universal-drawer-close';
+                closeBtn.innerHTML = '✕';
+                closeBtn.setAttribute('aria-label', 'Close menu');
+                Object.assign(closeBtn.style, {
+                  position: 'absolute',
+                  top: '20px',
+                  right: '24px',
+                  background: 'rgba(0,0,0,0.06)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '36px',
+                  height: '36px',
+                  fontSize: '18px',
+                  lineHeight: '36px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  color: '#111827',
+                  zIndex: '2147483647',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0'
+                });
+                closeBtn.addEventListener('click', function(e) {
+                  e.stopPropagation();
+                  closeAllNav();
+                });
+                drawer.prepend(closeBtn);
+              }
+            } else {
+              const cs = window.getComputedStyle(drawer);
+              const isContained = (!drawer.style.position && (cs.position === 'static' || cs.position === 'relative')) || cs.position === 'static';
+              const isMobileViewport = window.innerWidth <= 900 || (menuBtn && isElementVisible(menuBtn));
+              if (isContained && isMobileViewport) {
+                drawer.setAttribute('data-mobile-fixed', 'true');
+                const navRect = (navRoot || drawer.parentElement).getBoundingClientRect();
+                const btnRect = menuBtn ? menuBtn.getBoundingClientRect() : null;
+                const topOffset = btnRect && btnRect.bottom > 0 && btnRect.bottom < 120
+                  ? Math.min(Math.max(48, Math.round(btnRect.bottom + 8)), 72)
+                  : Math.min(Math.max(48, Math.round(navRect.bottom || 56)), 72);
+                drawer.style.setProperty('position', 'fixed', 'important');
+                drawer.style.setProperty('top', topOffset + 'px', 'important');
+                drawer.style.setProperty('left', '0px', 'important');
+                drawer.style.setProperty('right', '0px', 'important');
+                drawer.style.setProperty('width', '100vw', 'important');
+                drawer.style.setProperty('background-color', '#ffffff', 'important');
+                drawer.style.setProperty('box-shadow', '0 10px 30px rgba(0,0,0,0.15)', 'important');
+                drawer.style.setProperty('padding', '24px', 'important');
+                drawer.style.setProperty('max-height', 'calc(100vh - ' + topOffset + 'px)', 'important');
+                drawer.style.setProperty('overflow-y', 'auto', 'important');
+                drawer.style.setProperty('z-index', '2147483647', 'important');
+                const innerList = drawer.querySelector('ul, [role="list"], [role="menu"]');
+                if (innerList && !innerList.matches('[class*="trigger-group"], [class*="submenu"]')) {
+                  innerList.style.setProperty('display', 'flex', 'important');
+                  innerList.style.setProperty('flex-direction', 'column', 'important');
+                  innerList.style.setProperty('align-items', 'flex-start', 'important');
+                  innerList.style.setProperty('gap', '16px', 'important');
+                }
               }
             }
           }
@@ -1252,7 +1306,99 @@ export class JsSynthesizer {
     }
   });
 
-  const allBackBtns = document.querySelectorAll('[class*="backward-btn"], [class*="back-btn"], [class*="menuback"], [aria-label*="back" i], [aria-label="Main menu" i]');
+  // Universal Mobile Drawer Drill-Down Controller
+  const mobDrawer = document.querySelector('.universal-mobile-menu-drawer');
+  if (mobDrawer) {
+    const mobTitle = mobDrawer.querySelector('.universal-mobile-drawer-title');
+    const mobBackBtn = mobDrawer.querySelector('.universal-mobile-drawer-back');
+    const mobCloseBtn = mobDrawer.querySelector('.universal-mobile-drawer-close');
+    const mobList = mobDrawer.querySelector('.universal-mobile-menu-list');
+    const mobSubpanel = mobDrawer.querySelector('.universal-mobile-subpanel-container');
+
+    resetMobDrawer = function() {
+      if (mobList) mobList.style.removeProperty('display');
+      if (mobSubpanel) {
+        mobSubpanel.style.setProperty('display', 'none', 'important');
+        mobSubpanel.innerHTML = '';
+      }
+      if (mobBackBtn) mobBackBtn.style.setProperty('display', 'none', 'important');
+      if (mobTitle) mobTitle.textContent = 'Menu';
+    };
+
+    if (mobBackBtn && !mobBackBtn.hasAttribute('data-mob-back-bound')) {
+      mobBackBtn.setAttribute('data-mob-back-bound', 'true');
+      mobBackBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        resetMobDrawer();
+      });
+    }
+
+    if (mobCloseBtn && !mobCloseBtn.hasAttribute('data-mob-close-bound')) {
+      mobCloseBtn.setAttribute('data-mob-close-bound', 'true');
+      mobCloseBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        closeAllNav();
+        resetMobDrawer();
+      });
+    }
+
+    mobDrawer.querySelectorAll('.universal-mobile-menu-btn').forEach(function(mobBtn) {
+      if (mobBtn.hasAttribute('data-mob-btn-bound')) return;
+      mobBtn.setAttribute('data-mob-btn-bound', 'true');
+      mobBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const targetId = mobBtn.getAttribute('data-target-id');
+        const targetBtn = targetId ? document.getElementById(targetId) : null;
+        let subpanelContent = null;
+
+        if (targetBtn) {
+          const dd = getDropdownFor(targetBtn);
+          if (dd) {
+            subpanelContent = dd;
+          }
+        }
+
+        if (!subpanelContent && targetId) {
+          const cleanId = targetId.replace('dx-nav-item--', '').toLowerCase();
+          const allPanels = Array.from(document.querySelectorAll('.dx-mega-menu-panel-content, [class*="panel-content"], [role="menu"]'));
+          for (let i = 0; i < allPanels.length; i++) {
+            const p = allPanels[i];
+            const pText = (p.textContent || '').toLowerCase();
+            const pCls = (p.className || '').toLowerCase();
+            if (pCls.includes(cleanId) || (pText.includes(cleanId) && p.children.length > 0)) {
+              subpanelContent = p;
+              break;
+            }
+          }
+        }
+
+        if (subpanelContent && mobSubpanel && mobList) {
+          mobSubpanel.innerHTML = '';
+          const clone = subpanelContent.cloneNode(true);
+          clone.style.setProperty('display', 'block', 'important');
+          clone.style.setProperty('visibility', 'visible', 'important');
+          clone.style.setProperty('opacity', '1', 'important');
+          clone.removeAttribute('aria-hidden');
+          Array.from(clone.querySelectorAll('*')).forEach(function(el) {
+            if (el.getAttribute('aria-hidden') === 'true') el.removeAttribute('aria-hidden');
+          });
+          mobSubpanel.appendChild(clone);
+
+          mobList.style.setProperty('display', 'none', 'important');
+          mobSubpanel.style.setProperty('display', 'block', 'important');
+          if (mobBackBtn) mobBackBtn.style.setProperty('display', 'inline-flex', 'important');
+          const btnLabel = mobBtn.querySelector('span') ? mobBtn.querySelector('span').textContent.trim() : mobBtn.textContent.trim();
+          if (mobTitle && btnLabel) mobTitle.textContent = btnLabel;
+        } else if (targetBtn) {
+          targetBtn.click();
+        }
+      });
+    });
+  }
+
+  const allBackBtns = Array.from(document.querySelectorAll('[class*="backward-btn"], [class*="back-btn"], [class*="menuback"], [aria-label*="back" i], [aria-label="Main menu" i]')).filter(function(b) {
+    return !b.classList.contains('universal-mobile-drawer-back');
+  });
   allBackBtns.forEach(function(btn) {
     if (btn.hasAttribute('data-back-bound')) return;
     btn.setAttribute('data-back-bound', 'true');

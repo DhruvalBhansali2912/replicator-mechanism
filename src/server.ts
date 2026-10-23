@@ -669,6 +669,101 @@ export function createServer(): express.Application {
           html = $h.html();
           fs.writeFileSync(indexPath, html, 'utf8');
         }
+
+        // Universal Navigation Header Repair: inject mobile toggle & mobile menu drawer if missing
+        if ((html.includes('<header') || html.includes('authentic-navbar') || html.includes('tds-site-header')) && !html.includes('universal-mobile-menu-drawer')) {
+          const $h = cheerio.load(html);
+          $h('.universal-nav-toggle-wrapper').remove();
+
+          const endGroup = $h(
+            'ol.tds-align--end, ul.tds-align--end, [class*="align--end"], [class*="nav-end"], [class*="navbar-end"], [class*="header-end"], [class*="nav-right"], [class*="header-right"], [class*="header-actions"]'
+          ).first();
+
+          const toggleBtnHtml = `
+<li class="universal-nav-toggle-item">
+  <button class="universal-nav-toggle mobile-menu-btn" aria-label="Toggle navigation" type="button" aria-expanded="false">
+    <span class="nav-toggle-icon">☰</span>
+    <span class="nav-toggle-label">Menu</span>
+  </button>
+</li>`;
+
+          if (endGroup.length > 0 && endGroup.is('ol, ul')) {
+            if ($h('.universal-nav-toggle').length === 0) {
+              endGroup.append(toggleBtnHtml);
+            }
+          } else {
+            const headerEl = $h(
+              'header.tds-site-header, header:not(.section-header), nav, [class*="site-header"]'
+            ).first();
+            if (headerEl.length > 0 && $h('.universal-nav-toggle').length === 0) {
+              headerEl.append(`
+<div class="universal-nav-toggle-wrapper">
+  <button class="universal-nav-toggle mobile-menu-btn" aria-label="Toggle navigation" type="button" aria-expanded="false">
+    <span class="nav-toggle-icon">☰</span>
+    <span class="nav-toggle-label">Menu</span>
+  </button>
+</div>`);
+            }
+          }
+
+          const drawerListItems: string[] = [];
+          const seenLabels = new Set<string>();
+
+          $h('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li').each((_, li) => {
+            const btn = $h(li).find('button, a').first();
+            const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
+            const id = btn.attr('id') || '';
+            const href = btn.attr('href');
+            if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+            seenLabels.add(text.toLowerCase());
+
+            const isLink = href && href !== '#' && !href.startsWith('javascript:');
+            if (isLink) {
+              drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <a href="${href}" class="universal-mobile-menu-link" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
+        <span>${text}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </a>
+    </li>`);
+            } else {
+              drawerListItems.push(`
+    <li class="universal-mobile-menu-item">
+      <button type="button" class="universal-mobile-menu-btn" ${id ? `id="mob-${id}" data-target-id="${id}"` : ''}>
+        <span>${text}</span>
+        <span class="universal-mobile-menu-arrow">→</span>
+      </button>
+    </li>`);
+            }
+          });
+
+          if (drawerListItems.length > 0) {
+            const mobileDrawerHtml = `
+<div class="universal-mobile-menu-drawer" aria-hidden="true" style="display: none;">
+  <div class="universal-mobile-drawer-header">
+    <button type="button" class="universal-mobile-drawer-back" style="display: none;" aria-label="Back">← Back</button>
+    <span class="universal-mobile-drawer-title">Menu</span>
+    <button type="button" class="universal-mobile-drawer-close" aria-label="Close menu">✕</button>
+  </div>
+  <div class="universal-mobile-drawer-body">
+    <ul class="universal-mobile-menu-list">
+${drawerListItems.join('\n')}
+    </ul>
+    <div class="universal-mobile-subpanel-container" style="display: none;"></div>
+  </div>
+</div>`;
+            const bodyEl = $h('body');
+            if (bodyEl.length > 0) {
+              bodyEl.append(mobileDrawerHtml);
+            } else {
+              $h.root().append(mobileDrawerHtml);
+            }
+          }
+
+          html = $h.html();
+          fs.writeFileSync(indexPath, html, 'utf8');
+        }
+
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.send(html);
         return;
@@ -680,9 +775,228 @@ export function createServer(): express.Application {
       const cssPath = path.join(jobDir, 'style.css');
       if (fs.existsSync(cssPath)) {
         try {
+          let raw = fs.readFileSync(cssPath, 'utf8');
+          if (!raw.includes('universal-mobile-menu-drawer')) {
+            let openBraces = 0;
+            for (const c of raw) {
+              if (c === '{') openBraces++;
+              else if (c === '}') openBraces--;
+            }
+            while (openBraces > 0) {
+              raw += '\n}\n';
+              openBraces--;
+            }
+            const mobileNavCss = `
+/* Universal Mobile Navigation & Responsive Menu Drawer */
+.universal-nav-toggle-item,
+.universal-nav-toggle-wrapper,
+.universal-nav-toggle,
+.universal-mobile-menu-drawer {
+  display: none !important;
+}
+
+@media (max-width: 899px) {
+  .tds-align--center,
+  [class*="align--center"],
+  ol.tds-site-nav-items.tds-align--center,
+  .dx-nav-item-group.tds-align--center {
+    display: none !important;
+  }
+  .universal-nav-toggle-item {
+    display: inline-flex !important;
+    align-items: center !important;
+    list-style: none !important;
+  }
+  .universal-nav-toggle-wrapper {
+    display: flex !important;
+    align-items: center !important;
+  }
+  .universal-nav-toggle {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    padding: 6px 14px !important;
+    background: rgba(0, 0, 0, 0.06) !important;
+    color: inherit !important;
+    font-size: 14px !important;
+    font-weight: 500 !important;
+    font-family: inherit !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    line-height: 1.2 !important;
+    min-height: 32px !important;
+    transition: background 0.2s ease, opacity 0.2s ease !important;
+    z-index: 100 !important;
+  }
+  .universal-nav-toggle:hover {
+    background: rgba(0, 0, 0, 0.12) !important;
+  }
+  .site-header.theme-dark .universal-nav-toggle,
+  [data-theme="dark"] .universal-nav-toggle,
+  .dark .universal-nav-toggle,
+  .tds-site-header--dark .universal-nav-toggle {
+    background: rgba(255, 255, 255, 0.14) !important;
+    color: #ffffff !important;
+  }
+  .universal-mobile-menu-drawer.is-open {
+    display: flex !important;
+  }
+  .universal-mobile-menu-drawer {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+    background-color: #ffffff !important;
+    color: #171a20 !important;
+    z-index: 2147483647 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    box-sizing: border-box !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    flex-direction: column !important;
+    font-family: inherit !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  .site-header.theme-dark .universal-mobile-menu-drawer,
+  [data-theme="dark"] .universal-mobile-menu-drawer,
+  .dark .universal-mobile-menu-drawer,
+  .tds-site-header--dark .universal-mobile-menu-drawer {
+    background-color: #111111 !important;
+    color: #f4f4f4 !important;
+  }
+  .universal-mobile-drawer-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 16px 24px !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
+    position: sticky !important;
+    top: 0 !important;
+    background: inherit !important;
+    z-index: 10 !important;
+  }
+  .site-header.theme-dark .universal-mobile-drawer-header,
+  [data-theme="dark"] .universal-mobile-drawer-header,
+  .dark .universal-mobile-drawer-header,
+  .tds-site-header--dark .universal-mobile-drawer-header {
+    border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  .universal-mobile-drawer-title {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    letter-spacing: -0.01em !important;
+    color: inherit !important;
+  }
+  .universal-mobile-drawer-close {
+    background: rgba(0, 0, 0, 0.06) !important;
+    border: none !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+    font-size: 16px !important;
+    line-height: 1 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: inherit !important;
+  }
+  .universal-mobile-drawer-back {
+    background: none !important;
+    border: none !important;
+    color: inherit !important;
+    font-size: 15px !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    padding: 6px 10px !important;
+    border-radius: 4px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    position: relative !important;
+    z-index: 100 !important;
+    pointer-events: auto !important;
+  }
+  .universal-mobile-drawer-body {
+    padding: 16px 0 !important;
+    flex: 1 !important;
+  }
+  .universal-mobile-menu-list {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .universal-mobile-menu-item {
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+  }
+  .universal-mobile-menu-btn,
+  .universal-mobile-menu-link {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    padding: 16px 24px !important;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    background: none !important;
+    border: none !important;
+    text-align: left !important;
+    cursor: pointer !important;
+    box-sizing: border-box !important;
+    font-family: inherit !important;
+  }
+  .universal-mobile-menu-arrow {
+    font-size: 18px !important;
+    opacity: 0.5 !important;
+  }
+  .universal-mobile-subpanel-container {
+    padding: 20px 24px !important;
+    box-sizing: border-box !important;
+  }
+  .universal-mobile-subpanel-container [class*="panel-content"],
+  .universal-mobile-subpanel-container [class*="link-groups"] {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    width: 100% !important;
+  }
+  .universal-mobile-subpanel-container a,
+  .universal-mobile-subpanel-container button {
+    color: inherit !important;
+    font-size: 15px !important;
+    text-decoration: none !important;
+  }
+}
+
+@media (min-width: 900px) {
+  .universal-nav-toggle-item,
+  .universal-nav-toggle-wrapper,
+  .universal-nav-toggle,
+  .universal-mobile-menu-drawer {
+    display: none !important;
+  }
+}
+`;
+            raw += '\n' + mobileNavCss;
+            fs.writeFileSync(cssPath, raw, 'utf8');
+          }
+
           const stat = fs.statSync(cssPath);
           if (stat.size > 200 * 1024) {
-            const raw = fs.readFileSync(cssPath, 'utf8');
             const indexPath = path.join(jobDir, 'index.html');
             const html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
             const opt = optimizeCssForDocument(raw, html);
@@ -697,31 +1011,32 @@ export function createServer(): express.Application {
     }
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
-      if (fs.existsSync(jsPath)) {
-        let js = fs.readFileSync(jsPath, 'utf8');
-        if (!js.includes('dx-mega-menu-panel') && fs.existsSync(path.join(jobDir, 'index.html'))) {
-          const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
-          if (fs.existsSync(metaPath)) {
-            try {
-              const jobData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-              if (jobData && jobData.options) {
-                const ast = (synthesisEngine as any).inspector.inspect(
-                  fs.readFileSync(path.join(jobDir, 'index.html'), 'utf8'),
-                  jobData.url || 'https://example.com',
-                  '',
-                  jobData.options.sectionSelector || 'header',
-                  jobData.options.targetArchetype || 'navbar',
-                  jobData.options.htmlSnapshot
-                );
-                const freshJs = (synthesisEngine as any).jsSynthesizer.synthesize(ast);
-                if (freshJs && freshJs.length > 50) {
-                  js = freshJs;
-                  fs.writeFileSync(jsPath, js, 'utf8');
-                }
-              }
-            } catch (_) {}
-          }
+      let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
+      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+        const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+        let jobData: any = {};
+        if (fs.existsSync(metaPath)) {
+          try {
+            jobData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          } catch (_) {}
         }
+        try {
+          const ast = (synthesisEngine as any).inspector.inspect(
+            fs.readFileSync(path.join(jobDir, 'index.html'), 'utf8'),
+            jobData.url || 'https://example.com',
+            '',
+            jobData.options?.sectionSelector || 'header',
+            jobData.options?.targetArchetype || 'navbar',
+            jobData.options?.htmlSnapshot
+          );
+          const freshJs = (synthesisEngine as any).jsSynthesizer.synthesize(ast);
+          if (freshJs && freshJs.length > 50) {
+            js = freshJs;
+            fs.writeFileSync(jsPath, js, 'utf8');
+          }
+        } catch (_) {}
+      }
+      if (js) {
         res.type('application/javascript').send(js);
         return;
       }

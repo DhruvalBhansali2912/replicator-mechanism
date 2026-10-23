@@ -76,7 +76,7 @@ export class CssPurger {
         }
       }
 
-      const unsafePrefixPattern = /:hover|:focus|:active|:checked|:disabled|:not|toggled|expanded|collapsed|\bopen\b|\bactive\b|is-open|is-active|drawer|modal|dialog|sticky|scrolled|is_stuck|stuck|secondary-navigation|single-product|woocommerce-checkout|header-[12356789]|\bcurrent\b|\bselected\b|\bloaded\b|\bplaying\b|\bended\b|\bpaused\b|\bshould-hide\b|\bhas-played\b|\bhide\b|\bshow\b|\bvisible\b|\bhidden\b|\bis-|\bhas-/i;
+      const unsafePrefixPattern = /:hover|:focus|:active|:checked|:disabled|:not|toggled|expanded|collapsed|\bopen\b|\bactive\b|is-open|is-active|drawer|modal|dialog|sticky|scrolled|is_stuck|stuck|secondary-navigation|single-product|woocommerce-checkout|header-[12356789]|\bcurrent\b|\bselected\b|\bloaded\b|\bplaying\b|\bended\b|\bpaused\b|\bshould-hide\b|\bhas-played\b|\bhide\b|\bshow\b|\bvisible\b|\bhidden\b|\bis-|\bhas-|universal-/i;
 
       const purgePlugin = {
         postcssPlugin: 'css-purger',
