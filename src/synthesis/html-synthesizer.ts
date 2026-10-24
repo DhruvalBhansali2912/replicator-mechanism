@@ -562,7 +562,16 @@ export class HtmlSynthesizer {
       }
     });
     if (ast.archetype !== 'navbar' && !['header', 'nav'].includes(firstTagCandidate || '')) {
-      $('dialog, [class*="modal"], [class*="mega-menu-panel"], [class*="header-panel"], [class*="announcement-banner"]').remove();
+      $('dialog:not([class*="product"]), [role="dialog"]:not([class*="product"]), .modal-backdrop, .modal-overlay, [class*="mega-menu-panel"], [class*="header-panel"], [class*="announcement-banner"]')
+        .filter((_, el) => {
+          const $el = $(el);
+          const tag = (el as any).tagName ? (el as any).tagName.toLowerCase() : '';
+          const cls = ($el.attr('class') || '').toLowerCase();
+          // Never remove media openers, gallery elements, or containers with images/videos/forms
+          if (tag.includes('opener') || tag.includes('trigger') || cls.includes('opener') || cls.includes('trigger') || cls.includes('product')) return false;
+          return $el.find('img, video, picture, canvas, form').length === 0;
+        })
+        .remove();
     } else {
       $('dialog[class*="chat"], [class*="chat-modal"], [class*="support-modal"]').remove();
     }

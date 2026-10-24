@@ -1926,6 +1926,8 @@ ${this.getUniversalInteractiveRules(ast)}
     // Resilient modal dialogs and root navbar wrapper rules
     scopedCss += '\ndialog:not([open]) { display: none !important; }\n';
     scopedCss += '\nheader.authentic-section.navbar-section { background: transparent; border: none; }\n';
+    scopedCss += '\n.scroll-trigger, .scroll-trigger.animate--slide-in, .scroll-trigger.animate--fade-in, [class*="scroll-trigger"] { opacity: 1 !important; transform: none !important; visibility: visible !important; }\n';
+
 
     // Sanitize unescaped newlines inside url(...) so CSS parsers do not abort or drop rules
     scopedCss = scopedCss.replace(/url\(([\s\S]*?)\)/gi, (m, inner) => {

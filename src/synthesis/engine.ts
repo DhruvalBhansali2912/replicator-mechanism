@@ -128,7 +128,9 @@ export class GroundUpSynthesisEngine {
   public synthesizeFullPage(
     sectionsHtml: string[],
     sourceUrl: string = 'https://example.com',
-    cssContext: string = ''
+    cssContext: string = '',
+    htmlSnapshot?: string,
+    rootCssVariables?: Record<string, string>
   ): {
     fullHtml: string;
     fullCss: string;
@@ -142,9 +144,57 @@ export class GroundUpSynthesisEngine {
     for (let i = 0; i < sectionsHtml.length; i++) {
       const secHtml = sectionsHtml[i];
       if (secHtml && secHtml.trim().length > 30) {
-        const res = this.synthesizeSection(secHtml, sourceUrl, cssContext, `section:nth-of-type(${i + 1})`);
+        const res = this.synthesizeSection(
+          secHtml,
+          sourceUrl,
+          cssContext,
+          `section:nth-of-type(${i + 1})`,
+          undefined,
+          htmlSnapshot,
+          undefined,
+          rootCssVariables
+        );
         results.push(res);
       }
+    }
+
+    // Extract html/body attributes from htmlSnapshot to preserve themes, font variables, and data attributes
+    let htmlAttrs = 'lang="en"';
+    let bodyAttrs = '';
+    if (htmlSnapshot && htmlSnapshot.length > 50) {
+      try {
+        const $snap = cheerio.load(htmlSnapshot);
+        const snapHtml = $snap('html');
+        const snapBody = $snap('body');
+
+        const htmlClass = snapHtml.attr('class') || '';
+        const htmlStyle = snapHtml.attr('style') || '';
+        const htmlLang = snapHtml.attr('lang') || 'en';
+
+        let hAttr = `lang="${htmlLang}"`;
+        if (htmlClass) hAttr += ` class="${htmlClass}"`;
+        if (htmlStyle) hAttr += ` style="${htmlStyle}"`;
+        const htmlEl = snapHtml.get(0) as any;
+        if (htmlEl && htmlEl.attribs) {
+          for (const [k, v] of Object.entries(htmlEl.attribs)) {
+            if (k !== 'class' && k !== 'style' && k !== 'lang') hAttr += ` ${k}="${v}"`;
+          }
+        }
+        htmlAttrs = hAttr;
+
+        const bodyClass = snapBody.attr('class') || '';
+        const bodyStyle = snapBody.attr('style') || '';
+        let bAttr = '';
+        if (bodyClass) bAttr += ` class="${bodyClass}"`;
+        if (bodyStyle) bAttr += ` style="${bodyStyle}"`;
+        const bodyEl = snapBody.get(0) as any;
+        if (bodyEl && bodyEl.attribs) {
+          for (const [k, v] of Object.entries(bodyEl.attribs)) {
+            if (k !== 'class' && k !== 'style') bAttr += ` ${k}="${v}"`;
+          }
+        }
+        bodyAttrs = bAttr.trim();
+      } catch {}
     }
 
     // Combine into cohesive document
@@ -154,7 +204,7 @@ export class GroundUpSynthesisEngine {
 
     const fullHtml = `
 <!DOCTYPE html>
-<html lang="en">
+<html ${htmlAttrs}>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -162,7 +212,7 @@ export class GroundUpSynthesisEngine {
   <title>Synthesized Page</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body${bodyAttrs ? ' ' + bodyAttrs : ''}>
 ${combinedSectionsHtml}
 
   <script src="script.js" defer></script>
