@@ -2231,6 +2231,14 @@ nav.hamburger-menu.is-open,
             raw += '\n' + mobileNavCss;
             if (html.includes('header-4') || html.includes('shoptimizer')) {
               raw += `
+header.site-header:has(.header-4-container),
+.authentic-navbar:has(.header-4-container),
+.site-header.authentic-section:has(.header-4-container),
+header.authentic-navbar:has(.header-4-container) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 /* Wavy / Curved divider on desktop navbar */
 @media screen and (min-width: 993px) {
   .header-4-container,
@@ -2347,6 +2355,7 @@ dialog.shoptimizer-modal .shoptimizer-modal--content,
 
 dialog.shoptimizer-modal .site-search,
 [data-shoptimizermodal-id="searchToggle"] .site-search {
+  display: block !important;
   width: 100% !important;
   position: relative !important;
 }

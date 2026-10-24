@@ -4139,6 +4139,14 @@ nav.hamburger-menu.is-open,
 
 ${hasShoptimizer ? `
 /* Shoptimizer & Business Bloomer Header Normalization */
+header.site-header:has(.header-4-container),
+.authentic-navbar:has(.header-4-container),
+.site-header.authentic-section:has(.header-4-container),
+header.authentic-navbar:has(.header-4-container) {
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
 .header-4-container,
 [class*="header-4-container"] {
   position: relative !important;
@@ -4264,6 +4272,7 @@ dialog.shoptimizer-modal .shoptimizer-modal--content,
 
 dialog.shoptimizer-modal .site-search,
 [data-shoptimizermodal-id="searchToggle"] .site-search {
+  display: block !important;
   width: 100% !important;
   position: relative !important;
 }
