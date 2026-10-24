@@ -1766,10 +1766,11 @@ ${this.getUniversalInteractiveRules(ast)}
             s === ':root' ||
             s === 'html' ||
             s === 'body' ||
-            s.startsWith(':root') ||
+            s.includes(':root') ||
+            s.includes(':host') ||
             s.startsWith('@') ||
             ((s.includes('[data-theme') || s.includes('[data-color-mode') || s.includes('[theme') || s.includes('.dark') || s.includes('.light')) && !s.includes(' ') && !s.includes('>')) ||
-            (hasCustomProps && !s.includes(' ') && !s.includes('>') && (s.includes('html') || s.includes('body') || s.includes(':root') || s.includes('theme')))
+            (hasCustomProps && (s.includes(':root') || s.includes(':host') || s.includes('html') || s.includes('body') || s.includes('theme') || s.includes('token') || !s.includes(' ')))
           ) {
             matching.push(s);
             continue;

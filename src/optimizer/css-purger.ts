@@ -255,6 +255,8 @@ function shouldAlwaysKeepSelector(selector: string): boolean {
     s === ':root' ||
     s === 'html' ||
     s === 'body' ||
+    s.includes(':root') ||
+    s.includes(':host') ||
     /^(?:html|body|\*)\s*$/i.test(s) ||
     /^:root(?:\[[^\]]+\])?$/i.test(s) ||
     /^(?:\.dark|\.light|\[data-theme[^\]]*\])$/i.test(s)
@@ -430,7 +432,7 @@ export function optimizeCssForDocument(css: string, html: string): string {
 
   function matchesSelector(sel: string): boolean {
     const s = sel.trim();
-    if (s === '*' || s === ':root' || s === 'html' || s === 'body') return true;
+    if (s === '*' || s === ':root' || s === 'html' || s === 'body' || s.includes(':root') || s.includes(':host')) return true;
     if (/^(?:html|body|\*)\s*$/i.test(s)) return true;
     if (/^:root(?:\[[^\]]+\])?$/i.test(s) || /^(?:\.dark|\.light|\[data-theme[^\]]*\])$/i.test(s)) return true;
     if (s.includes(':has(') || s.includes(':is(') || s.includes(':where(')) return true;
