@@ -76,7 +76,7 @@ export class CssPurger {
         }
       }
 
-      const unsafePrefixPattern = /:hover|:focus|:active|:checked|:disabled|:not|toggled|expanded|collapsed|\bopen\b|\bactive\b|is-open|is-active|drawer|modal|dialog|sticky|scrolled|is_stuck|stuck|secondary-navigation|single-product|woocommerce-checkout|header-[12356789]|\bcurrent\b|\bselected\b|\bloaded\b|\bplaying\b|\bended\b|\bpaused\b|\bshould-hide\b|\bhas-played\b|\bhide\b|\bshow\b|\bvisible\b|\bhidden\b|\bis-|\bhas-|universal-/i;
+      const unsafePrefixPattern = /:hover|:focus|:active|:checked|:disabled|:not|toggled|expanded|collapsed|\bopen\b|\bactive\b|is-open|is-active|drawer|modal|dialog|sticky|scrolled|is_stuck|stuck|secondary-navigation|single-product|woocommerce|header-\d+|theme-[a-zA-Z0-9_-]+|wp-|\bcurrent\b|\bselected\b|\bloaded\b|\bplaying\b|\bended\b|\bpaused\b|\bshould-hide\b|\bhas-played\b|\bhide\b|\bshow\b|\bvisible\b|\bhidden\b|\bis-|\bhas-|universal-/i;
 
       const purgePlugin = {
         postcssPlugin: 'css-purger',
@@ -415,20 +415,50 @@ export function optimizeCssForDocument(css: string, html: string): string {
     if (s === '*' || s === ':root' || s === 'html' || s === 'body') return true;
     if (/^(?:html|body|\*)\s*$/i.test(s)) return true;
     if (/^:root(?:\[[^\]]+\])?$/i.test(s) || /^(?:\.dark|\.light|\[data-theme[^\]]*\])$/i.test(s)) return true;
+    if (s.includes(':has(') || s.includes(':is(') || s.includes(':where(')) return true;
 
     let clean = stripPseudos(s);
     clean = clean.replace(/^:root\s+/g, '').trim();
     if (!clean || clean === ':root') return false;
 
+    // 1. Direct match in DOM
     try {
       if ($(clean).length > 0) return true;
     } catch (_) {}
 
+    // 2. Dynamic interactive state classes
     const strippedStates = clean.replace(dynamicStateRegex, '').trim();
     if (strippedStates && strippedStates !== clean) {
       try {
         if ($(strippedStates).length > 0) return true;
       } catch (_) {}
+    }
+
+    // 3. Universal Subject Target Resolution:
+    // In CSS, rules are often qualified by ancestor classes (e.g. .header-4 .header-4-container, body.dark .nav-item, .mobile-toggled .col-full-nav).
+    // If the leaf / subject element exists in the DOM, the rule belongs to this section and must be preserved!
+    const parts = clean.split(/\s*[\s>+~]\s*/).filter(Boolean);
+    if (parts.length > 1) {
+      const subject = parts[parts.length - 1];
+      const cleanSubject = stripPseudos(subject).replace(dynamicStateRegex, '').trim();
+      if (cleanSubject && cleanSubject !== '*' && cleanSubject !== 'div' && cleanSubject !== 'span') {
+        try {
+          if ($(cleanSubject).length > 0) return true;
+        } catch (_) {}
+      }
+    }
+
+    // 4. Any specific class in the selector matching an element in the section DOM
+    const classesInSelector = clean.match(/\.([a-zA-Z0-9_-]+)/g);
+    if (classesInSelector) {
+      for (const cls of classesInSelector) {
+        const cName = cls.slice(1);
+        if (cName !== 'dark' && cName !== 'light' && cName !== 'container' && cName.length >= 3) {
+          try {
+            if ($(cls).length > 0) return true;
+          } catch (_) {}
+        }
+      }
     }
 
     return false;
