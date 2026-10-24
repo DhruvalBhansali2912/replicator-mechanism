@@ -2069,7 +2069,16 @@ export class JsSynthesizer {
     if (trg) trg.setAttribute('aria-expanded', 'true');
     dlg.setAttribute('aria-hidden', 'false');
     dlg.removeAttribute('hidden');
+    dlg.setAttribute('open', '');
+    if (typeof dlg.showModal === 'function') {
+      try { dlg.showModal(); } catch(_) { try { dlg.show(); } catch(_) {} }
+    } else if (typeof dlg.show === 'function') {
+      try { dlg.show(); } catch(_) {}
+    }
     dlg.classList.add('is-open', 'open', 'show', 'active');
+    document.body.classList.add('search-modal-open');
+    const container = document.querySelector('.header-4-container, [class*="header-4-container"]');
+    if (container) container.classList.add('search-modal-open');
 
     Array.from(dlg.classList).forEach(function(cls) {
       if (!cls.includes('--')) {
@@ -2101,7 +2110,7 @@ export class JsSynthesizer {
       setTimeout(function() { input.focus(); }, 100);
     }
 
-    const closeBtns = dlg.querySelectorAll('button[class*="close" i], [aria-label*="close" i], [class*="btn-close" i], [data-dismiss="modal"]');
+    const closeBtns = dlg.querySelectorAll('button[class*="close" i], [aria-label*="close" i], [class*="btn-close" i], [data-dismiss="modal"], .shoptimizer-modal--button_close');
     closeBtns.forEach(function(btn) {
       btn.onclick = function(e) {
         e.preventDefault();
@@ -2119,6 +2128,10 @@ export class JsSynthesizer {
 
     allSearchDlgs.forEach(function(d) {
       d.setAttribute('aria-hidden', 'true');
+      d.removeAttribute('open');
+      if (typeof d.close === 'function') {
+        try { d.close(); } catch(_) {}
+      }
       d.classList.remove('is-open', 'open', 'show', 'active');
 
       Array.from(d.classList).forEach(function(cls) {
@@ -2134,6 +2147,10 @@ export class JsSynthesizer {
       d.style.setProperty('pointer-events', 'none', 'important');
     });
 
+    document.body.classList.remove('search-modal-open');
+    const container = document.querySelector('.header-4-container, [class*="header-4-container"]');
+    if (container) container.classList.remove('search-modal-open');
+
     const scrims = document.querySelectorAll('.srd19-gnb-search__dimmed, [class*="search-backdrop"], [class*="search"] [class*="dimmed"]');
     scrims.forEach(function(scrim) {
       scrim.style.setProperty('display', 'none', 'important');
@@ -2144,7 +2161,7 @@ export class JsSynthesizer {
   }
 
   // Globally bind all search close buttons and dimmed overlays
-  document.querySelectorAll('button[class*="search" i][class*="close" i], [class*="gnb-search__close"], [class*="search"] button[class*="close" i], [class*="search"] [aria-label*="close" i], .srd19-gnb-search__dimmed').forEach(function(btn) {
+  document.querySelectorAll('button[class*="search" i][class*="close" i], [class*="gnb-search__close"], [class*="search"] button[class*="close" i], [class*="search"] [aria-label*="close" i], .srd19-gnb-search__dimmed, [data-dismiss="modal"], .shoptimizer-modal--button_close').forEach(function(btn) {
     if (btn.hasAttribute('data-search-close-bound')) return;
     btn.setAttribute('data-search-close-bound', 'true');
     btn.addEventListener('click', function(e) {
@@ -2156,6 +2173,8 @@ export class JsSynthesizer {
 
   const searchTriggers = Array.from(document.querySelectorAll(
     'button[class*="search" i]:not([type="submit"]):not([class*="submit"]), ' +
+    '[data-trigger="searchToggle"], ' +
+    '[data-trigger*="search" i], ' +
     '[aria-label*="search" i]:not(input):not(form), ' +
     '[data-target*="search" i], ' +
     '[aria-controls*="search" i], ' +
@@ -2175,13 +2194,15 @@ export class JsSynthesizer {
       e.stopPropagation();
 
       let searchDialog = null;
-      const ctrlId = trg.getAttribute('aria-controls') || trg.getAttribute('data-target');
+      const ctrlId = trg.getAttribute('aria-controls') || trg.getAttribute('data-target') || trg.getAttribute('data-trigger');
       if (ctrlId) {
-        searchDialog = document.getElementById(ctrlId.replace(/^#/, ''));
+        const cleanId = ctrlId.replace(/^#/, '');
+        searchDialog = document.getElementById(cleanId) ||
+                       document.querySelector('[data-shoptimizermodal-id="' + cleanId + '"], [data-modal-id="' + cleanId + '"], [data-dialog-id="' + cleanId + '"]');
       }
       if (!searchDialog) {
         searchDialog = document.querySelector(
-          'dialog, [role="dialog"][class*="search" i]:not(body), section.srd19-gnb-search, [class*="search-overlay" i]:not(body), [class*="search-modal" i]:not(body), [class*="search-layer" i]:not(body), [class*="search-popup" i]:not(body), [class*="search-container" i]:not(body), section[class*="search" i]:not(body), [class*="gnb-search" i]:not(body):not(html), [role="search"][role="dialog"], [role="search"]:not(body)'
+          'dialog.shoptimizer-modal, [data-shoptimizermodal-id="searchToggle"], dialog, [role="dialog"][class*="search" i]:not(body), section.srd19-gnb-search, [class*="search-overlay" i]:not(body), [class*="search-modal" i]:not(body), [class*="search-layer" i]:not(body), [class*="search-popup" i]:not(body), [class*="search-container" i]:not(body), section[class*="search" i]:not(body), [class*="gnb-search" i]:not(body):not(html), [role="search"][role="dialog"], [role="search"]:not(body)'
         );
       }
       if (searchDialog && (searchDialog === document.body || searchDialog === document.documentElement)) {

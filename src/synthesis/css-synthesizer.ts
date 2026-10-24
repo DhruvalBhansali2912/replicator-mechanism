@@ -4148,6 +4148,180 @@ ${hasShoptimizer ? `
   box-shadow: 0 3px 15px -5px rgba(0,0,0,0.08) !important;
 }
 
+/* Wavy / Curved divider on desktop navbar */
+@media screen and (min-width: 993px) {
+  .header-4-container,
+  [class*="header-4-container"],
+  .header-4 .header-4-container {
+    padding-bottom: 24px !important;
+    border: 0 !important;
+    clip-path: polygon(100% 0%, 0% 0%, 0.00% 82.71%, 2.00% 83.60%, 4.00% 84.95%, 6.00% 86.61%, 8.00% 88.44%, 10.00% 90.25%, 12.00% 91.86%, 14.00% 93.11%, 16.00% 93.89%, 18.00% 94.11%, 20.00% 93.76%, 22.00% 92.87%, 24.00% 91.52%, 26.00% 89.86%, 28.00% 88.03%, 30.00% 86.22%, 32.00% 84.61%, 34.00% 83.36%, 36.00% 82.58%, 38.00% 82.36%, 40.00% 82.71%, 42.00% 83.60%, 44.00% 84.95%, 46.00% 86.61%, 48.00% 88.44%, 50.00% 90.25%, 52.00% 91.86%, 54.00% 93.11%, 56.00% 93.89%, 58.00% 94.11%, 60.00% 93.76%, 62.00% 92.87%, 64.00% 91.52%, 66.00% 89.86%, 68.00% 88.03%, 70.00% 86.22%, 72.00% 84.61%, 74.00% 83.36%, 76.00% 82.58%, 78.00% 82.36%, 80.00% 82.71%, 82.00% 83.60%, 84.00% 84.95%, 86.00% 86.61%, 88.00% 88.44%, 90.00% 90.25%, 92.00% 91.86%, 94.00% 93.11%, 96.00% 93.89%, 98.00% 94.11%, 100.00% 93.76%) !important;
+  }
+
+  .header-4-container:has(dialog[open]),
+  .header-4-container.search-modal-open,
+  body.search-modal-open .header-4-container {
+    clip-path: none !important;
+  }
+}
+
+/* Shoptimizer Search Modal Styles */
+dialog.shoptimizer-modal,
+[data-shoptimizermodal-id="searchToggle"] {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: 100vw !important;
+  max-height: 100vh !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: rgba(0, 0, 0, 0.4) !important;
+  z-index: 2147483647 !important;
+  box-sizing: border-box !important;
+}
+
+dialog.shoptimizer-modal:not([open]),
+[data-shoptimizermodal-id="searchToggle"]:not([open]) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+dialog.shoptimizer-modal[open],
+[data-shoptimizermodal-id="searchToggle"][open] {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+dialog.shoptimizer-modal .shoptimizer-modal--container,
+[data-shoptimizermodal-id="searchToggle"] .shoptimizer-modal--container {
+  width: 100vw !important;
+  height: 100vh !important;
+  background: #ffffff !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+dialog.shoptimizer-modal form[method="dialog"],
+[data-shoptimizermodal-id="searchToggle"] form[method="dialog"] {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 18px 28px !important;
+  border-bottom: 1px solid #e2e2e2 !important;
+  margin: 0 0 32px 0 !important;
+  background: #ffffff !important;
+}
+
+dialog.shoptimizer-modal .search-modal-heading,
+dialog.shoptimizer-modal #search-modal-title,
+[data-shoptimizermodal-id="searchToggle"] .search-modal-heading,
+[data-shoptimizermodal-id="searchToggle"] #search-modal-title {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  color: #111111 !important;
+  margin: 0 !important;
+}
+
+dialog.shoptimizer-modal .shoptimizer-modal--button_close,
+[data-shoptimizermodal-id="searchToggle"] .shoptimizer-modal--button_close {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 32px !important;
+  height: 32px !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  color: #333333 !important;
+}
+
+dialog.shoptimizer-modal .shoptimizer-modal--button_close svg,
+[data-shoptimizermodal-id="searchToggle"] .shoptimizer-modal--button_close svg {
+  width: 24px !important;
+  height: 24px !important;
+  stroke: currentColor !important;
+  stroke-width: 1.5 !important;
+}
+
+dialog.shoptimizer-modal .shoptimizer-modal--content,
+[data-shoptimizermodal-id="searchToggle"] .shoptimizer-modal--content {
+  max-width: 700px !important;
+  margin: 0 auto !important;
+  padding: 0 24px 40px !important;
+  box-sizing: border-box !important;
+}
+
+dialog.shoptimizer-modal .site-search,
+[data-shoptimizermodal-id="searchToggle"] .site-search {
+  width: 100% !important;
+  position: relative !important;
+}
+
+dialog.shoptimizer-modal .site-search .search-form,
+[data-shoptimizermodal-id="searchToggle"] .site-search .search-form {
+  position: relative !important;
+  width: 100% !important;
+}
+
+dialog.shoptimizer-modal .site-search .search-form label,
+[data-shoptimizermodal-id="searchToggle"] .site-search .search-form label {
+  display: block !important;
+  width: 100% !important;
+}
+
+dialog.shoptimizer-modal .site-search .search-field,
+[data-shoptimizermodal-id="searchToggle"] .site-search .search-field {
+  width: 100% !important;
+  height: 52px !important;
+  padding: 12px 18px 12px 48px !important;
+  border: 1px solid #999999 !important;
+  border-radius: 4px !important;
+  background-color: #f8f8f8 !important;
+  font-size: 16px !important;
+  color: #111111 !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05) !important;
+}
+
+dialog.shoptimizer-modal .site-search .search-field:focus,
+[data-shoptimizermodal-id="searchToggle"] .site-search .search-field:focus {
+  background-color: #ffffff !important;
+  border-color: #172983 !important;
+  outline: none !important;
+}
+
+dialog.shoptimizer-modal .site-search .search-form::before,
+[data-shoptimizermodal-id="searchToggle"] .site-search .search-form::before {
+  content: "" !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 16px !important;
+  width: 18px !important;
+  height: 18px !important;
+  transform: translateY(-50%) !important;
+  background-color: #666666 !important;
+  -webkit-mask: url("data:image/svg+xml;charset=utf8,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z' stroke='%234A5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain !important;
+  mask: url("data:image/svg+xml;charset=utf8,%3Csvg width='24' height='24' viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21 21L15 15M17 10C17 13.866 13.866 17 10 17C6.13401 17 3 13.866 3 10C3 6.13401 6.13401 3 10 3C13.866 3 17 6.13401 17 10Z' stroke='%234A5568' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center / contain !important;
+  pointer-events: none !important;
+  z-index: 2 !important;
+}
+
+dialog.shoptimizer-modal .site-search input[type="submit"],
+[data-shoptimizermodal-id="searchToggle"] .site-search input[type="submit"] {
+  display: none !important;
+}
+
 .header-4-inner,
 [class*="header-4-inner"] {
   display: flex !important;
