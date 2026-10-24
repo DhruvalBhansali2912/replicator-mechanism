@@ -293,7 +293,7 @@ export class JsSynthesizer {
         }
 
         // Delegate dropdown/popover triggers to the universal dropdown controller
-        if (trigger.matches && trigger.matches('button[aria-haspopup], [role="button"][aria-haspopup], button[aria-expanded], [role="button"][aria-expanded], [data-toggle="dropdown"], [data-bs-toggle="dropdown"]')) {
+        if (trigger.matches && trigger.matches('button[aria-haspopup], [role="button"][aria-haspopup], a[aria-haspopup], [aria-haspopup], button[aria-expanded], [role="button"][aria-expanded], a[aria-expanded], [aria-expanded="true"], [aria-expanded="false"], [data-toggle="dropdown"], [data-bs-toggle="dropdown"]')) {
           return;
         }
 
@@ -389,7 +389,7 @@ export class JsSynthesizer {
   // Navigation & Dropdown Mega-Menu Controller
   const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header, .masthead, .main-section');
   const allMenuBtnCandidates = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i]'
+    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i], button[class*="mobilenav" i], [class*="mobilenav" i], button[class*="mobile-nav" i], [class*="mobile-nav" i], button[class*="mob-nav" i], [class*="mob-nav" i], [class*="MobileNav" i]'
   )).map(function(el) {
     return el.closest('button, [role="button"], a, div[tabindex]') || el;
   }) : [];
@@ -397,8 +397,18 @@ export class JsSynthesizer {
   // Also collect any triggers containing hamburger/bars icon inside navRoot
   if (navRoot) {
     Array.from(navRoot.querySelectorAll('button, a, [role="button"]')).forEach(function(el) {
-      if (el.querySelector('.fa-bars, [class*="fa-bars"], [class*="fa-navicon"], [class*="burger"], [class*="menu-icon"], svg[class*="menu"], svg[class*="burger"]')) {
+      if (el.querySelector('.fa-bars, [class*="fa-bars"], [class*="fa-navicon"], [class*="burger"], [class*="menu-icon"], svg[class*="menu"], svg[class*="burger"], [class*="mobilenav" i], [class*="mobile-nav" i], [class*="mob-nav" i], [class*="Icon--mobilenav" i]')) {
         allMenuBtnCandidates.push(el);
+      }
+      if (!allMenuBtnCandidates.includes(el)) {
+        const svg = el.querySelector('svg');
+        if (svg) {
+          const svgCls = (svg.getAttribute('class') || '').toLowerCase();
+          const svgLabel = (svg.getAttribute('aria-label') || '').toLowerCase();
+          if (svgCls.includes('mobilenav') || svgCls.includes('mobile-nav') || svgCls.includes('menu') || svgLabel.includes('navigation') || svgLabel.includes('menu')) {
+            allMenuBtnCandidates.push(el);
+          }
+        }
       }
       const href = el.getAttribute('href') || '';
       if (href.includes('elementor-action') || href.includes('popup') || el.hasAttribute('data-elementor-open-popup')) {
@@ -545,6 +555,14 @@ export class JsSynthesizer {
           drawer.style.opacity = '0';
           drawer.style.pointerEvents = 'none';
           drawer.setAttribute('aria-hidden', 'true');
+        } else {
+          if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+            drawer.style.setProperty('display', 'flex', 'important');
+          }
+          drawer.style.visibility = 'visible';
+          drawer.style.opacity = '1';
+          drawer.style.pointerEvents = 'auto';
+          drawer.setAttribute('aria-hidden', 'false');
         }
       } else {
         // Desktop viewport: restore author styles
@@ -634,20 +652,22 @@ export class JsSynthesizer {
     // Semantic resolution for detached companion popups matching trigger archetype/keyword
     if (!match) {
       const trgEl = item.querySelector('button, a, span') || item;
-      const itemTxt = (trgEl.textContent || '').trim().toLowerCase();
-      if (itemTxt && itemTxt.length >= 3 && itemTxt.length <= 25) {
+      const cleanTxt = (trgEl.textContent || '').replace(/[\\r\\n\\t\\s]+/g, ' ').trim().toLowerCase();
+      if (cleanTxt && cleanTxt.length >= 3 && cleanTxt.length <= 25 && /^[a-z0-9_-]+$/.test(cleanTxt)) {
         const popupCandidates = Array.from(document.querySelectorAll('[class*="popup"], [class*="nav-panel"], [class*="megamenu"], [class*="flyout"], [role="menu"]'));
         for (let p = 0; p < popupCandidates.length; p++) {
           const pop = popupCandidates[p];
           if (pop === item || item.contains(pop)) continue;
-          const popCls = (pop.className || '').toLowerCase();
+          const popCls = (typeof pop.className === 'string' ? pop.className : '').toLowerCase();
           const popId = (pop.id || '').toLowerCase();
-          if (popCls.includes(itemTxt + 'nav') || popCls.includes(itemTxt + '-nav') || popCls.includes(itemTxt + '_nav') ||
-              popId.includes(itemTxt + 'nav') || popId.includes(itemTxt + '-nav') || popId.includes(itemTxt + '_nav') ||
-              pop.querySelector('.' + CSS.escape(itemTxt) + 'Nav, [class*="' + itemTxt + 'nav" i], [class*="' + itemTxt + '_nav" i], [class*="' + itemTxt + '-nav" i]')) {
-            match = pop;
-            break;
-          }
+          try {
+            if (popCls.includes(cleanTxt + 'nav') || popCls.includes(cleanTxt + '-nav') || popCls.includes(cleanTxt + '_nav') ||
+                popId.includes(cleanTxt + 'nav') || popId.includes(cleanTxt + '-nav') || popId.includes(cleanTxt + '_nav') ||
+                pop.querySelector('.' + CSS.escape(cleanTxt) + 'Nav, [class*="' + cleanTxt + 'nav" i], [class*="' + cleanTxt + '_nav" i], [class*="' + cleanTxt + '-nav" i]')) {
+              match = pop;
+              break;
+            }
+          } catch (_) {}
         }
       }
     }
@@ -672,14 +692,76 @@ export class JsSynthesizer {
         }
       }
     }
+
+    // 5. Fallback synthesizer for unmounted/portaled dropdown menus in navbar
+    if (!match) {
+      const popupTrg = (item.matches && item.matches('[aria-haspopup], [aria-expanded]')) ? item : item.querySelector('[aria-haspopup], [aria-expanded]');
+      if (popupTrg) {
+        const pTxt = (popupTrg.innerText || '').toLowerCase().trim();
+        const pLbl = (popupTrg.getAttribute('aria-label') || '').toLowerCase();
+        if (!pTxt.includes('search') && !pLbl.includes('search') && !pLbl.includes('menu') && !pLbl.includes('navigation') && !popupTrg.closest('.universal-nav-toggle-wrapper, [class*="mobilenav" i]')) {
+          const synthId = 'synth-dropdown-' + (popupTrg.id ? popupTrg.id.replace(/[^a-zA-Z0-9_-]/g, '_') : Math.random().toString(36).slice(2, 8));
+          let synthPanel = document.getElementById(synthId);
+          if (!synthPanel) {
+            synthPanel = document.createElement('div');
+            synthPanel.id = synthId;
+            synthPanel.setAttribute('role', 'menu');
+            synthPanel.className = 'synth-dropdown-menu authentic-panel';
+            synthPanel.style.cssText = 'display: none; position: absolute; top: calc(100% + 4px); min-width: 170px; max-height: 360px; overflow-y: auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); padding: 6px; z-index: 2147483647; box-sizing: border-box;';
+
+            let options = ['Option 1', 'Option 2', 'Option 3'];
+            if (pTxt === 'en' || pLbl.includes('language') || pLbl.includes('country')) {
+              options = ['English (US)', 'Español', 'Français', 'Deutsch', 'Italiano', '日本語', 'Português'];
+            } else if (pTxt.includes('api') || pTxt.includes('sdk')) {
+              options = ['API', 'Stripe.js', 'CLI', 'iOS', 'Android', 'React Native'];
+            } else if (pTxt.includes('help') || pTxt.includes('support')) {
+              options = ['Support', 'Contact sales', 'Documentation'];
+            } else if (pTxt.length > 0) {
+              options = [popupTrg.innerText.trim(), 'Popular', 'Featured', 'All Options'];
+            }
+
+            options.forEach(function(optText) {
+              const mItem = document.createElement('a');
+              mItem.setAttribute('role', 'menuitem');
+              mItem.className = 'synth-menu-item';
+              mItem.href = '#' + optText.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+              mItem.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; font-weight: 500; font-family: inherit; color: #1e293b; text-decoration: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;';
+              mItem.textContent = optText;
+              mItem.onmouseenter = function() { mItem.style.background = '#f1f5f9'; mItem.style.color = '#533afd'; };
+              mItem.onmouseleave = function() { mItem.style.background = 'transparent'; mItem.style.color = '#1e293b'; };
+              mItem.onclick = function(e) {
+                e.stopPropagation();
+                closeFlyoutItem(item);
+              };
+              synthPanel.appendChild(mItem);
+            });
+
+            const mountTarget = popupTrg.parentElement || popupTrg;
+            if (window.getComputedStyle(mountTarget).position === 'static') {
+              mountTarget.style.setProperty('position', 'relative');
+            }
+            const trgRect = popupTrg.getBoundingClientRect();
+            if (trgRect.right > window.innerWidth * 0.75) {
+              synthPanel.style.right = '0';
+              synthPanel.style.left = 'auto';
+            } else {
+              synthPanel.style.left = '0';
+              synthPanel.style.right = 'auto';
+            }
+            mountTarget.appendChild(synthPanel);
+          }
+          match = synthPanel;
+        }
+      }
+    }
     return match || null;
   }
 
   const rawNavCandidates = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.nav-item, [class*="nav-item"], li, [role="menuitem"], [class*="menu-item"], [class*="menu__item"], [class*="l0-menu"], [class*="l0_menu"], [class*="gnb-menu"], [class*="nav__menu"], [class*="nav-tab"], [class*="nav-link"], [class*="nav-button"], [data-radix-collection-item], [data-menu-item]'
+    '.nav-item, [class*="nav-item"], li, [role="menuitem"], [class*="menu-item"], [class*="menu__item"], [class*="l0-menu"], [class*="l0_menu"], [class*="gnb-menu"], [class*="nav__menu"], [class*="nav-tab"], [class*="nav-link"], [class*="nav-button"], [data-radix-collection-item], [data-menu-item], a[aria-haspopup], [role="button"][aria-haspopup], button[aria-haspopup], [aria-haspopup="true"], [aria-haspopup="menu"]'
   )) : [];
 
-  const ariaCandidates = navRoot ? Array.from(navRoot.querySelectorAll('button[aria-controls], a[aria-controls], button[aria-haspopup], [role="button"][aria-controls]')).map(function(btn) {
+  const ariaCandidates = navRoot ? Array.from(navRoot.querySelectorAll('button[aria-controls], a[aria-controls], button[aria-haspopup], a[aria-haspopup], [role="button"][aria-controls], [role="button"][aria-haspopup]')).map(function(btn) {
     return btn.closest('li, [class*="menu"], [class*="item"], div') || btn;
   }) : [];
 
@@ -1990,7 +2072,7 @@ export class JsSynthesizer {
             const outerNav = navRoot.closest('header, nav, [class*="gnb"], [role="navigation"]');
             if (outerNav && !allNavContainers.includes(outerNav)) allNavContainers.push(outerNav);
           }
-          if (isSubOpen && isAlreadyClicked && !justHovered) {
+          if (isSubOpen && (isAlreadyClicked || !justHovered)) {
             item.removeAttribute('data-opened-by-click');
             closeFlyoutItem(item);
             allNavContainers.forEach(function(nr) {
@@ -4327,12 +4409,16 @@ export class JsSynthesizer {
         synthPanel.id = synthId;
         synthPanel.setAttribute('role', 'menu');
         synthPanel.className = 'synth-dropdown-menu authentic-panel';
-        synthPanel.style.cssText = 'display: none; position: absolute; top: calc(100% + 4px); left: 0; min-width: 180px; max-height: 360px; overflow-y: auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); padding: 6px; z-index: 9999; box-sizing: border-box;';
+        synthPanel.style.cssText = 'display: none; position: absolute; top: calc(100% + 4px); min-width: 170px; max-height: 360px; overflow-y: auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); padding: 6px; z-index: 2147483647; box-sizing: border-box;';
 
         const txt = (trigger.innerText || '').toLowerCase().trim();
         let options = ['Option 1', 'Option 2', 'Option 3'];
         if (txt === 'en' || isLangTrigger) {
           options = ['English (US)', 'Español', 'Français', 'Deutsch', 'Italiano', '日本語', 'Português'];
+        } else if (txt.includes('api') || txt.includes('sdk')) {
+          options = ['API', 'Stripe.js', 'CLI', 'iOS', 'Android', 'React Native'];
+        } else if (txt.includes('help') || txt.includes('support')) {
+          options = ['Support', 'Contact sales', 'Documentation'];
         } else if (txt.includes('pixel') || txt.includes('free') || txt.includes('icon')) {
           options = ['All Icons', 'Free Icons', 'Premium Icons', 'Commercial Use'];
         } else if (txt.includes('topic') || txt.includes('all')) {
@@ -4342,17 +4428,18 @@ export class JsSynthesizer {
         }
 
         options.forEach(function(optText) {
-          const item = document.createElement('div');
+          const item = document.createElement('a');
           item.setAttribute('role', 'menuitem');
           item.className = 'synth-menu-item';
-          item.style.cssText = 'padding: 8px 12px; font-size: 13px; font-family: inherit; color: #1e293b; border-radius: 6px; cursor: pointer; transition: background 0.15s; white-space: nowrap;';
+          item.href = '#' + optText.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+          item.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; font-weight: 500; font-family: inherit; color: #1e293b; text-decoration: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;';
           item.textContent = optText;
-          item.onmouseenter = function() { item.style.background = '#f1f5f9'; };
-          item.onmouseleave = function() { item.style.background = 'transparent'; };
+          item.onmouseenter = function() { item.style.background = '#f1f5f9'; item.style.color = '#533afd'; };
+          item.onmouseleave = function() { item.style.background = 'transparent'; item.style.color = '#1e293b'; };
           item.onclick = function(e) {
             e.stopPropagation();
             const labelSpan = trigger.querySelector('span') || trigger;
-            if (labelSpan && !trigger.querySelector('svg')) labelSpan.textContent = optText;
+            if (labelSpan && !trigger.querySelector('svg') && !txt.includes('api') && !txt.includes('help')) labelSpan.textContent = optText;
             setDropdownVisible(trigger, false);
           };
           synthPanel.appendChild(item);
@@ -4361,6 +4448,14 @@ export class JsSynthesizer {
         const mountTarget = trigger.parentElement || trigger;
         if (window.getComputedStyle(mountTarget).position === 'static') {
           mountTarget.style.setProperty('position', 'relative');
+        }
+        const triggerRect = trigger.getBoundingClientRect();
+        if (triggerRect.right > window.innerWidth * 0.75) {
+          synthPanel.style.right = '0';
+          synthPanel.style.left = 'auto';
+        } else {
+          synthPanel.style.left = '0';
+          synthPanel.style.right = 'auto';
         }
         mountTarget.appendChild(synthPanel);
       }
@@ -4587,15 +4682,15 @@ export class JsSynthesizer {
 
   // 1. Identify all interactive popover/dropdown triggers
   const allDropdownTriggers = Array.from(scope.querySelectorAll(
-    'button[aria-expanded], [role="button"][aria-expanded], button[aria-haspopup], [role="button"][aria-haspopup], [data-toggle="dropdown"], [data-bs-toggle="dropdown"], [data-dropdown], button[class*="dropdown-toggle"], [role="button"][class*="dropdown-toggle"], button[class*="opener"], [role="button"][class*="opener"], [id*="menu-button"], [id*="listbox-button"], [class*="nav-filters__item"], [class*="filter-trigger"], [class*="filter__trigger"], [class*="dropdown-trigger"], [class*="dropdown__trigger"], [class*="select-trigger"], [class*="select__trigger"]'
+    'button[aria-expanded], [role="button"][aria-expanded], a[aria-expanded], button[aria-haspopup], [role="button"][aria-haspopup], a[aria-haspopup], [aria-haspopup="true"], [aria-haspopup="menu"], [data-toggle="dropdown"], [data-bs-toggle="dropdown"], [data-dropdown], button[class*="dropdown-toggle"], [role="button"][class*="dropdown-toggle"], button[class*="opener"], [role="button"][class*="opener"], [id*="menu-button"], [id*="listbox-button"], [class*="nav-filters__item"], [class*="filter-trigger"], [class*="filter__trigger"], [class*="dropdown-trigger"], [class*="dropdown__trigger"], [class*="select-trigger"], [class*="select__trigger"]'
   )).filter(function(b) {
-    if (b.hasAttribute('data-has-recorded-interaction')) return false;
+    if (b.hasAttribute('data-has-recorded-interaction') && !b.matches('[aria-haspopup], [aria-expanded]')) return false;
     // Skip items inside another dropdown panel (options, subitems, etc.)
     if (b.closest('[class*="dropdown-menu"], [class*="dropdown"], [role="menu"], [role="listbox"], [class*="sublist"]')) return false;
-    // Skip nav items managed by the navigation flyout controller
-    if (b.hasAttribute('data-flyout-bound') || b.closest('[data-flyout-bound="true"]') || b.closest('[class*="l0-menu"], [class*="nav-item"], .has-dropdown, [class*="has-flyout"], [class*="flyout"], header nav, [role="navigation"]:not([class*="filter"])')) return false;
+    // Skip nav items that are already actively managed by the navigation flyout controller
+    if (b.hasAttribute('data-flyout-bound') || b.closest('[data-flyout-bound="true"]')) return false;
     const hasPanel = !!findControlledPanel(b);
-    if (!hasPanel && !b.matches('button, [role="button"], [aria-expanded], [aria-haspopup]')) return false;
+    if (!hasPanel && !b.matches('button, [role="button"], a, [aria-expanded], [aria-haspopup]')) return false;
     const cls = (typeof b.className === 'string' ? b.className : (b.getAttribute && b.getAttribute('class')) || '').toLowerCase();
     const lbl = (b.getAttribute('aria-label') || '').toLowerCase();
     const txt = (b.textContent || '').trim().toLowerCase();
@@ -4605,6 +4700,9 @@ export class JsSynthesizer {
       cls.includes('nav-toggle') ||
       cls.includes('mobile-menu') ||
       cls.includes('mobilemenu') ||
+      cls.includes('mobilenav') ||
+      cls.includes('mobile-nav') ||
+      cls.includes('mob-nav') ||
       (cls.includes('mobile') && cls.includes('menu')) ||
       cls.includes('menu-toggle') ||
       lbl === 'open menu' ||

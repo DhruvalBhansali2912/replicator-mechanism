@@ -1152,19 +1152,19 @@ export class HtmlSynthesizer {
 
       // 2. Synthesize universal mobile menu drawer
       const hasExistingDrawer = $(
-        '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"], nav.hamburger-menu, [class*="hamburger-menu"], [class*="content-drawer"]'
+        '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button):not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"], nav.hamburger-menu, [class*="hamburger-menu"], [class*="content-drawer"]'
       ).length > 0;
 
       if (!hasExistingDrawer) {
         const drawerListItems: string[] = [];
         const seenLabels = new Set<string>();
 
-        $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li, nav > ul > li, .trending-bar-section a').each((_, el) => {
+        $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li, nav > ul > li, header nav a, [role="navigation"] a, nav a, header a, .trending-bar-section a').each((_, el) => {
           const btn = $(el).is('a, button') ? $(el) : $(el).find('button, a').first();
-          const text = (btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
+          const text = (btn.clone().children('svg, .icon, [class*="icon"]').remove().end().text().trim() || btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
           const id = btn.attr('id') || '';
           const href = btn.attr('href');
-          if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip')) return;
+          if (!text || seenLabels.has(text.toLowerCase()) || text.toLowerCase() === 'menu' || text.toLowerCase().includes('skip') || text.toLowerCase().includes('search') || text.toLowerCase().includes('logo') || text.toLowerCase().includes('ask ai')) return;
           seenLabels.add(text.toLowerCase());
 
           const isLink = href && href !== '#' && !href.startsWith('javascript:');
