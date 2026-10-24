@@ -2291,6 +2291,20 @@ dialog[open] {
   display: none;
 }
 
+/* Universal Layer Stacking & Pseudo Backgrounds */
+body::after, body:after, body::before, body:before {
+  pointer-events: none !important;
+  z-index: 1 !important;
+}
+
+body > section, section, section.authentic-section, [class*="authentic-section"] {
+  position: relative !important;
+  z-index: 2 !important;
+  height: auto !important;
+  min-height: 100vh !important;
+  overflow: visible !important;
+}
+
 ${this.getUniversalInteractiveRules(ast)}
 `.trim();
   }
