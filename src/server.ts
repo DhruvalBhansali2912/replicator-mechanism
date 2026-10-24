@@ -32,6 +32,8 @@ import { FidelityGuard } from './validator/fidelity-guard.js';
 import { comparisonEngine } from './validator/comparison-engine.js';
 import { trialErrorOptimizer } from './optimizer/trial-error-optimizer.js';
 import { optimizeCssForDocument } from './optimizer/css-purger.js';
+import { authService } from './auth/auth-service.js';
+import { tokenService } from './tokens/token-service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,6 +90,24 @@ export function createServer(): express.Application {
 
   // Start automated periodic cleanup of expired jobs & ZIP archives
   startPeriodicCleanup(jobs, CONFIG.cleanupIntervalMinutes, CONFIG.jobRetentionHours);
+
+  // Ensure requested tokens for user API key
+  try {
+    const targetKey = 'rep_sec_70b8f754d05c083ec29572a99d7430c3234da20872c02be5';
+    const v1Auth = authService.verifyToken(targetKey);
+    if (v1Auth) {
+      const bal = tokenService.getUserBalance(v1Auth.user.id);
+      if (bal.available_tokens < 1000) {
+        const delta = 1000 - bal.available_tokens;
+        tokenService.grantTokens(v1Auth.user.id, delta, 'grant', {
+          reason: 'User requested API key token grant',
+        });
+        console.log(`[TokenService] Granted ${delta} tokens to ${targetKey} (User: ${v1Auth.user.id}, Total: 1000)`);
+      }
+    }
+  } catch (err: any) {
+    console.error('[TokenService] Startup token grant error:', err.message);
+  }
 
   // Web Dashboard: Hidden by default so public visitors cannot directly access or use the generator
   const publicDir = path.resolve(__dirname, '../public');
@@ -148,6 +168,26 @@ export function createServer(): express.Application {
         res.status(400).json({ success: false, error: 'MISSING_FIELDS', message: 'Fields "email" or "apiKey", and "tokens" are required.' });
         return;
       }
+
+      if (apiKey && apiKey.trim().startsWith('rep_sec_')) {
+        const cleanKey = apiKey.trim();
+        const v1Auth = authService.verifyToken(cleanKey);
+        if (v1Auth) {
+          tokenService.grantTokens(v1Auth.user.id, Number(tokens), 'grant', {
+            reason: orderId ? `Order #${orderId} credited to V1 key` : 'Token credit top-up to V1 key',
+          });
+          const bal = tokenService.getUserBalance(v1Auth.user.id);
+          res.json({
+            success: true,
+            apiKey: cleanKey,
+            balance: bal.available_tokens,
+            isNew: false,
+            customerEmail: v1Auth.user.email,
+          });
+          return;
+        }
+      }
+
       const result = keyService.creditKey({
         email,
         apiKey,
@@ -214,7 +254,29 @@ export function createServer(): express.Application {
         res.status(400).json({ success: false, error: 'MISSING_API_KEY', message: 'Field "apiKey" is required.' });
         return;
       }
-      const record = authDb.getApiKey(apiKey.trim());
+      const cleanKey = apiKey.trim();
+
+      // Support V1 SQLite tokens (rep_sec_...)
+      if (cleanKey.startsWith('rep_sec_')) {
+        const v1Auth = authService.verifyToken(cleanKey);
+        if (!v1Auth) {
+          res.status(404).json({ success: false, error: 'KEY_NOT_FOUND', message: 'V1 API key not found or revoked.' });
+          return;
+        }
+        tokenService.grantTokens(v1Auth.user.id, count, 'grant', {
+          reason: 'Manual token recharge for V1 API key',
+        });
+        const bal = tokenService.getUserBalance(v1Auth.user.id);
+        res.json({
+          success: true,
+          message: `Successfully credited ${count} tokens to V1 API key!`,
+          balance: bal.available_tokens,
+          userId: v1Auth.user.id,
+        });
+        return;
+      }
+
+      const record = authDb.getApiKey(cleanKey);
       if (!record) {
         res.status(404).json({ success: false, error: 'KEY_NOT_FOUND', message: 'API key not found.' });
         return;
