@@ -1930,7 +1930,8 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n.scroll-trigger, .scroll-trigger.animate--slide-in, .scroll-trigger.animate--fade-in, [class*="scroll-trigger"] { opacity: 1 !important; transform: none !important; visibility: visible !important; }\n';
     scopedCss += '\n.html-mesh-hidden, [class*="html-mesh-hidden"] { opacity: 1 !important; visibility: visible !important; display: block !important; }\n';
     scopedCss += '\nhtml, body { height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; min-height: 100% !important; }\n';
-    scopedCss += '\nsection.authentic-section, [class*="authentic-section"] { position: relative !important; height: auto !important; min-height: 100vh !important; overflow: visible !important; }\n';
+    scopedCss += '\nbody::after, body:after, body::before, body:before { pointer-events: none !important; }\n';
+    scopedCss += '\nsection.authentic-section, [class*="authentic-section"] { position: relative !important; z-index: 1 !important; height: auto !important; min-height: 100vh !important; overflow: visible !important; }\n';
     scopedCss += '\n.loader--ready, .loader button, .loader a, [class*="loader"] button, [class*="loader"] a, [class*="btn"], button, a { pointer-events: auto !important; }\n';
     scopedCss += '\n.button__content { position: relative !important; overflow: hidden !important; display: inline-block !important; }\n';
     scopedCss += '\n.button__content-sub { display: block !important; transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
