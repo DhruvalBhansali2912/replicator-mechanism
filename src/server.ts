@@ -634,10 +634,36 @@ export function createServer(): express.Application {
     res.status(404).end();
   });
   app.get('/api/jobs/:id/script.js', (req: Request, res: Response) => {
-    const p = path.join(CONFIG.jobsDir, req.params.id, 'full-page', 'script.js');
-    if (fs.existsSync(p)) {
+    const jobDir = path.join(CONFIG.jobsDir, req.params.id, 'full-page');
+    const p = path.join(jobDir, 'script.js');
+    let js = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
+    if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+      const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+      let jobData: any = {};
+      if (fs.existsSync(metaPath)) {
+        try {
+          jobData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+        } catch (_) {}
+      }
+      try {
+        const ast = (synthesisEngine as any).inspector.inspect(
+          fs.readFileSync(path.join(jobDir, 'index.html'), 'utf8'),
+          jobData.url || 'https://example.com',
+          '',
+          jobData.options?.sectionSelector || 'header',
+          jobData.options?.targetArchetype || 'navbar',
+          jobData.options?.htmlSnapshot
+        );
+        const freshJs = (synthesisEngine as any).jsSynthesizer.synthesize(ast);
+        if (freshJs && freshJs.length > 50) {
+          js = freshJs;
+          fs.writeFileSync(p, js, 'utf8');
+        }
+      } catch (_) {}
+    }
+    if (js) {
       res.setHeader('Content-Type', 'application/javascript');
-      return res.sendFile(p);
+      return res.send(js);
     }
     res.status(404).end();
   });
@@ -1102,15 +1128,37 @@ nav.hamburger-menu.is-open,
   background: none !important;
   border: none !important;
   cursor: pointer !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  padding: 10px 0 !important;
-  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
   color: #0a0a0a !important;
+}
+
+/* Accordion Row Submenu Expander */
+.accordion .accordion-row.active,
+.accordion .accordion-row.is-open,
+.accordion .accordion-row.open,
+.accordion-row.active,
+.accordion-row.is-open,
+.accordion-row.open {
+  grid-template-rows: min-content 1fr !important;
+}
+
+.accordion .accordion-row.active > .accordion,
+.accordion .accordion-row.is-open > .accordion,
+.accordion .accordion-row.open > .accordion,
+.accordion-row.active > .accordion,
+.accordion-row.is-open > .accordion,
+.accordion-row.open > .accordion {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.accordion .accordion-row.active .chevron-down-icon,
+.accordion .accordion-row.is-open .chevron-down-icon,
+.accordion .accordion-row.open .chevron-down-icon,
+.accordion-row.active .chevron-down-icon,
+.accordion-row.is-open .chevron-down-icon,
+.accordion-row.open .chevron-down-icon {
+  transform: rotate(-180deg) !important;
 }
 
 .drawer-pw,
@@ -1709,15 +1757,37 @@ nav.hamburger-menu.is-open,
   background: none !important;
   border: none !important;
   cursor: pointer !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  padding: 10px 0 !important;
-  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
   color: #0a0a0a !important;
+}
+
+/* Accordion Row Submenu Expander */
+.accordion .accordion-row.active,
+.accordion .accordion-row.is-open,
+.accordion .accordion-row.open,
+.accordion-row.active,
+.accordion-row.is-open,
+.accordion-row.open {
+  grid-template-rows: min-content 1fr !important;
+}
+
+.accordion .accordion-row.active > .accordion,
+.accordion .accordion-row.is-open > .accordion,
+.accordion .accordion-row.open > .accordion,
+.accordion-row.active > .accordion,
+.accordion-row.is-open > .accordion,
+.accordion-row.open > .accordion {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.accordion .accordion-row.active .chevron-down-icon,
+.accordion .accordion-row.is-open .chevron-down-icon,
+.accordion .accordion-row.open .chevron-down-icon,
+.accordion-row.active .chevron-down-icon,
+.accordion-row.is-open .chevron-down-icon,
+.accordion-row.open .chevron-down-icon {
+  transform: rotate(-180deg) !important;
 }
 
 .drawer-pw,
@@ -1745,7 +1815,7 @@ nav.hamburger-menu.is-open,
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
       let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
-      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
         const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
         let jobData: any = {};
         if (fs.existsSync(metaPath)) {

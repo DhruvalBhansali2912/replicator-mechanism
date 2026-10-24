@@ -1169,15 +1169,54 @@ export class JsSynthesizer {
                 closeAllNav();
               };
             });
-            drawer.querySelectorAll('.accordion-button').forEach(function(accBtn) {
-              accBtn.onclick = function(ev) {
+            // accordion-row-active-sync: handle drawer accordions & submenus
+            drawer.querySelectorAll('.accordion-button, [class*="accordion-button"], [class*="accordion-toggle"], .chevron-down-icon').forEach(function(accBtn) {
+              const btn = accBtn.tagName === 'BUTTON' ? accBtn : (accBtn.closest('button') || accBtn);
+              btn.onclick = function(ev) {
+                ev.preventDefault();
                 ev.stopPropagation();
-                const parent = accBtn.closest('.vertical-sub-list-item, li, div');
-                const sublist = parent ? parent.querySelector('.vertical-sub-list, ul, [class*="sub-list"]') : null;
+
+                const row = btn.closest('.accordion-row');
+                if (row) {
+                  const wasActive = row.classList.contains('active') || row.classList.contains('is-open') || row.classList.contains('open');
+                  const willBeActive = !wasActive;
+
+                  // Close sibling accordion rows in the same accordion container
+                  const parentAccordion = row.parentElement;
+                  if (parentAccordion) {
+                    Array.from(parentAccordion.children).forEach(function(sib) {
+                      if (sib !== row && (sib.classList.contains('accordion-row') || sib.matches('.accordion-row'))) {
+                        sib.classList.remove('active', 'is-open', 'open');
+                        const sBtn = sib.querySelector('.accordion-button, [aria-expanded]');
+                        if (sBtn) sBtn.setAttribute('aria-expanded', 'false');
+                        const sSub = sib.querySelector('.accordion, [class*="level-"], [class*="sub-list"], ul');
+                        if (sSub) sSub.classList.remove('active', 'is-open', 'open');
+                      }
+                    });
+                  }
+
+                  row.classList.toggle('active', willBeActive);
+                  row.classList.toggle('is-open', willBeActive);
+                  row.classList.toggle('open', willBeActive);
+                  btn.setAttribute('aria-expanded', String(willBeActive));
+
+                  const subAccordion = row.querySelector('.accordion, [class*="level-"], [class*="sub-list"], ul');
+                  if (subAccordion) {
+                    subAccordion.classList.toggle('active', willBeActive);
+                    subAccordion.classList.toggle('is-open', willBeActive);
+                    subAccordion.classList.toggle('open', willBeActive);
+                  }
+                  return;
+                }
+
+                const parent = btn.closest('.vertical-sub-list-item, [class*="menu-item"], li, div');
+                const sublist = parent ? parent.querySelector('.vertical-sub-list, ul, [class*="sub-list"], .accordion, [class*="level-"]') : null;
                 if (sublist) {
-                  const isExp = accBtn.getAttribute('aria-expanded') === 'true' || sublist.style.display === 'block';
-                  accBtn.setAttribute('aria-expanded', isExp ? 'false' : 'true');
+                  const isExp = btn.getAttribute('aria-expanded') === 'true' || sublist.style.display === 'block' || sublist.classList.contains('active');
+                  btn.setAttribute('aria-expanded', isExp ? 'false' : 'true');
                   sublist.style.display = isExp ? 'none' : 'block';
+                  sublist.classList.toggle('active', !isExp);
+                  if (parent) parent.classList.toggle('active', !isExp);
                 }
               };
             });
@@ -1509,12 +1548,22 @@ export class JsSynthesizer {
         }
       }
       if (!target) {
-        target = btn.nextElementSibling || (btn.parentElement ? btn.parentElement.querySelector('.toggle-content, [class*="accordion-content"], [class*="accordion__panel"], [class*="content"]') : null);
+        const row = btn.closest('.accordion-row');
+        if (row) {
+          target = row.querySelector('.accordion:not(.level-0), [class*="level-"], [class*="sub-list"], ul');
+        }
       }
-      const parentContainer = btn.closest('[class*="accordion" i], [class*="toggle" i], [class*="collapse" i], .mobile-nav-item, [class*="navigation__item"], li');
+      if (!target) {
+        if (btn.nextElementSibling && !btn.nextElementSibling.matches('a, button, span, label, input')) {
+          target = btn.nextElementSibling;
+        } else if (btn.parentElement) {
+          target = btn.parentElement.querySelector('.toggle-content, [class*="accordion-content"], [class*="accordion__panel"], [class*="content"]:not(.accordion-button)');
+        }
+      }
+      const parentContainer = btn.closest('.accordion-row, [class*="accordion-row"], [class*="accordion" i]:not(.accordion), [class*="toggle" i], [class*="collapse" i], .mobile-nav-item, [class*="navigation__item"], li');
       const isCurrentlyOpen = btn.getAttribute('aria-expanded') === 'true' ||
-        (parentContainer && (parentContainer.classList.contains('is-open') || parentContainer.classList.contains('is-current'))) ||
-        (target && (target.classList.contains('is-open') || target.classList.contains('cmp-accordion__panel--expanded') || target.style.display === 'block'));
+        (parentContainer && (parentContainer.classList.contains('is-open') || parentContainer.classList.contains('active') || parentContainer.classList.contains('is-current'))) ||
+        (target && (target.classList.contains('is-open') || target.classList.contains('active') || target.classList.contains('cmp-accordion__panel--expanded') || target.style.display === 'block'));
 
       const willOpen = !isCurrentlyOpen;
       btn.setAttribute('aria-expanded', String(willOpen));
@@ -1535,9 +1584,9 @@ export class JsSynthesizer {
           if (sib !== parentContainer) {
             sib.classList.remove('is-open', 'open', 'is-current', 'active');
             sib.querySelectorAll('[aria-expanded="true"]').forEach(function(sBtn) { sBtn.setAttribute('aria-expanded', 'false'); });
-            sib.querySelectorAll('.cmp-accordion__panel--expanded, [class*="accordion__panel"], [class*="toggle-content"]').forEach(function(sPan) {
-              sPan.classList.remove('cmp-accordion__panel--expanded', 'is-open', 'open');
-              sPan.style.display = 'none';
+            sib.querySelectorAll('.cmp-accordion__panel--expanded, [class*="accordion__panel"], [class*="toggle-content"], .accordion, [class*="level-"]').forEach(function(sPan) {
+              sPan.classList.remove('cmp-accordion__panel--expanded', 'is-open', 'open', 'active');
+              if (sPan.style && sPan.style.display === 'block') sPan.style.display = 'none';
             });
           }
         });
@@ -1572,14 +1621,20 @@ export class JsSynthesizer {
       if (parentContainer) {
         parentContainer.classList.toggle('is-open', willOpen);
         parentContainer.classList.toggle('open', willOpen);
+        parentContainer.classList.toggle('active', willOpen);
         parentContainer.classList.toggle('is-current', willOpen);
         applyFrameworkStateClasses(parentContainer, willOpen);
       }
       if (target) {
         target.classList.toggle('is-open', willOpen);
         target.classList.toggle('open', willOpen);
+        target.classList.toggle('active', willOpen);
         target.classList.toggle('cmp-accordion__panel--expanded', willOpen);
-        target.style.display = willOpen ? 'block' : 'none';
+        if (target.matches('.accordion, [class*="level-"]')) {
+          target.style.removeProperty('display');
+        } else {
+          target.style.display = willOpen ? 'block' : 'none';
+        }
         applyFrameworkStateClasses(target, willOpen);
 
         if (willOpen) {

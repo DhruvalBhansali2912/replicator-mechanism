@@ -4039,15 +4039,37 @@ nav.hamburger-menu.is-open,
   background: none !important;
   border: none !important;
   cursor: pointer !important;
-  font-size: 16px !important;
-  font-weight: 600 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  padding: 10px 0 !important;
-  border-bottom: 1px solid rgba(0,0,0,0.06) !important;
   color: #0a0a0a !important;
+}
+
+/* Accordion Row Submenu Expander */
+.accordion .accordion-row.active,
+.accordion .accordion-row.is-open,
+.accordion .accordion-row.open,
+.accordion-row.active,
+.accordion-row.is-open,
+.accordion-row.open {
+  grid-template-rows: min-content 1fr !important;
+}
+
+.accordion .accordion-row.active > .accordion,
+.accordion .accordion-row.is-open > .accordion,
+.accordion .accordion-row.open > .accordion,
+.accordion-row.active > .accordion,
+.accordion-row.is-open > .accordion,
+.accordion-row.open > .accordion {
+  display: grid !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.accordion .accordion-row.active .chevron-down-icon,
+.accordion .accordion-row.is-open .chevron-down-icon,
+.accordion .accordion-row.open .chevron-down-icon,
+.accordion-row.active .chevron-down-icon,
+.accordion-row.is-open .chevron-down-icon,
+.accordion-row.open .chevron-down-icon {
+  transform: rotate(-180deg) !important;
 }
 
 .drawer-pw,
