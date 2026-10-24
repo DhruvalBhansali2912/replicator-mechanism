@@ -5496,6 +5496,7 @@ export class JsSynthesizer {
           entries.forEach(function(entry) {
             if (entry.isIntersecting) {
               const el = entry.target;
+              const isPinnedScreen = (el.matches && el.matches('section[class*="hero-"], [data-text-screen]')) && el.closest('.hero-storytelling, [class*="hero-storytelling"]');
               el.classList.add('aos-animate', 'in-view', 'is-revealed', 'is-visible', 'active', 'staggered-end');
               el.classList.remove('staggered-start');
               if (el.hasAttribute('data-text-screen') || (el.className && typeof el.className === 'string' && el.className.includes('hero-'))) {
@@ -5514,13 +5515,13 @@ export class JsSynthesizer {
                   item.style.setProperty('transform', 'none');
                 });
               }
-              if (el.style.opacity === '0' || el.classList.contains('animate-word') || (el.className && typeof el.className === 'string' && el.className.includes('animate-word'))) {
+              if (!isPinnedScreen && (el.style.opacity === '0' || el.classList.contains('animate-word') || (el.className && typeof el.className === 'string' && el.className.includes('animate-word')))) {
                 el.style.setProperty('opacity', '1');
                 el.style.setProperty('transform', 'translateY(0px)');
                 const heading = el.closest('h1, h2, h3, [class*="heading"]');
                 if (heading) heading.classList.add('word-animation-processed');
               }
-              if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
+              if (!isPinnedScreen && el.style.visibility === 'hidden') el.style.visibility = 'visible';
               animObserver.unobserve(el);
             }
           });
@@ -5532,6 +5533,7 @@ export class JsSynthesizer {
       root.querySelectorAll(
         '[data-aos], [data-scroll], [data-inview], [class*="animate-"], [class*="reveal"], [class*="fade-in"], [class*="slide-in"], [class*="zoom-in"], [data-motion], [class*="staggered-"], [data-component-list*="StaggeredFadeIn"], [data-staggered-item], [data-text-screen], [data-text-mesh], [class*="storytelling"], [class*="hero-"]'
       ).forEach(function(el) {
+        const isPinnedScreen = (el.matches && el.matches('section[class*="hero-"], [data-text-screen]')) && el.closest('.hero-storytelling, [class*="hero-storytelling"]');
         el.classList.add('aos-animate', 'in-view', 'is-revealed', 'is-visible', 'active', 'staggered-end');
         el.classList.remove('staggered-start');
         if (el.hasAttribute('data-text-screen') || (el.className && typeof el.className === 'string' && el.className.includes('hero-'))) {
@@ -5550,13 +5552,13 @@ export class JsSynthesizer {
             item.style.setProperty('transform', 'none');
           });
         }
-        if (el.style.opacity === '0' || el.classList.contains('animate-word') || (el.className && typeof el.className === 'string' && el.className.includes('animate-word'))) {
+        if (!isPinnedScreen && (el.style.opacity === '0' || el.classList.contains('animate-word') || (el.className && typeof el.className === 'string' && el.className.includes('animate-word')))) {
           el.style.setProperty('opacity', '1');
           el.style.setProperty('transform', 'translateY(0px)');
           const heading = el.closest('h1, h2, h3, [class*="heading"]');
           if (heading) heading.classList.add('word-animation-processed');
         }
-        if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
+        if (!isPinnedScreen && el.style.visibility === 'hidden') el.style.visibility = 'visible';
       });
     }
 
@@ -5589,6 +5591,7 @@ export class JsSynthesizer {
     });
 
     // Universal Pinned Storytelling Screen Transition Controller
+    let updateStorytellingScreens = null;
     const storytelling = root.querySelector('.hero-storytelling, [class*="hero-storytelling"]');
     if (storytelling) {
       const screens = Array.from(storytelling.querySelectorAll('[data-text-screen], section[class*="hero-"]')).filter(function(s) {
@@ -5633,9 +5636,13 @@ export class JsSynthesizer {
             }
           });
         }
+        updateStorytellingScreens = updateScreensOnScroll;
 
         window.addEventListener('scroll', updateScreensOnScroll, { passive: true });
+        window.addEventListener('resize', updateScreensOnScroll, { passive: true });
         updateScreensOnScroll();
+        setTimeout(updateScreensOnScroll, 350);
+        setTimeout(updateScreensOnScroll, 700);
       }
     }
 
@@ -5661,9 +5668,12 @@ export class JsSynthesizer {
             document.querySelectorAll('main, [class*="hero"], [class*="content"]').forEach(function(c) {
               if (c !== loader && !loader.contains(c)) {
                 c.style.visibility = 'visible';
-                c.style.opacity = '1';
+                if (!c.matches || !c.matches('section[class*="hero-"], [data-text-screen]') || !c.closest('.hero-storytelling, [class*="hero-storytelling"]')) {
+                  c.style.opacity = '1';
+                }
               }
             });
+            if (updateStorytellingScreens) updateStorytellingScreens();
           }, 600);
         });
       });
