@@ -1364,10 +1364,11 @@ nav.hamburger-menu.is-open,
     font-weight: 700 !important;
     margin-left: 6px !important;
   }
-  body:not(.mobile-toggled) .col-full-nav {
+  body:not(.mobile-toggled):not(.menu-open) .col-full-nav {
     display: none !important;
   }
-  body.mobile-toggled .col-full-nav {
+  body.mobile-toggled .col-full-nav,
+  body.menu-open .col-full-nav {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -1384,18 +1385,21 @@ nav.hamburger-menu.is-open,
     box-shadow: 4px 0 20px rgba(0,0,0,0.2) !important;
     overflow-y: auto !important;
   }
-  body.mobile-toggled .col-full-nav a {
+  body.mobile-toggled .col-full-nav a,
+  body.menu-open .col-full-nav a {
     color: #111111 !important;
     padding: 12px 0 !important;
     border-bottom: 1px solid rgba(0,0,0,0.06) !important;
   }
-  body.mobile-toggled .col-full-nav ul.menu {
+  body.mobile-toggled .col-full-nav ul.menu,
+  body.menu-open .col-full-nav ul.menu {
     display: flex !important;
     flex-direction: column !important;
     gap: 0 !important;
     width: 100% !important;
   }
-  body.mobile-toggled .menu-overlay {
+  body.mobile-toggled .menu-overlay,
+  body.menu-open .menu-overlay {
     display: block !important;
     position: fixed !important;
     top: 0 !important;
@@ -1414,7 +1418,7 @@ nav.hamburger-menu.is-open,
               headEl.append(`<style id="universal-mobile-nav-css">${mobileNavInlineCss}</style>`);
               modified = true;
             }
-          } else if (!$h('#universal-mobile-nav-css').text().includes('header-4-container')) {
+          } else if (!$h('#universal-mobile-nav-css').text().includes('menu-open .col-full-nav')) {
             $h('#universal-mobile-nav-css').text(mobileNavInlineCss);
             modified = true;
           }
@@ -2175,10 +2179,11 @@ nav.hamburger-menu.is-open,
     font-weight: 700 !important;
     margin-left: 6px !important;
   }
-  body:not(.mobile-toggled) .col-full-nav {
+  body:not(.mobile-toggled):not(.menu-open) .col-full-nav {
     display: none !important;
   }
-  body.mobile-toggled .col-full-nav {
+  body.mobile-toggled .col-full-nav,
+  body.menu-open .col-full-nav {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -2195,18 +2200,21 @@ nav.hamburger-menu.is-open,
     box-shadow: 4px 0 20px rgba(0,0,0,0.2) !important;
     overflow-y: auto !important;
   }
-  body.mobile-toggled .col-full-nav a {
+  body.mobile-toggled .col-full-nav a,
+  body.menu-open .col-full-nav a {
     color: #111111 !important;
     padding: 12px 0 !important;
     border-bottom: 1px solid rgba(0,0,0,0.06) !important;
   }
-  body.mobile-toggled .col-full-nav ul.menu {
+  body.mobile-toggled .col-full-nav ul.menu,
+  body.menu-open .col-full-nav ul.menu {
     display: flex !important;
     flex-direction: column !important;
     gap: 0 !important;
     width: 100% !important;
   }
-  body.mobile-toggled .menu-overlay {
+  body.mobile-toggled .menu-overlay,
+  body.menu-open .menu-overlay {
     display: block !important;
     position: fixed !important;
     top: 0 !important;
@@ -2238,7 +2246,7 @@ nav.hamburger-menu.is-open,
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
       let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
-      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync') || !js.includes('mobile-toggled')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync') || !js.includes("content-drawer-open', 'mobile-toggled')")) && fs.existsSync(path.join(jobDir, 'index.html'))) {
         const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
         let jobData: any = {};
         if (fs.existsSync(metaPath)) {

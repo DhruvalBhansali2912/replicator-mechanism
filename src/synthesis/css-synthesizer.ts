@@ -4212,10 +4212,11 @@ nav.hamburger-menu.is-open,
     font-weight: 700 !important;
     margin-left: 6px !important;
   }
-  body:not(.mobile-toggled) .col-full-nav {
+  body:not(.mobile-toggled):not(.menu-open) .col-full-nav {
     display: none !important;
   }
-  body.mobile-toggled .col-full-nav {
+  body.mobile-toggled .col-full-nav,
+  body.menu-open .col-full-nav {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -4232,18 +4233,21 @@ nav.hamburger-menu.is-open,
     box-shadow: 4px 0 20px rgba(0,0,0,0.2) !important;
     overflow-y: auto !important;
   }
-  body.mobile-toggled .col-full-nav a {
+  body.mobile-toggled .col-full-nav a,
+  body.menu-open .col-full-nav a {
     color: #111111 !important;
     padding: 12px 0 !important;
     border-bottom: 1px solid rgba(0,0,0,0.06) !important;
   }
-  body.mobile-toggled .col-full-nav ul.menu {
+  body.mobile-toggled .col-full-nav ul.menu,
+  body.menu-open .col-full-nav ul.menu {
     display: flex !important;
     flex-direction: column !important;
     gap: 0 !important;
     width: 100% !important;
   }
-  body.mobile-toggled .menu-overlay {
+  body.mobile-toggled .menu-overlay,
+  body.menu-open .menu-overlay {
     display: block !important;
     position: fixed !important;
     top: 0 !important;
