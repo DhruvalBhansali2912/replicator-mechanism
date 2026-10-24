@@ -2499,21 +2499,13 @@ export class JsSynthesizer {
     // Universal Tabbed Sections & Category Filter Controller
     const hasTabs =
       ast.archetype === 'tabs' ||
-      ast.archetype === 'features' ||
-      ast.archetype === 'pricing' ||
-      ast.archetype === 'testimonials' ||
-      rawLower.includes('tab') ||
-      rawLower.includes('filter') ||
-      rawLower.includes('categor') ||
-      rawLower.includes('department') ||
-      rawLower.includes('segment') ||
-      rawLower.includes('rounded-full') ||
-      rawLower.includes('whitespace-nowrap') ||
-      rawLower.includes('navitem') ||
-      rawLower.includes('sidebar') ||
-      rawLower.includes('framewrapper') ||
-      rawLower.includes('mockup') ||
-      rawLower.includes('pill');
+      Boolean(
+        rawLower.includes('role="tab"') ||
+        rawLower.includes('tab-header') ||
+        rawLower.includes('tabs-nav') ||
+        rawLower.includes('ws84ww_frame') ||
+        rawLower.includes('framewrapper')
+      );
 
     if (hasTabs) {
       scripts.push(`
@@ -3007,7 +2999,19 @@ export class JsSynthesizer {
     }
 
     // 2.5 Universal Swatch Fade Gallery Controller (Color Nav, Variant Switchers)
-    scripts.push(`
+    const isNavOrFooter =
+      ast.archetype === 'navbar' ||
+      ast.archetype === 'footer';
+
+    const hasSwatches = !isNavOrFooter && Boolean(
+      rawLower.includes('swatch') ||
+      rawLower.includes('colornav') ||
+      rawLower.includes('type="radio"') ||
+      rawLower.includes("type='radio'")
+    );
+
+    if (hasSwatches) {
+      scripts.push(`
   (function() {
     const root = document.querySelector('#${ast.id}') || document;
     
@@ -3164,6 +3168,7 @@ export class JsSynthesizer {
     }
   })();
     `.trim());
+    }
 
     // 3. Carousel slide indicators / dots & arrow controls
     const arch = (ast.archetype as string) || '';
@@ -4082,23 +4087,14 @@ export class JsSynthesizer {
 
     // 5. Universal Interactive Controls: Dropdowns, Popovers, Swatches & Faceted Filtering
     const hasInteractiveFormsOrCards =
-      ast.archetype === 'features' ||
-      ast.archetype === 'pricing' ||
-      ast.archetype === 'generic-section' ||
-      ast.archetype === 'navbar' ||
+      (ast.archetype === 'generic-section' ||
+        (ast.archetype as string) === 'catalog') &&
       Boolean(
         ast.rawSectionHtml &&
-          (ast.rawSectionHtml.includes('input') ||
-            ast.rawSectionHtml.includes('filter') ||
-            ast.rawSectionHtml.includes('sort') ||
-            ast.rawSectionHtml.includes('dropdown') ||
-            ast.rawSectionHtml.includes('option') ||
-            ast.rawSectionHtml.includes('aria-haspopup') ||
-            ast.rawSectionHtml.includes('aria-expanded') ||
-            ast.rawSectionHtml.includes('data-baseweb="menu"') ||
+          (ast.rawSectionHtml.includes('facet') ||
             ast.rawSectionHtml.includes('data-baseweb="popover"') ||
-            ast.rawSectionHtml.includes('data-toggle') ||
-            ast.rawSectionHtml.includes('role="menu"'))
+            ast.rawSectionHtml.includes('sort-by') ||
+            ast.rawSectionHtml.includes('filter-dropdown'))
       );
 
     if (hasInteractiveFormsOrCards) {
@@ -5085,7 +5081,8 @@ export class JsSynthesizer {
     }
 
     // 6. Video Auto-Play Resilience
-    scripts.push(`
+    if (rawLower.includes('<video')) {
+      scripts.push(`
   // Video Auto-Play & Playsinline Handler
   document.querySelectorAll('#${ast.id} video, video').forEach((vid) => {
     if (vid.hasAttribute('autoplay')) {
@@ -5093,10 +5090,19 @@ export class JsSynthesizer {
       vid.play().catch(() => {});
     }
   });
-    `.trim());
+      `.trim());
+    }
 
     // 7. Universal Scroll Reveal, Scramble Text & SVG Path Animation Controller
-    scripts.push(`
+    const hasScrambleOrSvg = Boolean(
+      rawLower.includes('data-scramble') ||
+      rawLower.includes('scramble-text') ||
+      rawLower.includes('data-typer') ||
+      rawLower.includes('stroke-dasharray')
+    );
+
+    if (hasScrambleOrSvg) {
+      scripts.push(`
   // Universal Scroll Reveal, Scramble Text & SVG Path Animation Controller
   (function() {
     const root = document.querySelector('#${ast.id}') || document;
@@ -5509,9 +5515,16 @@ export class JsSynthesizer {
     }
   })();
     `.trim());
+    }
 
     // 8. Universal Interactive Product Viewer & Detent Pose Slider Controller
-    scripts.push(`
+    const hasProductViewer = Boolean(
+      rawLower.includes('product-viewer') ||
+      rawLower.includes('data-component-list="productviewer"')
+    );
+
+    if (hasProductViewer) {
+      scripts.push(`
   // Universal Interactive Product Viewer & Detent Pose Slider Controller
   (function() {
     const root = document.querySelector('#${ast.id}') || document;
@@ -5767,6 +5780,7 @@ export class JsSynthesizer {
     });
   });
       `.trim());
+    }
 
     if (scripts.length === 0) {
       return '';

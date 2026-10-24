@@ -1,7 +1,7 @@
 import postcss, { Rule, AtRule } from 'postcss';
 import * as cheerio from 'cheerio';
 import { SectionAST } from './types.js';
-import { isGenericPrimitive } from '../optimizer/css-purger.js';
+import { isGenericPrimitive, optimizeCssForDocument } from '../optimizer/css-purger.js';
 import { resolveTargetSectionFromSnapshot } from '../classifier/section-resolver.js';
 
 export class CssSynthesizer {
@@ -9,9 +9,18 @@ export class CssSynthesizer {
    * Synthesizes modern, tokenized, responsive CSS3 with interactive hover/click states.
    */
   public synthesize(ast: SectionAST): string {
-    if (this.hasAuthenticMarkup(ast)) {
-      return this.synthesizeAuthenticCss(ast);
-    }
+    const rawCss = this.hasAuthenticMarkup(ast)
+      ? this.synthesizeAuthenticCss(ast)
+      : this.synthesizeStandardCss(ast);
+
+    const sectionHtml = ast.rawSectionHtml || '';
+    const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
+    const wrappedHtml = `<html lang="en"><body><${wrapperTag} id="${ast.id}">${sectionHtml}</${wrapperTag}></body></html>`;
+
+    return optimizeCssForDocument(rawCss, wrappedHtml);
+  }
+
+  private synthesizeStandardCss(ast: SectionAST): string {
     const { colors, typography, spacing } = ast.tokens;
 
     return `
@@ -1625,7 +1634,7 @@ body {
   }
 }
 
-${this.getUniversalInteractiveRules()}
+${this.getUniversalInteractiveRules(ast)}
 `.trim();
   }
 
@@ -2226,12 +2235,48 @@ dialog[open] {
   display: none;
 }
 
-${this.getUniversalInteractiveRules()}
+${this.getUniversalInteractiveRules(ast)}
 `.trim();
   }
 
-  private getUniversalInteractiveRules(): string {
+  private getUniversalInteractiveRules(ast?: SectionAST): string {
+    const rawLower = (ast?.rawSectionHtml || '').toLowerCase();
+    const arch = (ast?.archetype as string) || '';
+    const hasCarousel = Boolean(
+      arch === 'carousel' ||
+      rawLower.includes('carousel') ||
+      rawLower.includes('swiper') ||
+      rawLower.includes('slick') ||
+      rawLower.includes('glide') ||
+      rawLower.includes('splide') ||
+      rawLower.includes('slider')
+    );
+    const hasTabs = Boolean(
+      arch === 'tabs' ||
+      rawLower.includes('role="tab"') ||
+      rawLower.includes('tab-header') ||
+      rawLower.includes('tab-item') ||
+      rawLower.includes('tabs-nav')
+    );
+    const hasMockup = Boolean(
+      rawLower.includes('framewrapper') ||
+      rawLower.includes('ws84ww_')
+    );
+    const hasProductViewer = Boolean(
+      rawLower.includes('product-viewer') ||
+      rawLower.includes('viewer--loading')
+    );
+    const hasVideo = Boolean(rawLower.includes('<video'));
+    const hasShoptimizer = Boolean(
+      rawLower.includes('header-4') ||
+      rawLower.includes('shoptimizer') ||
+      rawLower.includes('col-full-nav')
+    );
+    const hasTesla = Boolean(rawLower.includes('tds-') || rawLower.includes('tesla'));
+    const hasBusinessInsider = Boolean(rawLower.includes('businessinsider') || rawLower.includes('accordion-row'));
+
     return `
+${hasCarousel ? `
 /* Universal Carousel Indicators / Bullets (strictly for carousels, never for tabs) */
 [class*="carousel-indicators"],
 [class*="swiper-pagination"]:not([class*="progressbar"]):not([class*="progress"]),
@@ -2271,7 +2316,9 @@ ${this.getUniversalInteractiveRules()}
   transform: scale(1.3);
   opacity: 1;
 }
+` : ''}
 
+${hasTabs ? `
 /* Universal Tab Support */
 [role="tablist"], [class*="tab-header"], [class*="tab__header"], [class*="tabs-nav"] {
   display: flex;
@@ -2294,7 +2341,9 @@ ${this.getUniversalInteractiveRules()}
 [data-tab-pane][aria-hidden="true"] {
   display: none;
 }
+` : ''}
 
+${hasMockup ? `
 /* Universal Mockup & Dashboard Multi-View Layout */
 [class*="frame"] > [class*="view"],
 [class*="frameWrapper"] > [class*="view"],
@@ -2305,7 +2354,9 @@ ${this.getUniversalInteractiveRules()}
   width: 100% !important;
   height: 100% !important;
 }
+` : ''}
 
+${hasCarousel ? `
 /* Universal Carousel Navigation Arrows */
 .carousel-arrow {
   position: absolute;
@@ -2408,7 +2459,9 @@ ${this.getUniversalInteractiveRules()}
 [class*="option-selector"] [class*="swiper-wrapper"]::-webkit-scrollbar {
   display: none;
 }
+` : ''}
 
+${(hasTabs || hasCarousel) ? `
 /* Universal Multi-Panel, Tab Subpanel & Carousel Display Rules */
 [role="tabpanel"].is-active,
 [role="tabpanel"].active,
@@ -2441,6 +2494,7 @@ ${this.getUniversalInteractiveRules()}
   overflow: hidden !important;
   max-width: 100% !important;
 }
+` : ''}
 
 /* Universal Framework Menus, Dropdown Panels & Companion Popups Resting State */
 [class*="popup"]:not(.is-open):not([data-open]):not([class*="toast"]):not([class*="banner"]),
@@ -2654,6 +2708,7 @@ svg[class*="pointer"] path {
   visibility: visible;
 }
 
+${hasProductViewer ? `
 /* Universal 3D Viewer & Product Tour Fallback Resilience */
 .viewer--loading .loader,
 .viewer--loading .loader-background,
@@ -2838,7 +2893,9 @@ svg[class*="pointer"] path {
   transform: scale(0.98) !important;
   z-index: 1 !important;
 }
+` : ''}
 
+${hasVideo ? `
 /* Universal Video Animation Continuous Playback & Fallback Frame Resilience */
 video[class*="pin-offset"],
 video[id*="hero-video"],
@@ -2851,6 +2908,7 @@ video[id*="hero-video"],
 .fallback-container > picture.fallback-frame {
   opacity: 1 !important;
 }
+` : ''}
 
 /* Universal Top Placement for Headers & Navbars in Previews */
 body:has(> header),
@@ -3936,6 +3994,7 @@ svg.logo-inline,
   line-height: 1.2 !important;
 }
 
+${hasBusinessInsider ? `
 /* Authentic Hamburger Menu Drawer */
 nav.hamburger-menu,
 .hamburger-menu {
@@ -4076,7 +4135,9 @@ nav.hamburger-menu.is-open,
 [class*="drawer-pw"] {
   display: none !important;
 }
+` : ''}
 
+${hasShoptimizer ? `
 /* Shoptimizer & Business Bloomer Header Normalization */
 .header-4-container,
 [class*="header-4-container"] {
@@ -4258,6 +4319,7 @@ nav.hamburger-menu.is-open,
     z-index: 2147483640 !important;
   }
 }
+` : ''}
 `;
   }
 

@@ -4,6 +4,7 @@ import { JsTransformer } from '../transformer/js-transformer.js';
 import { SegmentedSection } from './visual-segmentation-worker.js';
 import { SectionArchetype } from '../synthesis/types.js';
 import { RecordedInteraction } from '../types.js';
+import { optimizeCssForDocument } from '../optimizer/css-purger.js';
 
 export interface ReconstructedSectionOutput {
   id: string;
@@ -103,9 +104,11 @@ export class ReconstructionWorker {
 
     if (segmentedSections.length === 1) {
       const sec = sectionsOutput[0];
-      const effectiveSectionJs = `// [Universal Interactive Resilience Controller]\n${sec.js}${wrappedRawJs}`;
+      const effectiveSectionJs = sec.js && sec.js.trim().length > 50
+        ? `// [Universal Interactive Resilience Controller]\n${sec.js}`
+        : wrappedRawJs;
 
-      const fullCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${sec.css}`;
+      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${sec.css}`;
       const fullHtml = `<!DOCTYPE html>
 <html ${htmlAttrs}>
 <head>
@@ -120,6 +123,7 @@ ${sec.html}
   <script src="script.js" defer></script>
 </body>
 </html>`.trim();
+      const fullCss = optimizeCssForDocument(rawFullCss, fullHtml);
 
       return {
         fullHtml,
@@ -134,9 +138,11 @@ ${sec.html}
 
     const combinedSectionsHtml = sectionsOutput.map((r) => r.html).join('\n\n');
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');
-    const combinedCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${combinedRawCss}`;
+    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${combinedRawCss}`;
     const syntheticJs = sectionsOutput.map((r) => r.js).filter(Boolean).join('\n\n');
-    const effectiveFullJs = `// [Universal Interactive Resilience Controller]\n${syntheticJs}${wrappedRawJs}`;
+    const effectiveFullJs = syntheticJs && syntheticJs.trim().length > 50
+      ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}`
+      : wrappedRawJs;
 
     const fullHtml = `<!DOCTYPE html>
 <html ${htmlAttrs}>
@@ -152,6 +158,7 @@ ${combinedSectionsHtml}
   <script src="script.js" defer></script>
 </body>
 </html>`.trim();
+    const combinedCss = optimizeCssForDocument(rawCombinedCss, fullHtml);
 
     const totalScores = sectionsOutput.reduce((acc, r) => acc + r.score, 0);
     const averageScore = sectionsOutput.length > 0 ? Math.round(totalScores / sectionsOutput.length) : 0;

@@ -8,6 +8,7 @@ import { CONFIG } from '../config.js';
 import { synthesisEngine } from '../synthesis/engine.js';
 import { JsTransformer } from '../transformer/js-transformer.js';
 import * as cheerio from 'cheerio';
+import { optimizeCssForDocument } from '../optimizer/css-purger.js';
 
 
 export class ZipPackager {
@@ -279,16 +280,17 @@ export class ZipPackager {
 
     let dualEngineJs = '';
     if (syntheticSectionControllers && syntheticSectionControllers.trim().length > 0) {
-      dualEngineJs = `/* [Universal Interactive Resilience Controllers] */\n${syntheticSectionControllers}\n\n`;
+      dualEngineJs = `/* [Universal Interactive Resilience Controllers] */\n${syntheticSectionControllers}`;
+    } else if (sanitizedAuthenticJs && sanitizedAuthenticJs.trim().length > 0) {
+      dualEngineJs = `/* [Authentic Harvested Scripts] */\n${sanitizedAuthenticJs}`;
     }
-    if (sanitizedAuthenticJs && sanitizedAuthenticJs.trim().length > 0) {
-      dualEngineJs += `/* [Authentic Harvested Scripts] */\n${sanitizedAuthenticJs}`;
-    }
+
+    const optimizedFinalCss = optimizeCssForDocument(finalCss, finalHtml);
 
     // Save full page files
     fs.writeFileSync(path.join(fullPageDir, 'index.html'), finalHtml, 'utf8');
-    fs.writeFileSync(path.join(fullPageDir, 'style.css'), finalCss, 'utf8');
-    fs.writeFileSync(path.join(fullPageDir, 'style.min.css'), finalMinifiedCss, 'utf8');
+    fs.writeFileSync(path.join(fullPageDir, 'style.css'), optimizedFinalCss, 'utf8');
+    fs.writeFileSync(path.join(fullPageDir, 'style.min.css'), optimizedFinalCss, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'script.js'), dualEngineJs, 'utf8');
     fs.writeFileSync(path.join(fullPageDir, 'full-page.png'), result.fullPageScreenshot);
 
@@ -300,7 +302,7 @@ export class ZipPackager {
       const secDir = path.join(sectionsDir, secFolderName);
       fs.mkdirSync(secDir, { recursive: true });
 
-      let secCss = sec.purgedCss;
+      let secCss = optimizeCssForDocument(sec.purgedCss, sec.cleanedHtml);
       const secMinCss = sec.minifiedCss;
 
       // Save HTML, CSS, JS

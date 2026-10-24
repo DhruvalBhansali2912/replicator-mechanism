@@ -2229,14 +2229,17 @@ nav.hamburger-menu.is-open,
             raw += '\n' + mobileNavCss;
             fs.writeFileSync(cssPath, raw, 'utf8');
 
-          const stat = fs.statSync(cssPath);
-          if (stat.size > 200 * 1024) {
-            const indexPath = path.join(jobDir, 'index.html');
-            const html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
-            const opt = optimizeCssForDocument(raw, html);
-            if (opt && opt.length < raw.length) {
-              fs.writeFileSync(cssPath, opt, 'utf8');
-            }
+          const indexPath = path.join(jobDir, 'index.html');
+          let html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
+          if (html.includes('pswp') && (html.includes('header') || html.includes('navbar'))) {
+            const $h = cheerio.load(html);
+            $h('.pswp').remove();
+            html = $h.html();
+            fs.writeFileSync(indexPath, html, 'utf8');
+          }
+          const opt = optimizeCssForDocument(raw, html);
+          if (opt && opt.length < raw.length) {
+            fs.writeFileSync(cssPath, opt, 'utf8');
           }
         } catch (_) {}
         res.type('text/css').sendFile(cssPath);
@@ -2246,7 +2249,15 @@ nav.hamburger-menu.is-open,
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
       let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
-      if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync') || !js.includes("content-drawer-open', 'mobile-toggled')")) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+      const isBloatedOrOutdated = !js ||
+        js.split('\n').length > 2500 ||
+        !js.includes('universal-mobile-menu-drawer') ||
+        !js.includes('dx-mega-menu-panel') ||
+        !js.includes('hamburger-menu') ||
+        !js.includes('accordion-row-active-sync') ||
+        !js.includes("content-drawer-open', 'mobile-toggled')");
+
+      if (isBloatedOrOutdated && fs.existsSync(path.join(jobDir, 'index.html'))) {
         const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
         let jobData: any = {};
         if (fs.existsSync(metaPath)) {

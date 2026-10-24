@@ -237,14 +237,10 @@ function shouldAlwaysKeepSelector(selector: string): boolean {
     s === ':root' ||
     s === 'html' ||
     s === 'body' ||
-    s.startsWith(':root') ||
-    s.includes('--') ||
-    s.startsWith('@')
+    /^(?:html|body|\*)\s*$/i.test(s) ||
+    /^:root(?:\[[^\]]+\])?$/i.test(s) ||
+    /^(?:\.dark|\.light|\[data-theme[^\]]*\])$/i.test(s)
   ) {
-    return true;
-  }
-  // Universal: Never purge dynamic interaction states, drawer/modal states, media animation states, or ARIA state modifiers
-  if (/\b(?:is-open|open|active|show|visible|expanded|collapsed|checked|selected|modal|drawer|flyout|with-menu|menu-open|playing|loaded|anim|footnote|footnote-number)\b|sup\b|sub\b|aria-expanded|aria-modal|aria-controls|aria-hidden|data-state|data-open|:hover|:focus/i.test(s)) {
     return true;
   }
   return false;
@@ -252,7 +248,9 @@ function shouldAlwaysKeepSelector(selector: string): boolean {
 
 function stripPseudos(selector: string): string {
   return selector
-    .replace(/::?(?:hover|focus|active|visited|focus-visible|focus-within|checked|disabled|enabled|before|after|placeholder|first-child|last-child|nth-child\([^)]*\)|first-of-type|last-of-type)/g, '')
+    .replace(/:(?:where|is)\(([^)]*)\)/g, ' $1 ')
+    .replace(/:not\([^)]*\)/g, '')
+    .replace(/::?[a-zA-Z0-9_-]+(\([^)]*\))?/g, '')
     .trim();
 }
 
@@ -387,11 +385,15 @@ export function optimizeCssForDocument(css: string, html: string): string {
   const $ = cheerio.load(html || '');
   const htmlLang = ($('html').attr('lang') || $('html').attr('xml:lang') || 'en').toLowerCase().slice(0, 2);
 
-  const rootClasses = new Set<string>();
-  $('html, body').each((_, el) => {
-    ($(el).attr('class') || '').split(/\s+/).forEach(c => {
-      if (c && c.trim()) rootClasses.add(c.trim());
+  const docClasses = new Set<string>();
+  const docIds = new Set<string>();
+  $('*').each((_, el) => {
+    const cls = $(el).attr('class') || '';
+    cls.split(/\s+/).forEach(c => {
+      if (c && c.trim()) docClasses.add(c.trim());
     });
+    const id = $(el).attr('id');
+    if (id && id.trim()) docIds.add(id.trim());
   });
 
   let root: Root;
@@ -403,6 +405,34 @@ export function optimizeCssForDocument(css: string, html: string): string {
 
   const seenFonts = new Set<string>();
   const seenRules = new Set<string>();
+  const usedAnimations = new Set<string>();
+  const usedFontFamilies = new Set<string>();
+
+  const dynamicStateRegex = /\.(?:is[-_]?open|open(?:ed)?|is[-_]?active|active|expanded|collapsed|visible|show(?:ing)?|toggled|menu[-_]open|mobile[-_]toggled|drawer[-_]open|checked|selected|hover|focus|focus[-_]within)\b/gi;
+
+  function matchesSelector(sel: string): boolean {
+    const s = sel.trim();
+    if (s === '*' || s === ':root' || s === 'html' || s === 'body') return true;
+    if (/^(?:html|body|\*)\s*$/i.test(s)) return true;
+    if (/^:root(?:\[[^\]]+\])?$/i.test(s) || /^(?:\.dark|\.light|\[data-theme[^\]]*\])$/i.test(s)) return true;
+
+    let clean = stripPseudos(s);
+    clean = clean.replace(/^:root\s+/g, '').trim();
+    if (!clean || clean === ':root') return false;
+
+    try {
+      if ($(clean).length > 0) return true;
+    } catch (_) {}
+
+    const strippedStates = clean.replace(dynamicStateRegex, '').trim();
+    if (strippedStates && strippedStates !== clean) {
+      try {
+        if ($(strippedStates).length > 0) return true;
+      } catch (_) {}
+    }
+
+    return false;
+  }
 
   root.walk((node) => {
     if (node.type === 'atrule' && node.name === 'font-face') {
@@ -413,6 +443,10 @@ export function optimizeCssForDocument(css: string, html: string): string {
         seenFonts.add(key);
       }
     } else if (node.type === 'rule') {
+      if (node.parent && node.parent.type === 'atrule' && (node.parent as AtRule).name.includes('keyframes')) {
+        return;
+      }
+
       // 1. Prune foreign language-specific selectors that do not match the document language
       if (node.selector.includes(':lang(')) {
         const langMatches = node.selector.match(/:lang\(([a-zA-Z_-]+)\)/g);
@@ -444,55 +478,78 @@ export function optimizeCssForDocument(css: string, html: string): string {
       seenRules.add(key);
 
       // 3. Purge statically unused rules that definitely do not exist in the DOM
-      const sel = node.selector;
-      if (
-        sel === '*' ||
-        sel === 'html' ||
-        sel === 'body' ||
-        sel.startsWith(':root') ||
-        sel.includes('@') ||
-        sel.includes('--') ||
-        sel.includes(':hover') ||
-        sel.includes(':focus') ||
-        sel.includes(':active') ||
-        sel.includes(':checked') ||
-        sel.includes(':disabled') ||
-        sel.includes('is-') ||
-        sel.includes('active') ||
-        sel.includes('current') ||
-        sel.includes('open') ||
-        sel.includes('show') ||
-        sel.includes('hide') ||
-        sel.includes('theme') ||
-        sel.includes('drawer') ||
-        sel.includes('modal') ||
-        sel.includes('header-') ||
-        sel.includes('site-') ||
-        sel.includes('custom-logo') ||
-        sel.includes('col-full')
-      ) {
-        return; // Preserve dynamic states, variables, and layout anchors
-      }
+      const rawSelectors = node.selectors || [node.selector];
+      const matching: string[] = [];
 
-      // Preserve any rule referencing a class that exists on html or body
-      for (const rootClass of rootClasses) {
-        if (sel.includes(rootClass)) return;
-      }
-
-      const cleanSel = sel
-        .replace(/::?[a-zA-Z0-9_-]+(\([^)]*\))?/g, '')
-        .trim();
-      if (!cleanSel) return;
-
-      try {
-        if ($(cleanSel).length === 0) {
-          node.remove();
+      for (const sel of rawSelectors) {
+        if (matchesSelector(sel)) {
+          matching.push(sel);
         }
-      } catch {
-        // If complex CSS selector is unparseable by Cheerio, keep safely
+      }
+
+      if (matching.length === 0) {
+        node.remove();
+      } else {
+        node.selectors = matching;
+        node.walkDecls((decl) => {
+          if (decl.prop === 'animation' || decl.prop === 'animation-name') {
+            decl.value.split(/\s+/).forEach((v) => usedAnimations.add(v.trim()));
+          }
+          if (decl.prop === 'font-family') {
+            decl.value.split(',').forEach((f) => usedFontFamilies.add(f.replace(/["\x27]/g, '').trim().toLowerCase()));
+          }
+        });
       }
     }
   });
 
-  return root.toString();
+  // Purge unused keyframes
+  root.walkAtRules(/keyframes/i, (atRule) => {
+    const name = atRule.params.trim();
+    if (!usedAnimations.has(name)) {
+      atRule.remove();
+    }
+  });
+
+  // Purge unused font-face
+  root.walkAtRules('font-face', (atRule) => {
+    let family = '';
+    atRule.walkDecls('font-family', (decl) => {
+      family = decl.value.replace(/["\x27]/g, '').trim().toLowerCase();
+    });
+    if (family && !usedFontFamilies.has(family)) {
+      atRule.remove();
+    }
+  });
+
+  // Purge empty at-rules (@media, @supports)
+  root.walkAtRules((atRule) => {
+    if (atRule.name === 'media' || atRule.name === 'supports') {
+      if (!atRule.nodes || atRule.nodes.length === 0) {
+        atRule.remove();
+      }
+    }
+  });
+
+  const purgedRaw = root.toString();
+  try {
+    const cleaner = new CleanCSS({
+      level: {
+        1: { all: true, tidySelectors: true },
+        2: {
+          mergeMedia: true,
+          removeDuplicateFontRules: true,
+          removeDuplicateMediaBlocks: true,
+          removeDuplicateRules: true,
+          removeUnusedAtRules: true,
+          restructureRules: true,
+        },
+      },
+      format: 'beautify',
+    });
+    const res = cleaner.minify(purgedRaw);
+    return res.styles || purgedRaw;
+  } catch {
+    return purgedRaw;
+  }
 }
