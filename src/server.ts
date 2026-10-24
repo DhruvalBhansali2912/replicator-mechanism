@@ -122,7 +122,12 @@ export function createServer(): express.Application {
 
   // Health check endpoint
   app.get('/api/health', (_req: Request, res: Response): void => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', version: '1.0.5', timestamp: new Date().toISOString() });
+  });
+
+  // Version check endpoint
+  app.get('/api/version', (_req: Request, res: Response): void => {
+    res.json({ status: 'ok', version: '1.0.5', build: 'universal-fidelity-v5', timestamp: new Date().toISOString() });
   });
 
   // --- AUTH & TOKEN API ---
@@ -2317,18 +2322,23 @@ export async function processJob(job: JobState, jobs: Map<string, JobState> = ne
       ? [job.options.clientStylesheets || (job.options as any).rawCss]
       : [];
 
-    const seenSheets = new Set<string>();
-    const uniqueSheets: string[] = [];
-    for (const sheet of rawSheets) {
+    // Intelligent stylesheet map: keyed by structural fingerprint + length to never drop complete sheets
+    const sheetMap = new Map<string, string>();
+    const registerSheet = (sheet: string) => {
       const trimmed = (sheet || '').trim();
-      if (!trimmed) continue;
-      const normKey = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '').slice(0, 300);
-      if (!seenSheets.has(normKey)) {
-        seenSheets.add(normKey);
-        uniqueSheets.push(trimmed);
+      if (!trimmed) return;
+      const stripped = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '');
+      const key = stripped.length < 500 ? stripped : `${stripped.slice(0, 150)}__${stripped.length}__${stripped.slice(-150)}`;
+      if (!sheetMap.has(key) || (sheetMap.get(key)!.length < trimmed.length)) {
+        sheetMap.set(key, trimmed);
       }
+    };
+
+    for (const sheet of rawSheets) {
+      registerSheet(sheet);
     }
 
+    let uniqueSheets = Array.from(sheetMap.values());
     let rawCss = uniqueSheets.join('\n');
 
     // Universal External Stylesheet Harvesting:
@@ -2337,7 +2347,7 @@ export async function processJob(job: JobState, jobs: Map<string, JobState> = ne
     const optStylesheetUrls: string[] = Array.isArray((job.options as any).stylesheetUrls)
       ? (job.options as any).stylesheetUrls
       : [];
-    if (uniqueSheets.length === 0 && (hasSnapshot || optStylesheetUrls.length > 0)) {
+    if (uniqueSheets.length === 0 || uniqueSheets.some(s => s.length < 1000) || (hasSnapshot && optStylesheetUrls.length > 0)) {
       try {
         const externalHrefs: string[] = [];
         const inlineStyles: string[] = [];
@@ -2364,17 +2374,12 @@ export async function processJob(job: JobState, jobs: Map<string, JobState> = ne
           $snap('style').each((_, el) => {
             const content = $snap(el).html();
             if (content && content.trim().length > 0) {
-              const trimmed = content.trim();
-              const normKey = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '').slice(0, 300);
-              if (!seenSheets.has(normKey)) {
-                seenSheets.add(normKey);
-                inlineStyles.push(trimmed);
-              }
+              registerSheet(content);
             }
           });
         }
 
-        if (externalHrefs.length > 0 || inlineStyles.length > 0) {
+        if (externalHrefs.length > 0) {
           const fetchedSheets = await Promise.all(
             externalHrefs.map(async (href) => {
               try {
@@ -2403,15 +2408,10 @@ export async function processJob(job: JobState, jobs: Map<string, JobState> = ne
               return '';
             })
           );
-          for (const s of [...fetchedSheets, ...inlineStyles]) {
-            const trimmed = (s || '').trim();
-            if (!trimmed) continue;
-            const normKey = trimmed.replace(/\/\*[\s\S]*?\*\//g, '').replace(/[\s"';\\]+/g, '').slice(0, 300);
-            if (!seenSheets.has(normKey)) {
-              seenSheets.add(normKey);
-              uniqueSheets.push(trimmed);
-            }
+          for (const s of fetchedSheets) {
+            registerSheet(s);
           }
+          uniqueSheets = Array.from(sheetMap.values());
           rawCss = uniqueSheets.join('\n');
           job.options.clientStylesheets = uniqueSheets;
         }

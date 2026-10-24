@@ -125,6 +125,24 @@ export class CssPurger {
                 directlyMatched = true;
               }
 
+              // Universal Subject Target Resolution:
+              // If the selector's leaf/subject element exists in the section DOM, preserve the rule!
+              if (!directlyMatched) {
+                const parts = cleanSelector.split(/\s*[\s>+~]\s*/).filter(Boolean);
+                if (parts.length > 1) {
+                  const subject = parts[parts.length - 1];
+                  const cleanSubject = stripPseudos(subject).trim();
+                  if (cleanSubject && cleanSubject !== '*' && cleanSubject !== 'div' && cleanSubject !== 'span') {
+                    try {
+                      if ($(cleanSubject).length > 0) {
+                        matchingSelectors.push(selector);
+                        directlyMatched = true;
+                      }
+                    } catch {}
+                  }
+                }
+              }
+
               // Check if any descendant part matches within the wrapped section and decouple ONLY if not directly matched
               const hasSiblingCombinator = cleanSelector.includes('~') || cleanSelector.includes('+');
               if (!directlyMatched && !hasSiblingCombinator && !isVisibilityAltering) {

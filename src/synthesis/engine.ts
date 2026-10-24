@@ -88,7 +88,16 @@ export class GroundUpSynthesisEngine {
       scoring = this.scorer.evaluate(ast, html, css);
     }
 
-    css = optimizeCssForDocument(css, html);
+    let docHtml = html;
+    if (htmlSnapshot && htmlSnapshot.length > 50) {
+      try {
+        const $s = cheerio.load(htmlSnapshot);
+        const bCls = $s('body').attr('class') || '';
+        const hCls = $s('html').attr('class') || '';
+        docHtml = `<!DOCTYPE html><html class="${hCls}"><body class="${bCls}">${html}</body></html>`;
+      } catch {}
+    }
+    css = optimizeCssForDocument(css, docHtml);
 
     const interactiveFeatures: string[] = [];
     if (ast.interactive.hoverStates.length > 0) {

@@ -15,7 +15,24 @@ export class CssSynthesizer {
 
     const sectionHtml = ast.rawSectionHtml || '';
     const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
-    const wrappedHtml = `<html lang="en"><body><${wrapperTag} id="${ast.id}">${sectionHtml}</${wrapperTag}></body></html>`;
+    let bodyClass = '';
+    let htmlClass = '';
+    let htmlAttrsStr = '';
+    let bodyAttrsStr = '';
+    if (ast.rawHtmlSnapshot) {
+      try {
+        const $snap = cheerio.load(ast.rawHtmlSnapshot);
+        bodyClass = $snap('body').attr('class') || '';
+        htmlClass = $snap('html').attr('class') || '';
+        for (const [k, v] of Object.entries($snap('html').attr() || {})) {
+          if (k !== 'class') htmlAttrsStr += ` ${k}="${v}"`;
+        }
+        for (const [k, v] of Object.entries($snap('body').attr() || {})) {
+          if (k !== 'class') bodyAttrsStr += ` ${k}="${v}"`;
+        }
+      } catch {}
+    }
+    const wrappedHtml = `<html lang="en" class="${htmlClass}"${htmlAttrsStr}><body class="${bodyClass}"${bodyAttrsStr}><${wrapperTag} id="${ast.id}">${sectionHtml}</${wrapperTag}></body></html>`;
 
     return optimizeCssForDocument(rawCss, wrappedHtml);
   }
