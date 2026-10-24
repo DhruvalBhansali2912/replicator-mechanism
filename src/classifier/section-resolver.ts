@@ -24,7 +24,20 @@ export function resolveTargetSectionFromSnapshot(
         const tag = (first.get(0) as any)?.tagName?.toLowerCase() || '';
 
         // If the element is already an explicit top-level semantic container, do not ascend to page-level wrappers
-        if (tag === 'header' || tag === 'nav' || tag === 'footer' || first.attr('role') === 'banner' || first.attr('role') === 'contentinfo') {
+        if (tag === 'header' || tag === 'footer' || first.attr('role') === 'banner' || first.attr('role') === 'contentinfo') {
+          return first;
+        }
+        if (tag === 'nav') {
+          const headerAncestors = first.parents('header, [role="banner"], [class*="Header"], [class*="site-header"], [class*="navbar"]').filter((_, el) => {
+            const t = el.tagName.toLowerCase();
+            const c = ($snap(el).attr('class') || '').toLowerCase();
+            if (t === 'body' || t === 'html' || t === 'main') return false;
+            if (c.includes('page-wrapper') || c.includes('layout-wrapper') || c.includes('shell') || c.includes('article') || c.includes('dialog')) return false;
+            return true;
+          });
+          if (headerAncestors.length > 0) {
+            return $snap(headerAncestors.last());
+          }
           return first;
         }
 
@@ -51,6 +64,20 @@ export function resolveTargetSectionFromSnapshot(
           }
         }
 
+        // If user targeted a subnav/link inside a header container, ascend to the enclosing header container
+        if (targetArchetype === 'navbar' || first.is('nav, [class*="nav"], [role="navigation"]')) {
+          const headerAncestors = first.parents('header, [role="banner"], [class*="Header"], [class*="site-header"], [class*="header"], [class*="navbar"]').filter((_, el) => {
+            const t = el.tagName.toLowerCase();
+            const c = ($snap(el).attr('class') || '').toLowerCase();
+            if (t === 'body' || t === 'html' || t === 'main') return false;
+            if (c.includes('page-wrapper') || c.includes('layout-wrapper') || c.includes('shell') || c.includes('article') || c.includes('dialog')) return false;
+            return true;
+          });
+          if (headerAncestors.length > 0) {
+            return $snap(headerAncestors.last());
+          }
+        }
+
         // If user specifically targeted a standalone container/widget not inside a section tag, preserve it
         if (!isLeafTag && (first.children().length > 1 || innerHtmlLen > 200)) {
           return first;
@@ -58,7 +85,7 @@ export function resolveTargetSectionFromSnapshot(
 
         // Universal section ancestor resolution for leaf/micro nodes:
         // Ascend to the NEAREST (closest) enclosing section/container, never the outermost page wrapper!
-        const sectionSel = 'section, article, header, footer, [role="region"], [role="banner"], [role="contentinfo"], [class*="section"], [class*="hero"], [class*="banner"], [class*="slider"], [class*="carousel"], [class*="feature"], [id*="section"], [id*="hero"], [id*="banner"], [id*="feature"], [data-rep-section]';
+        const sectionSel = 'section, article, header, footer, [role="region"], [role="banner"], [role="contentinfo"], [class*="section"], [class*="hero"], [class*="banner"], [class*="slider"], [class*="carousel"], [class*="feature"], [class*="Header"], [class*="header"], [class*="navbar"], [id*="section"], [id*="hero"], [id*="banner"], [id*="feature"], [id*="header"], [id*="Header"], [data-rep-section]';
 
         const ancestors = first.parents(sectionSel).filter((_, el) => {
           const t = el.tagName.toLowerCase();

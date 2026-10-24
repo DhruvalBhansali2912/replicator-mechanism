@@ -604,9 +604,16 @@ export class HtmlSynthesizer {
             // Universal Header + Hero Fold Pairing Preservation:
             // If one element is a navigation header and the other is a hero section, preserve both!
             if (
-              (targetEl.is('header, nav, [role="banner"], [role="navigation"]') && $sib.is('section, article, div, [class*="hero"], [class*="banner"]')) ||
-              (targetEl.is('section, article, div, [class*="hero"], [class*="banner"]') && $sib.is('header, nav, [role="banner"], [role="navigation"]'))
+              (targetEl.is('header, nav, [role="banner"], [role="navigation"]') && ($sib.is('[class*="hero"], [class*="banner"]') || $sib.find('h1, [class*="hero"], [class*="banner"]').length > 0)) ||
+              (targetEl.is('[class*="hero"], [class*="banner"]') && $sib.is('header, nav, [role="banner"], [role="navigation"]'))
             ) {
+              return;
+            }
+            if (
+              $sib.is('[data-search-dialog-menu-item], [class*="search-dialog"], [class*="SearchDialog"]') ||
+              $sib.find('[data-search-dialog-menu-item]').length > 0
+            ) {
+              $sib.remove();
               return;
             }
             if (isNavHeader && (
@@ -1674,7 +1681,9 @@ ${drawerListItems.join('\n')}
       if (ast.rawHtmlSnapshot) {
         try {
           const $snap = cheerio.load(ast.rawHtmlSnapshot);
-          const snapLandmark = $snap(wrapperTag).first();
+          const snapLandmark = wrapperTag === 'header'
+            ? $snap('header:not(dialog header):not([role="dialog"] header):not([role="alertdialog"] header):not([class*="modal"] header):not([class*="dialog"] header), [role="banner"], [class*="site-header"], [class*="Header"]').first()
+            : $snap(wrapperTag).first();
           if (snapLandmark.length > 0) {
             originalLandmarkClasses = (snapLandmark.attr('class') || '').trim();
           }
