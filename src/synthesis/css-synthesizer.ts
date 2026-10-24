@@ -4193,12 +4193,12 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
   private stripPseudosAndStates(sel: string): string {
     return sel
       .replace(
-        /::?(?:hover|focus|focus-visible|focus-within|active|visited|checked|disabled|enabled|before|after|placeholder|backdrop)/gi,
+        /(?<!\\)::?(?:hover|focus|focus-visible|focus-within|active|visited|checked|disabled|enabled|before|after|placeholder|backdrop)/gi,
         ''
       )
-      .replace(/:is\(([^)]+)\)/gi, '$1')
-      .replace(/:where\(([^)]+)\)/gi, '$1')
-      .replace(/:not\([^)]*\)/gi, '')
+      .replace(/(?<!\\):is\(([^)]+)\)/gi, '$1')
+      .replace(/(?<!\\):where\(([^)]+)\)/gi, '$1')
+      .replace(/(?<!\\):not\([^)]*\)/gi, '')
       .replace(/\s+/g, ' ')
       .trim();
   }

@@ -266,9 +266,9 @@ function shouldAlwaysKeepSelector(selector: string): boolean {
 
 function stripPseudos(selector: string): string {
   return selector
-    .replace(/:(?:where|is)\(([^)]*)\)/g, ' $1 ')
-    .replace(/:not\([^)]*\)/g, '')
-    .replace(/::?[a-zA-Z0-9_-]+(\([^)]*\))?/g, '')
+    .replace(/(?<!\\):(where|is)\(([^)]*)\)/g, ' $2 ')
+    .replace(/(?<!\\):not\([^)]*\)/g, '')
+    .replace(/(?<!\\)::?[a-zA-Z0-9_-]+(\([^)]*\))?/g, '')
     .trim();
 }
 
@@ -442,14 +442,30 @@ export function optimizeCssForDocument(css: string, html: string): string {
     // 1. Direct match in DOM
     try {
       if ($(clean).length > 0) return true;
-    } catch (_) {}
+    } catch (_) {
+      // If Cheerio throws because of complex CSS syntax, vendor pseudo, or escaped characters,
+      // preserve the rule rather than incorrectly dropping authentic layout styles!
+      return true;
+    }
+
+    // Fast check: if any class mentioned in the selector exists in the document
+    const classMatches = clean.match(/\.((?:[a-zA-Z0-9_-]|\\[\s\S])+)/g);
+    if (classMatches) {
+      const hasDocClass = classMatches.some(c => {
+        const raw = c.slice(1).replace(/\\([\s\S])/g, '$1');
+        return docClasses.has(raw);
+      });
+      if (hasDocClass) return true;
+    }
 
     // 2. Dynamic interactive state classes on elements (e.g. .col-full-nav.is-open or .mobile-toggled .col-full-nav)
     const strippedStates = clean.replace(dynamicStateRegex, '').replace(/\s+/g, ' ').trim();
     if (strippedStates && strippedStates !== clean) {
       try {
         if ($(strippedStates).length > 0) return true;
-      } catch (_) {}
+      } catch (_) {
+        return true;
+      }
 
       // If the dynamic state was on an ancestor, check the remaining selector parts (e.g. .col-full-nav)
       const parts = clean.split(/\s*[\s>+~]\s*/).filter(p => !dynamicStateRegex.test(p) && p.trim().length > 0);
@@ -457,7 +473,9 @@ export function optimizeCssForDocument(css: string, html: string): string {
         const remainingSel = parts.join(' ');
         try {
           if ($(remainingSel).length > 0) return true;
-        } catch (_) {}
+        } catch (_) {
+          return true;
+        }
       }
     }
 
