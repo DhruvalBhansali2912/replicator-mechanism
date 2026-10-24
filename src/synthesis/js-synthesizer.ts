@@ -990,7 +990,7 @@ export class JsSynthesizer {
       }
       if (drawer.id === 'nav-content' || drawerCls.includes('header_sidebar_menu')) {
         drawer.style.setProperty('transform', 'translateX(100%)', 'important');
-      } else if (drawer.getAttribute('data-offscreen-offset')) {
+      } else if (drawer.getAttribute('data-offscreen-offset') || drawer.classList.contains('col-full-nav')) {
         drawer.style.removeProperty('transform');
         drawer.style.removeProperty('left');
         drawer.removeAttribute('data-offscreen-offset');
@@ -1142,6 +1142,7 @@ export class JsSynthesizer {
             drawer.style.setProperty('z-index', '2147483647', 'important');
           } else if (drawer.classList.contains('col-full-nav')) {
             drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('left', '0px', 'important');
             drawer.style.setProperty('z-index', '2147483647', 'important');
           } else {
             drawer.style.setProperty('display', 'block', 'important');

@@ -1807,6 +1807,24 @@ ${this.getUniversalInteractiveRules(ast)}
             }
           }
 
+          // Universal Subject Target Resolution:
+          // If the leaf / subject element exists in the section DOM, preserve the rule!
+          if (!directlyMatched) {
+            const parts = clean.split(/\s*[\s>+~]\s*/).filter(Boolean);
+            if (parts.length > 1) {
+              const subject = parts[parts.length - 1];
+              const cleanSub = this.stripPseudosAndStates(subject);
+              if (cleanSub && cleanSub !== '*' && cleanSub !== 'div' && cleanSub !== 'span') {
+                try {
+                  if ($(cleanSub).length > 0) {
+                    matching.push(s);
+                    directlyMatched = true;
+                  }
+                } catch (_) {}
+              }
+            }
+          }
+
           // If selector uses ancestor combinators from parent page layout,
           // check if any descendant part matches within the wrapped section
           const isVisibilityAltering = rule.nodes && rule.nodes.some((n: any) =>
@@ -4184,7 +4202,7 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
   }
 
   private stripDynamicStateClasses(sel: string): string {
-    const REFINED_STATE_REGEX = /\.(?:is[-_][a-zA-Z0-9_-]+|has[-_][a-zA-Z0-9_-]+|[a-zA-Z0-9_-]+[-_](?:open(?:ed|ded|ing)?|active|show(?:ing)?|expanded|collapsed|closing|animating|selected|current|visible)(?:[-_][a-zA-Z0-9_-]+)?|(?:open(?:ed|ded|ing)?|active|show(?:ing)?|expanded|collapsed|closing|animating|selected|current|visible)(?:[-_][a-zA-Z0-9_-]+)?)\b/gi;
+    const REFINED_STATE_REGEX = /\.(?:is[-_][a-zA-Z0-9_-]+|has[-_][a-zA-Z0-9_-]+|[a-zA-Z0-9_-]+[-_](?:open(?:ed|ded|ing)?|active|show(?:ing)?|expanded|collapsed|toggled|closing|animating|selected|current|visible)(?:[-_][a-zA-Z0-9_-]+)?|(?:open(?:ed|ded|ing)?|active|show(?:ing)?|expanded|collapsed|toggled|closing|animating|selected|current|visible|mobile-toggled|menu-open|nav-open|sidebar-open|drawer-open)(?:[-_][a-zA-Z0-9_-]+)?)\b/gi;
     return sel.replace(REFINED_STATE_REGEX, '').replace(/\s+/g, ' ').trim();
   }
 
