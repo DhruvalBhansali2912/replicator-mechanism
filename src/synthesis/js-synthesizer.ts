@@ -5489,7 +5489,7 @@ export class JsSynthesizer {
 
       // Universal Scroll-Reveal and Animation Observer for individual animated elements
       const animCandidates = Array.from(root.querySelectorAll(
-        '[data-aos], [data-scroll], [data-inview], [class*="animate-"], [class*="reveal"], [class*="fade-in"], [class*="slide-in"], [class*="zoom-in"], [data-motion], [class*="scroll-reveal"], [class*="staggered-"], [data-component-list*="StaggeredFadeIn"], [data-staggered-item]'
+        '[data-aos], [data-scroll], [data-inview], [class*="animate-"], [class*="reveal"], [class*="fade-in"], [class*="slide-in"], [class*="zoom-in"], [data-motion], [class*="scroll-reveal"], [class*="staggered-"], [data-component-list*="StaggeredFadeIn"], [data-staggered-item], [data-text-screen], [data-text-mesh], [class*="storytelling"], [class*="hero-"]'
       ));
       if (animCandidates.length > 0) {
         const animObserver = new IntersectionObserver(function(entries) {
@@ -5498,6 +5498,13 @@ export class JsSynthesizer {
               const el = entry.target;
               el.classList.add('aos-animate', 'in-view', 'is-revealed', 'is-visible', 'active', 'staggered-end');
               el.classList.remove('staggered-start');
+              if (el.hasAttribute('data-text-screen') || (el.className && typeof el.className === 'string' && el.className.includes('hero-'))) {
+                el.querySelectorAll('[class*="title-sub"], [class*="text"], [class*="pill"]').forEach(function(sub, idx) {
+                  sub.style.transition = 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) ' + (idx * 0.12) + 's, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) ' + (idx * 0.12) + 's';
+                  sub.style.opacity = '1';
+                  sub.style.transform = 'translateY(0px)';
+                });
+              }
               if (el.hasAttribute('data-staggered-item') || el.querySelectorAll('[data-staggered-item]').length > 0) {
                 el.style.setProperty('opacity', '1');
                 el.style.setProperty('visibility', 'visible');
@@ -5523,10 +5530,17 @@ export class JsSynthesizer {
     } else {
       setTimeout(triggerEnterAnimations, 200);
       root.querySelectorAll(
-        '[data-aos], [data-scroll], [data-inview], [class*="animate-"], [class*="reveal"], [class*="fade-in"], [class*="slide-in"], [class*="zoom-in"], [data-motion], [class*="staggered-"], [data-component-list*="StaggeredFadeIn"], [data-staggered-item]'
+        '[data-aos], [data-scroll], [data-inview], [class*="animate-"], [class*="reveal"], [class*="fade-in"], [class*="slide-in"], [class*="zoom-in"], [data-motion], [class*="staggered-"], [data-component-list*="StaggeredFadeIn"], [data-staggered-item], [data-text-screen], [data-text-mesh], [class*="storytelling"], [class*="hero-"]'
       ).forEach(function(el) {
         el.classList.add('aos-animate', 'in-view', 'is-revealed', 'is-visible', 'active', 'staggered-end');
         el.classList.remove('staggered-start');
+        if (el.hasAttribute('data-text-screen') || (el.className && typeof el.className === 'string' && el.className.includes('hero-'))) {
+          el.querySelectorAll('[class*="title-sub"], [class*="text"], [class*="pill"]').forEach(function(sub, idx) {
+            sub.style.transition = 'opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1) ' + (idx * 0.12) + 's, transform 0.7s cubic-bezier(0.16, 1, 0.3, 1) ' + (idx * 0.12) + 's';
+            sub.style.opacity = '1';
+            sub.style.transform = 'translateY(0px)';
+          });
+        }
         if (el.hasAttribute('data-staggered-item') || el.querySelectorAll('[data-staggered-item]').length > 0) {
           el.style.setProperty('opacity', '1');
           el.style.setProperty('visibility', 'visible');
@@ -5545,6 +5559,52 @@ export class JsSynthesizer {
         if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
       });
     }
+
+    // Universal Button Roll-Over Animation Controller
+    root.querySelectorAll('.button, [class*="button"], [class*="btn"]').forEach(function(btn) {
+      const sub1 = btn.querySelector('.button__content-sub--1, [class*="content-sub--1"]');
+      const sub2 = btn.querySelector('.button__content-sub--2, [class*="content-sub--2"]');
+      if (sub1 && sub2) {
+        btn.addEventListener('mouseenter', function() {
+          sub1.style.transform = 'translateY(-100%)';
+          sub2.style.transform = 'translateY(-100%)';
+        });
+        btn.addEventListener('mouseleave', function() {
+          sub1.style.transform = 'translateY(0%)';
+          sub2.style.transform = 'translateY(0%)';
+        });
+      }
+    });
+
+    // Universal Intro/Preloader & Splash Screen Dismissal Controller
+    const allLoaders = Array.from(document.querySelectorAll('.loader, [class*="preloader"], [class*="splash-screen"], [class*="intro-screen"]'));
+    if (root.matches && root.matches('.loader, [class*="preloader"], [class*="splash-screen"], [class*="intro-screen"]')) {
+      if (!allLoaders.includes(root)) allLoaders.push(root);
+    }
+    allLoaders.forEach(function(loader) {
+      const dismissButtons = Array.from(loader.querySelectorAll('button, [role="button"], a')).filter(function(b) {
+        const txt = (b.textContent || '').trim().toLowerCase();
+        return txt.includes('enter') || txt.includes('start') || txt.includes('explore') || txt.includes('continue') || txt.includes('skip') || txt.includes('close');
+      });
+      dismissButtons.forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          loader.style.transition = 'opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1)';
+          loader.style.opacity = '0';
+          loader.style.transform = 'scale(1.04)';
+          loader.style.pointerEvents = 'none';
+          setTimeout(function() {
+            loader.style.display = 'none';
+            document.querySelectorAll('main, [class*="hero"], [class*="content"]').forEach(function(c) {
+              if (c !== loader && !loader.contains(c)) {
+                c.style.visibility = 'visible';
+                c.style.opacity = '1';
+              }
+            });
+          }, 600);
+        });
+      });
+    });
 
     // Universal Lazy Media Hydration in synthesized code
     root.querySelectorAll('img[data-src], img[data-desktop-src], img[data-original], img[data-lazy-src], img[data-srcset], picture source').forEach(function(el) {

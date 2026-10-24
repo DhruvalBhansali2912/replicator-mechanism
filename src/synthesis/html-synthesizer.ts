@@ -1074,7 +1074,14 @@ export class HtmlSynthesizer {
     $('[class*="viewer--loading"], .viewer--loading').each((_, el) => {
       $(el).removeClass('viewer--loading').addClass('viewer--loaded');
     });
-    $('.loader, .loader-background, [class*="viewer"] [class*="loader"], .product-viewer-canvas.entice').remove();
+    $('[class*="viewer"] [class*="loader"], [class*="viewer"] .loader, .loader-background, .product-viewer-canvas.entice')
+      .filter((_, el) => {
+        const $el = $(el);
+        if (ast.sourceSelector && $el.is(ast.sourceSelector)) return false;
+        if ($el.find('button, a, svg, h1, h2, h3, p').length > 0) return false;
+        return true;
+      })
+      .remove();
     $('.product-viewer-media-gallery, [class*="product-viewer-media-gallery"]').each((_, el) => {
       $(el).css({ opacity: '1', visibility: 'visible', display: 'block' });
       $(el).removeAttr('hidden');

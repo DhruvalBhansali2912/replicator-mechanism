@@ -428,6 +428,18 @@ export function optimizeCssForDocument(css: string, html: string): string {
   const usedAnimations = new Set<string>();
   const usedFontFamilies = new Set<string>();
 
+  function extractAnimationNames(val: string) {
+    val.split(/[\s,;]+/).forEach((v) => {
+      const cleaned = v.replace(/[,;()]/g, '').trim();
+      if (
+        cleaned &&
+        !/^(?:none|initial|inherit|unset|paused|running|infinite|normal|reverse|alternate|alternate-reverse|forwards|backwards|both|linear|ease|ease-in|ease-out|ease-in-out|step-start|step-end|\d+(?:\.\d+)?(?:s|ms)?)$/i.test(cleaned)
+      ) {
+        usedAnimations.add(cleaned);
+      }
+    });
+  }
+
   const dynamicStateRegex = /\.(?:is[-_]?open|open(?:ed)?|is[-_]?active|active|expanded|collapsed|visible|show(?:ing)?|toggled|menu[-_]open|mobile[-_]toggled|drawer[-_]open|checked|selected|hover|focus|focus[-_]within)\b/gi;
 
   function matchesSelector(sel: string): boolean {
@@ -538,12 +550,22 @@ export function optimizeCssForDocument(css: string, html: string): string {
       }
 
       if (matching.length === 0) {
+        const hasInteractiveOrDynamic = rawSelectors.some(s =>
+          /:hover|:focus|:active|::after|::before|\.is-|\.open|\.show|\.active|\[data-state|\[data-side/i.test(s)
+        );
+        if (hasInteractiveOrDynamic) {
+          node.walkDecls((decl) => {
+            if (decl.prop === 'animation' || decl.prop === 'animation-name') {
+              extractAnimationNames(decl.value);
+            }
+          });
+        }
         node.remove();
       } else {
         node.selectors = matching;
         node.walkDecls((decl) => {
           if (decl.prop === 'animation' || decl.prop === 'animation-name') {
-            decl.value.split(/\s+/).forEach((v) => usedAnimations.add(v.trim()));
+            extractAnimationNames(decl.value);
           }
           if (decl.prop === 'font-family') {
             decl.value.split(',').forEach((f) => usedFontFamilies.add(f.replace(/["\x27]/g, '').trim().toLowerCase()));
@@ -555,8 +577,8 @@ export function optimizeCssForDocument(css: string, html: string): string {
 
   // Purge unused keyframes
   root.walkAtRules(/keyframes/i, (atRule) => {
-    const name = atRule.params.trim();
-    if (!usedAnimations.has(name)) {
+    const name = atRule.params.trim().replace(/^['"]|['"]$/g, '');
+    if (!usedAnimations.has(name) && !usedAnimations.has(atRule.params.trim())) {
       atRule.remove();
     }
   });
