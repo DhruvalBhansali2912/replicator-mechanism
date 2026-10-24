@@ -1318,7 +1318,30 @@ nav.hamburger-menu.is-open,
   display: none !important;
 }
 
-.header-4-container .site-header-cart {
+/* On desktop, hide duplicate mobile cart in logo container */
+.header-4-inner > header.site-header .site-header-cart {
+  display: none !important;
+}
+
+.header-4-inner > header.site-header {
+  width: auto !important;
+  max-width: 250px !important;
+  flex: 0 0 auto !important;
+}
+
+.header-4-inner .col-full-nav {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex: 1 1 auto !important;
+}
+
+.header-4-inner .col-full-nav .main-navigation {
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+.header-4-container .col-full-nav .site-header-cart {
   display: flex !important;
   align-items: center !important;
   margin-left: 16px !important;
@@ -2135,7 +2158,30 @@ nav.hamburger-menu.is-open,
   display: none !important;
 }
 
-.header-4-container .site-header-cart {
+/* On desktop, hide duplicate mobile cart in logo container */
+.header-4-inner > header.site-header .site-header-cart {
+  display: none !important;
+}
+
+.header-4-inner > header.site-header {
+  width: auto !important;
+  max-width: 250px !important;
+  flex: 0 0 auto !important;
+}
+
+.header-4-inner .col-full-nav {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex: 1 1 auto !important;
+}
+
+.header-4-inner .col-full-nav .main-navigation {
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+
+.header-4-container .col-full-nav .site-header-cart {
   display: flex !important;
   align-items: center !important;
   margin-left: 16px !important;
@@ -2438,8 +2484,8 @@ dialog.shoptimizer-modal .site-search input[type="submit"],
       const indexPath = path.join(jobDir, 'index.html');
       const html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
       const isBloatedOrOutdated = !js ||
-        (html.includes('shoptimizer-modal') && !js.includes('searchToggle')) ||
-        (html.includes('header-4') && !js.includes('search-modal-open')) ||
+        (html.includes('shoptimizer-modal') && (!js.includes('searchToggle') || !js.includes('search-modal-heading'))) ||
+        (html.includes('header-4') && (!js.includes('search-modal-open') || !js.includes('search-modal-heading'))) ||
         js.split('\n').length > 2500 ||
         !js.includes('universal-mobile-menu-drawer') ||
         !js.includes('dx-mega-menu-panel') ||

@@ -159,7 +159,12 @@ export class SectionClassifier {
           reasons.push('Form inputs with submission button detected');
         }
       } else if (rule.archetype === 'faq') {
-        if ($('details, summary').length > 0 || fullText.includes('frequently asked')) {
+        const hasFaqTags = $('details, summary, [class*="faq-item"], [class*="accordion"]').length > 0;
+        const hasFaqTitle = $('h1, h2, h3, h4').filter((_, el) => {
+          const t = $(el).text().toLowerCase();
+          return t.includes('frequently asked') || t === 'faq' || t === 'faqs';
+        }).length > 0;
+        if (hasFaqTags || (hasFaqTitle && $('p, dd, [class*="answer"]').length > 0)) {
           score += 40;
           reasons.push('FAQ accordion tags or title detected');
         }

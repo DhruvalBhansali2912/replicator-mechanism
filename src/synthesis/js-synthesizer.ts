@@ -2122,9 +2122,26 @@ export class JsSynthesizer {
 
   function closeSearchDialog(dlg, trg) {
     if (trg) trg.setAttribute('aria-expanded', 'false');
-    const allSearchDlgs = Array.from(document.querySelectorAll('[role="dialog"]:not(body), dialog, [class*="gnb-search"]:not(body), [class*="search-modal"]:not(body), [class*="search-overlay"]:not(body)'))
-      .filter(function(d) { return d && d !== document.body && d.tagName !== 'BODY'; });
-    if (dlg && dlg !== document.body && !allSearchDlgs.includes(dlg)) allSearchDlgs.push(dlg);
+    const allSearchDlgs = Array.from(document.querySelectorAll(
+      'dialog.shoptimizer-modal, [data-shoptimizermodal-id="searchToggle"], dialog:not(header):not(nav):not(section), [role="dialog"]:not(body):not(header):not(nav):not(section), [class*="gnb-search__box"], [class*="search-popup"]'
+    )).filter(function(d) {
+      return d &&
+        d !== document.body &&
+        d.tagName !== 'BODY' &&
+        d.tagName !== 'HEADER' &&
+        d.tagName !== 'NAV' &&
+        d.tagName !== 'SECTION' &&
+        !d.classList.contains('header-4-container') &&
+        !d.classList.contains('site-header') &&
+        !d.classList.contains('authentic-navbar') &&
+        !d.classList.contains('authentic-section') &&
+        !d.classList.contains('search-modal-heading');
+    });
+    if (dlg && dlg !== document.body && !allSearchDlgs.includes(dlg)) {
+      if (dlg.tagName !== 'HEADER' && dlg.tagName !== 'NAV' && dlg.tagName !== 'SECTION' && !dlg.classList.contains('header-4-container')) {
+        allSearchDlgs.push(dlg);
+      }
+    }
 
     allSearchDlgs.forEach(function(d) {
       d.setAttribute('aria-hidden', 'true');
@@ -2149,7 +2166,12 @@ export class JsSynthesizer {
 
     document.body.classList.remove('search-modal-open');
     const container = document.querySelector('.header-4-container, [class*="header-4-container"]');
-    if (container) container.classList.remove('search-modal-open');
+    if (container) {
+      container.classList.remove('search-modal-open');
+      container.style.removeProperty('display');
+      container.style.removeProperty('visibility');
+      container.style.removeProperty('pointer-events');
+    }
 
     const scrims = document.querySelectorAll('.srd19-gnb-search__dimmed, [class*="search-backdrop"], [class*="search"] [class*="dimmed"]');
     scrims.forEach(function(scrim) {
@@ -2202,15 +2224,15 @@ export class JsSynthesizer {
       }
       if (!searchDialog) {
         searchDialog = document.querySelector(
-          'dialog.shoptimizer-modal, [data-shoptimizermodal-id="searchToggle"], dialog, [role="dialog"][class*="search" i]:not(body), section.srd19-gnb-search, [class*="search-overlay" i]:not(body), [class*="search-modal" i]:not(body), [class*="search-layer" i]:not(body), [class*="search-popup" i]:not(body), [class*="search-container" i]:not(body), section[class*="search" i]:not(body), [class*="gnb-search" i]:not(body):not(html), [role="search"][role="dialog"], [role="search"]:not(body)'
+          'dialog.shoptimizer-modal, [data-shoptimizermodal-id="searchToggle"], dialog:not(header):not(nav):not(section), [role="dialog"][class*="search" i]:not(body):not(header):not(nav):not(section), section.srd19-gnb-search, [class*="search-overlay" i]:not(body), [class*="search-layer" i]:not(body), [class*="search-popup" i]:not(body), [class*="gnb-search" i]:not(body):not(html), [role="search"][role="dialog"]'
         );
       }
-      if (searchDialog && (searchDialog === document.body || searchDialog === document.documentElement)) {
+      if (searchDialog && (searchDialog === document.body || searchDialog === document.documentElement || searchDialog.classList.contains('header-4-container') || searchDialog.tagName === 'HEADER' || searchDialog.tagName === 'NAV')) {
         searchDialog = null;
       }
-      if (searchDialog && !searchDialog.matches('dialog, [role="dialog"], section, [class*="overlay"], [class*="modal"], [class*="layer"], [class*="popup"], [class*="container"]')) {
-        const parentContainer = searchDialog.closest('dialog, [role="dialog"], section, [class*="overlay"], [class*="modal"], [class*="layer"], [class*="popup"], [class*="container"]');
-        if (parentContainer && parentContainer !== document.body && parentContainer !== document.documentElement) {
+      if (searchDialog && !searchDialog.matches('dialog, [role="dialog"], section, [class*="overlay"], [class*="modal"], [class*="layer"], [class*="popup"]')) {
+        const parentContainer = searchDialog.closest('dialog, [role="dialog"], section, [class*="overlay"], [class*="modal"], [class*="layer"], [class*="popup"]');
+        if (parentContainer && parentContainer !== document.body && parentContainer !== document.documentElement && !parentContainer.classList.contains('header-4-container') && parentContainer.tagName !== 'HEADER' && parentContainer.tagName !== 'NAV') {
           searchDialog = parentContainer;
         }
       }

@@ -358,13 +358,15 @@ export class SectionInspector {
     // If the element has nav, header, mega-menu, or .navbar and no large content H1 hero heading
     const isTopLevelHeader = $('body > header, nav.nav, nav.navbar, [role="banner"], header.site-header, header.nav').length > 0;
     const hasNavTag = $('nav').length > 0;
-    const hasMegaMenu = lower.includes('mega-menu') || $('[class*="mega-menu"], [id*="mega-menu"]').length > 0;
+    const hasMegaMenu = lower.includes('mega-menu') || lower.includes('megamenu') || $('[class*="mega-menu"], [id*="mega-menu"], [class*="megamenu"], [id*="megamenu"]').length > 0;
     const navLinksCount = $('nav a, header a, ul > li > a, ol > li > button, nav button, header button').length;
     const hasNavbarClass = lower.includes('navbar') || lower.includes('header-nav') || lower.includes('site-header') || lower.includes('masthead');
+    const hasNavIdOrClass = $('#top, #header, #navbar, #navigation, #menu, .site-header, .site-logo, .navbar, .nav-bar, .primary-links, .menu-bar, .main-menu').length > 0;
+    const hasBrandOrToggle = ($('a.site-logo, a[href="/"] img, img[alt*="logo" i]').length > 0 || $('button.mobile-nav-toggle, [class*="nav-toggle"]').length > 0);
     const isArticleOrMain = $('article, main').length > 0;
     const isHeroSection = $('[class*="hero"], [id*="hero"]').length > 0 || lower.includes('hero_wrap');
 
-    if (!isArticleOrMain && !isHeroSection && (isTopLevelHeader || hasMegaMenu || (hasNavTag && navLinksCount >= 2) || hasNavbarClass) && !visibleHeroH1) {
+    if (!isArticleOrMain && !isHeroSection && (isTopLevelHeader || hasMegaMenu || (hasNavTag && navLinksCount >= 2) || hasNavbarClass || (hasNavIdOrClass && navLinksCount >= 2) || (hasBrandOrToggle && navLinksCount >= 2)) && !visibleHeroH1) {
       return 'navbar';
     }
 
@@ -423,8 +425,13 @@ export class SectionInspector {
       return 'pricing';
     }
 
-    // 5. FAQ check
-    if (lower.includes('faq') || lower.includes('frequently asked') || $('details, summary').length > 0) {
+    // 5. FAQ check (ensure actual question/answer or accordion structures exist, never trigger based on nav links)
+    const hasFaqAccordion = $('details, summary, [class*="faq-item"], [class*="accordion-item"]').length > 0;
+    const hasFaqHeading = $('h1, h2, h3, h4').filter((_, el) => {
+      const txt = $(el).text().toLowerCase();
+      return txt.includes('frequently asked') || txt === 'faq' || txt === 'faqs';
+    }).length > 0;
+    if (hasFaqAccordion || (hasFaqHeading && $('p, dd, [class*="answer"]').length >= 1)) {
       return 'faq';
     }
 
