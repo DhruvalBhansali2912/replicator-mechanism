@@ -445,6 +445,9 @@ export class JsSynthesizer {
     const ctrlId = menuBtn.getAttribute('aria-controls') || menuBtn.getAttribute('aria-owns');
     if (ctrlId && !ctrlId.includes('search') && !ctrlId.includes('video')) {
       drawer = document.getElementById(ctrlId) || document.querySelector('[id="' + ctrlId + '"]');
+      if (drawer && drawer.closest('.col-full-nav')) {
+        drawer = drawer.closest('.col-full-nav');
+      }
     }
   }
   if (!drawer && menuBtn) {
@@ -1009,7 +1012,7 @@ export class JsSynthesizer {
       }
       applyFrameworkStateClasses(drawer, false);
     }
-    document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open');
+    document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled');
     document.documentElement.classList.remove('menu-open');
     menuBtns.forEach(function(btn) {
       btn.setAttribute('aria-expanded', 'false');
@@ -1087,7 +1090,8 @@ export class JsSynthesizer {
       const ph = navRoot ? navRoot.closest('header, nav, [role="navigation"]') : null;
       if (ph) allNavRoots.push(ph);
 
-      const isCurrentlyOpen = (btn && (btn.classList.contains('is-active') || btn.classList.contains('active') || btn.classList.contains('w--open'))) ||
+      const isCurrentlyOpen = (btn && (btn.classList.contains('is-active') || btn.classList.contains('active') || btn.classList.contains('w--open') || btn.getAttribute('aria-expanded') === 'true')) ||
+        document.body.classList.contains('mobile-toggled') ||
         (drawer && (drawer.classList.contains('is-open') || drawer.classList.contains('active') || drawer.classList.contains('show') || drawer.classList.contains('w--open'))) ||
         allNavRoots.some(function(nr) {
           return nr.classList.contains('menu-open') ||
@@ -1117,7 +1121,7 @@ export class JsSynthesizer {
         navDropdownItems.forEach(function(it) {
           closeFlyoutItem(it);
         });
-        document.body.classList.add('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open');
+        document.body.classList.add('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled');
         document.documentElement.classList.add('menu-open');
 
         if (!drawer) {
@@ -1134,6 +1138,9 @@ export class JsSynthesizer {
           drawer.style.setProperty('opacity', '1', 'important');
           drawer.style.setProperty('pointer-events', 'auto', 'important');
           if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('z-index', '2147483647', 'important');
+          } else if (drawer.classList.contains('col-full-nav')) {
             drawer.style.setProperty('display', 'flex', 'important');
             drawer.style.setProperty('z-index', '2147483647', 'important');
           } else {
@@ -1383,13 +1390,13 @@ export class JsSynthesizer {
     if (e.key === 'Escape') closeAllNav();
   });
   document.addEventListener('click', function(e) {
-    if (e.target && (e.target.matches('.universal-drawer-close, .close-button, [aria-label*="close" i], [title*="close" i], .dialog-close-button, [data-action="close"], .fa-times, .fa-xmark') || e.target.closest('.universal-drawer-close, .close-button, [aria-label*="close" i], [title*="close" i], .dialog-close-button, [data-action="close"]'))) {
+    if (e.target && (e.target.matches('.universal-drawer-close, .close-button, [aria-label*="close" i], [title*="close" i], .dialog-close-button, [data-action="close"], .fa-times, .fa-xmark, .close-drawer, .menu-overlay, .mobile-overlay') || e.target.closest('.universal-drawer-close, .close-button, [aria-label*="close" i], [title*="close" i], .dialog-close-button, [data-action="close"], .close-drawer, .menu-overlay, .mobile-overlay'))) {
       closeAllNav();
       return;
     }
-    if (drawer && (drawer.classList.contains('is-open') || drawer.classList.contains('active') || drawer.classList.contains('show'))) {
+    if (drawer && (drawer.classList.contains('is-open') || drawer.classList.contains('active') || drawer.classList.contains('show') || document.body.classList.contains('mobile-toggled'))) {
       const isClickInsideDrawer = drawer.contains(e.target);
-      const isClickOnToggle = menuBtns.some(function(b) { return b.contains(e.target); });
+      const isClickOnToggle = menuBtns.some(function(b) { return b.contains(e.target); }) || (e.target.closest && e.target.closest('.menu-toggle'));
       if (!isClickInsideDrawer && !isClickOnToggle) {
         closeAllNav();
       }

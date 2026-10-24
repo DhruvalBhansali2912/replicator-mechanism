@@ -384,8 +384,15 @@ export function isGenericPrimitive(cls: string): boolean {
  */
 export function optimizeCssForDocument(css: string, html: string): string {
   if (!css || typeof css !== 'string' || !css.trim()) return css || '';
-  const $ = cheerio.load(html || '', { xmlMode: false }, false);
+  const $ = cheerio.load(html || '');
   const htmlLang = ($('html').attr('lang') || $('html').attr('xml:lang') || 'en').toLowerCase().slice(0, 2);
+
+  const rootClasses = new Set<string>();
+  $('html, body').each((_, el) => {
+    ($(el).attr('class') || '').split(/\s+/).forEach(c => {
+      if (c && c.trim()) rootClasses.add(c.trim());
+    });
+  });
 
   let root: Root;
   try {
@@ -458,9 +465,18 @@ export function optimizeCssForDocument(css: string, html: string): string {
         sel.includes('hide') ||
         sel.includes('theme') ||
         sel.includes('drawer') ||
-        sel.includes('modal')
+        sel.includes('modal') ||
+        sel.includes('header-') ||
+        sel.includes('site-') ||
+        sel.includes('custom-logo') ||
+        sel.includes('col-full')
       ) {
         return; // Preserve dynamic states, variables, and layout anchors
+      }
+
+      // Preserve any rule referencing a class that exists on html or body
+      for (const rootClass of rootClasses) {
+        if (sel.includes(rootClass)) return;
       }
 
       const cleanSel = sel
