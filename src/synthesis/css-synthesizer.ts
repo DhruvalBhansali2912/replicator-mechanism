@@ -1939,6 +1939,12 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n.button:hover .button__content-sub--2 { transform: translateY(-110%) !important; }\n';
     scopedCss += '\n.button:hover .button__shadow { opacity: 1 !important; transform: scale(1) !important; visibility: visible !important; }\n';
     scopedCss += '\n.button:hover .button__line { transform: scaleX(0) !important; }\n';
+    scopedCss += '\n.gallery .item, [class*="gallery"] [class*="item"] { -webkit-user-drag: none; user-select: none; }\n';
+    scopedCss += '\n.gallery .item img, .gallery .item a, [class*="gallery"] img { -webkit-user-drag: none; }\n';
+    scopedCss += '\n.gallery .item:hover .name > span, [class*="gallery"] [class*="item"]:hover .name > span { transform: translateY(-100%) !important; }\n';
+    scopedCss += '\n.gallery .item .name > span, [class*="gallery"] [class*="item"] .name > span { transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
+    scopedCss += '\n.gallery .item:hover img, .gallery .item:hover video, [class*="gallery"] [class*="item"]:hover img { transform: scale(1.04) !important; }\n';
+    scopedCss += '\n.gallery .item img, .gallery .item video, [class*="gallery"] [class*="item"] img { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
 
 
     // Sanitize unescaped newlines inside url(...) so CSS parsers do not abort or drop rules

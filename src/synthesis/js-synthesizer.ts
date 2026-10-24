@@ -3765,8 +3765,11 @@ export class JsSynthesizer {
             s.style.setProperty('display', 'block', 'important');
           });
         } else {
-          const usesTransformsOrSameOffset = hasExistingTransforms || (uniqueSlides.length > 1 && uniqueSlides[1].offsetLeft === uniqueSlides[0].offsetLeft);
-          let offset = (isFullWidthSlider || usesTransformsOrSameOffset)
+          const isFlexFlow = uniqueSlides.length > 1 && uniqueSlides[1].offsetLeft > uniqueSlides[0].offsetLeft;
+          const usesTransformsOrSameOffset = !isFlexFlow && (hasExistingTransforms || (uniqueSlides.length > 1 && uniqueSlides[1].offsetLeft === uniqueSlides[0].offsetLeft));
+          let offset = isFlexFlow
+            ? (targetSlide ? (targetSlide.offsetLeft - uniqueSlides[0].offsetLeft) : currentIndex * step)
+            : (isFullWidthSlider || usesTransformsOrSameOffset)
             ? (baseIdx + currentIndex) * step
             : ((targetSlide && typeof targetSlide.offsetLeft === 'number' && targetSlide.offsetLeft > 0)
                 ? targetSlide.offsetLeft
@@ -3780,8 +3783,9 @@ export class JsSynthesizer {
             } catch (_) {}
           }
 
-          // Universal circular wrapping for pre-positioned slides
-          if (hasExistingTransforms) {
+          // Universal circular wrapping for pre-positioned slides ONLY when stacked at same offset
+          const areSlidesStackedAtSameOffset = uniqueSlides.length > 1 && Math.abs(uniqueSlides[1].offsetLeft - uniqueSlides[0].offsetLeft) < 10;
+          if (hasExistingTransforms && areSlidesStackedAtSameOffset) {
             uniqueSlides.forEach(function(s, idx) {
               const total = uniqueSlides.length;
               let diff = idx - currentIndex;
@@ -3792,6 +3796,11 @@ export class JsSynthesizer {
               const currentX = (currentIndex + diff) * step;
               s.style.transition = 'transform 600ms cubic-bezier(0.25, 1, 0.5, 1)';
               s.style.transform = 'translate(' + currentX + 'px, 0px)';
+            });
+          } else if (isFlexFlow) {
+            // For natural flex/grid layout, ensure individual per-slide inline transforms from the snapshot do not shift slides away from their flex positions
+            uniqueSlides.forEach(function(s) {
+              s.style.removeProperty('transform');
             });
           }
 
@@ -3978,11 +3987,17 @@ export class JsSynthesizer {
 
         container.style.cursor = 'grab';
         container.style.touchAction = 'pan-y';
+        container.style.userSelect = 'none';
+
+        // Prevent native HTML5 image/link drag from cancelling pointer drag
+        container.addEventListener('dragstart', function(e) {
+          e.preventDefault();
+        });
 
         function getCurrentTranslateX() {
           const st = window.getComputedStyle(transformTrack).transform;
           if (st && st !== 'none') {
-            const m = st.match(/matrix(?:3d)?\\((.+)\\)/);
+            const m = st.match(/matrix(?:3d)?\((.+)\)/);
             if (m) {
               const vals = m[1].split(', ');
               return parseFloat(vals[4] || vals[12] || 0);
@@ -4035,6 +4050,26 @@ export class JsSynthesizer {
 
         window.addEventListener('pointerup', onDragEnd);
         window.addEventListener('pointercancel', onDragEnd);
+
+        // Universal Trackpad / Mouse Wheel Controller
+        let wheelThrottle = false;
+        container.addEventListener('wheel', function(e) {
+          const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+          if (Math.abs(delta) < 20) return;
+          e.preventDefault();
+          if (wheelThrottle) return;
+          wheelThrottle = true;
+          setTimeout(function() { wheelThrottle = false; }, 320);
+          const maxIdx = getMaxIndex();
+          if (delta > 0) {
+            const target = currentIndex >= maxIdx ? 0 : currentIndex + 1;
+            goToSlide(target, false);
+          } else {
+            const target = currentIndex <= 0 ? maxIdx : currentIndex - 1;
+            goToSlide(target, false);
+          }
+          if (isPlaying) resetAutoplay();
+        }, { passive: false });
 
         // Clicking on adjacent visible slides advances/retreats
         uniqueSlides.forEach(function(slide, sIdx) {
