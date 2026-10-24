@@ -3471,6 +3471,7 @@ export class JsSynthesizer {
       if (nextBtns.length === 0) nextBtns = Array.from(sectionScope.querySelectorAll(nextSel));
 
       prevBtns = prevBtns.filter(function(b) {
+        if (uniqueSlides.includes(b) || (b.closest && b.closest('.swiper-slide, [class*="slide"]') === b) || (b.matches && b.matches('.swiper-slide, [class*="slide"]'))) return false;
         const cls = (typeof b.className === 'string' ? b.className : '').toLowerCase();
         if (cls.includes('tab__') || b.closest('.tab__list, .tab-list, [role="tablist"]')) return false;
         if (b.closest('.scroll-gallery, [class*="scroll-gallery"]') && !carouselScope.contains(b)) return false;
@@ -3478,6 +3479,7 @@ export class JsSynthesizer {
       });
 
       nextBtns = nextBtns.filter(function(b) {
+        if (uniqueSlides.includes(b) || (b.closest && b.closest('.swiper-slide, [class*="slide"]') === b) || (b.matches && b.matches('.swiper-slide, [class*="slide"]'))) return false;
         const cls = (typeof b.className === 'string' ? b.className : '').toLowerCase();
         if (cls.includes('tab__') || b.closest('.tab__list, .tab-list, [role="tablist"]')) return false;
         if (b.closest('.scroll-gallery, [class*="scroll-gallery"]') && !carouselScope.contains(b)) return false;
@@ -3537,8 +3539,14 @@ export class JsSynthesizer {
         playPauseBtn = sectionScope.querySelector(playPauseSel);
       }
 
+      const isTrackOrSwiper = Boolean(
+        transformTrack.classList.contains('swiper-wrapper') ||
+        (typeof transformTrack.className === 'string' && (transformTrack.className.includes('swiper') || transformTrack.className.includes('slick') || transformTrack.className.includes('slider') || transformTrack.className.includes('carousel'))) ||
+        container.classList.contains('swiper') ||
+        (typeof container.className === 'string' && container.className.includes('swiper'))
+      );
       const hasTimedNav = Boolean(carouselScope.querySelector('[class*="timed"], [class*="progress"], [data-autoplay]') || sectionScope.querySelector('[class*="timed"], [class*="progress"], [data-autoplay]'));
-      const hasAutoplay = !!playPauseBtn || hasTimedNav;
+      const hasAutoplay = !!playPauseBtn || hasTimedNav || isTrackOrSwiper || (prevBtns.length === 0 && bars.length === 0);
       let isPlaying = hasAutoplay;
 
       const hasTileWidth = Boolean(
@@ -3796,7 +3804,7 @@ export class JsSynthesizer {
             const maxIdx = getMaxIndex();
             const nextIdx = currentIndex >= maxIdx ? 0 : currentIndex + 1;
             goToSlide(nextIdx, false);
-          }, 5000);
+          }, 3500);
         }
       }
 
@@ -3878,15 +3886,94 @@ export class JsSynthesizer {
         });
       });
 
-      // Only pause on hover if explicitly requested via data attribute
-      if (carouselScope.hasAttribute('data-pause-on-hover') || sectionScope.hasAttribute('data-pause-on-hover')) {
-        carouselScope.addEventListener('mouseenter', function() {
+      // Universal Touch & Pointer Drag / Swipe Gesture Controller
+      (function bindDragAndSwipe() {
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let currentDeltaX = 0;
+        let startOffset = 0;
+
+        container.style.cursor = 'grab';
+        container.style.touchAction = 'pan-y';
+
+        function getCurrentTranslateX() {
+          const st = window.getComputedStyle(transformTrack).transform;
+          if (st && st !== 'none') {
+            const m = st.match(/matrix(?:3d)?\\((.+)\\)/);
+            if (m) {
+              const vals = m[1].split(', ');
+              return parseFloat(vals[4] || vals[12] || 0);
+            }
+          }
+          const s = getSlideStep() || 400;
+          return -(currentIndex * s);
+        }
+
+        container.addEventListener('pointerdown', function(e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          isDragging = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          currentDeltaX = 0;
+          startOffset = getCurrentTranslateX();
+          transformTrack.style.transition = 'none';
+          container.style.cursor = 'grabbing';
           if (autoplayTimer) clearInterval(autoplayTimer);
         });
-        carouselScope.addEventListener('mouseleave', function() {
-          if (isPlaying) resetAutoplay();
+
+        window.addEventListener('pointermove', function(e) {
+          if (!isDragging) return;
+          const deltaX = e.clientX - startX;
+          const deltaY = e.clientY - startY;
+          if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaX) < 10) return;
+          currentDeltaX = deltaX;
+          transformTrack.style.transform = 'translate3d(' + (startOffset + deltaX) + 'px, 0px, 0px)';
         });
-      }
+
+        function onDragEnd() {
+          if (!isDragging) return;
+          isDragging = false;
+          container.style.cursor = 'grab';
+          transformTrack.style.transition = 'transform 600ms cubic-bezier(0.25, 1, 0.5, 1)';
+          const step = getSlideStep() || 400;
+          const threshold = Math.min(step * 0.2, 50);
+          const maxIdx = getMaxIndex();
+          if (currentDeltaX < -threshold) {
+            const target = currentIndex >= maxIdx ? 0 : currentIndex + 1;
+            goToSlide(target, false);
+          } else if (currentDeltaX > threshold) {
+            const target = currentIndex <= 0 ? maxIdx : currentIndex - 1;
+            goToSlide(target, false);
+          } else {
+            goToSlide(currentIndex, false);
+          }
+          if (isPlaying) resetAutoplay();
+        }
+
+        window.addEventListener('pointerup', onDragEnd);
+        window.addEventListener('pointercancel', onDragEnd);
+
+        // Clicking on adjacent visible slides advances/retreats
+        uniqueSlides.forEach(function(slide, sIdx) {
+          slide.style.cursor = 'pointer';
+          slide.addEventListener('click', function(e) {
+            if (sIdx !== currentIndex && !isDragging && Math.abs(currentDeltaX) < 5) {
+              e.preventDefault();
+              goToSlide(sIdx, false);
+              if (isPlaying) resetAutoplay();
+            }
+          });
+        });
+      })();
+
+      // Pause autoplay on mouse hover, resume on mouse leave
+      carouselScope.addEventListener('mouseenter', function() {
+        if (autoplayTimer) clearInterval(autoplayTimer);
+      });
+      carouselScope.addEventListener('mouseleave', function() {
+        if (isPlaying) resetAutoplay();
+      });
 
       // Recalculate on window resize
       window.addEventListener('resize', function() {
