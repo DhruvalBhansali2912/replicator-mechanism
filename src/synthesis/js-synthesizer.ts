@@ -5566,8 +5566,8 @@ export class JsSynthesizer {
       const sub2 = btn.querySelector('.button__content-sub--2, [class*="content-sub--2"]');
       if (sub1 && sub2) {
         btn.addEventListener('mouseenter', function() {
-          sub1.style.transform = 'translateY(-100%)';
-          sub2.style.transform = 'translateY(-100%)';
+          sub1.style.transform = 'translateY(-120%)';
+          sub2.style.transform = 'translateY(-110%)';
         });
         btn.addEventListener('mouseleave', function() {
           sub1.style.transform = 'translateY(0%)';
@@ -5575,6 +5575,69 @@ export class JsSynthesizer {
         });
       }
     });
+
+    // Universal Mouse-Tracking Dynamic Gradient / Stroke Border Controller
+    root.querySelectorAll('.button, [class*="button"], [class*="btn"], [style*="--btn-stroke-angle"]').forEach(function(el) {
+      el.addEventListener('mousemove', function(e) {
+        const rect = el.getBoundingClientRect();
+        const x = e.clientX - rect.left - rect.width / 2;
+        const y = e.clientY - rect.top - rect.height / 2;
+        const rad = Math.atan2(y, x);
+        const deg = (rad * (180 / Math.PI) + 360) % 360;
+        el.style.setProperty('--btn-stroke-angle', deg.toFixed(2) + 'deg');
+      });
+    });
+
+    // Universal Pinned Storytelling Screen Transition Controller
+    const storytelling = root.querySelector('.hero-storytelling, [class*="hero-storytelling"]');
+    if (storytelling) {
+      const screens = Array.from(storytelling.querySelectorAll('[data-text-screen], section[class*="hero-"]')).filter(function(s) {
+        return s.parentElement === storytelling || (s.parentElement && s.parentElement.parentElement === storytelling);
+      });
+      if (screens.length > 1) {
+        storytelling.style.setProperty('position', 'relative', 'important');
+        if (!storytelling.style.minHeight) {
+          storytelling.style.setProperty('min-height', Math.max(screens.length * 100, 300) + 'vh', 'important');
+        }
+        const screensWrapper = storytelling.querySelector('[class*="screens"]') || storytelling;
+        screensWrapper.style.setProperty('position', 'sticky', 'important');
+        screensWrapper.style.setProperty('top', '0', 'important');
+        screensWrapper.style.setProperty('height', '100vh', 'important');
+        screensWrapper.style.setProperty('overflow', 'hidden', 'important');
+
+        screens.forEach(function(screen) {
+          screen.style.setProperty('position', 'absolute', 'important');
+          screen.style.setProperty('top', '0', 'important');
+          screen.style.setProperty('left', '0', 'important');
+          screen.style.setProperty('width', '100%', 'important');
+          screen.style.setProperty('height', '100%', 'important');
+        });
+
+        function updateScreensOnScroll() {
+          const rect = storytelling.getBoundingClientRect();
+          const totalScroll = rect.height - window.innerHeight;
+          if (totalScroll <= 0) return;
+          const progress = Math.max(0, Math.min(1, -rect.top / totalScroll));
+          const activeIdx = Math.min(screens.length - 1, Math.floor(progress * screens.length));
+
+          screens.forEach(function(screen, i) {
+            if (i === activeIdx) {
+              screen.style.setProperty('opacity', '1', 'important');
+              screen.style.setProperty('visibility', 'visible', 'important');
+              screen.style.setProperty('pointer-events', 'auto', 'important');
+              screen.style.transition = 'opacity 0.4s ease';
+            } else {
+              screen.style.setProperty('opacity', '0', 'important');
+              screen.style.setProperty('pointer-events', 'none', 'important');
+              screen.style.transition = 'opacity 0.4s ease';
+            }
+          });
+        }
+
+        window.addEventListener('scroll', updateScreensOnScroll, { passive: true });
+        updateScreensOnScroll();
+      }
+    }
 
     // Universal Intro/Preloader & Splash Screen Dismissal Controller
     const allLoaders = Array.from(document.querySelectorAll('.loader, [class*="preloader"], [class*="splash-screen"], [class*="intro-screen"]'));

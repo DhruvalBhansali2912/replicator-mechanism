@@ -390,7 +390,14 @@ export function enrichSectionWithCompanions(
     targetHtml.includes('data-menu-toggle') ||
     targetHtml.includes('hamburger');
 
-  if (!isNav) return targetHtml;
+  const isLoader =
+    (sourceSelector && (sourceSelector.includes('loader') || sourceSelector.includes('preloader') || sourceSelector.includes('splash'))) ||
+    targetHtml.includes('class="loader') ||
+    targetHtml.includes('class=\'loader') ||
+    targetHtml.includes('preloader') ||
+    targetHtml.includes('splash');
+
+  if (!isNav && !isLoader) return targetHtml;
 
   try {
     const $target = cheerio.load(targetHtml);
@@ -448,12 +455,13 @@ export function enrichSectionWithCompanions(
       ) return;
 
       // An off-canvas or companion drawer must NEVER enclose the primary page content (<main>, primary page footer, <article>)
-      if (
+      const isLoaderTarget = (sourceSelector || '').includes('loader') || (sourceSelector || '').includes('preloader') || $target('.loader, [class*="preloader"]').length > 0;
+      if (!isLoaderTarget && (
         $el.is('main, article') ||
         $el.find('main, article').length > 0 ||
         $el.find('footer:not([class*="menu"]):not([class*="drawer"]):not([class*="panel"]):not([class*="popup"]):not([class*="modal"]):not([class*="dialog"])').length > 0 ||
         ($el.is('footer') && !cls.includes('menu') && !cls.includes('drawer'))
-      ) return;
+      )) return;
 
       // Sanitize companion to resting closed state
       const $clone = cheerio.load(outer, { xmlMode: false }, false);
@@ -611,6 +619,22 @@ export function enrichSectionWithCompanions(
           addCompanion(el);
         }
       });
+    }
+
+    // 3. Preloader / Splash Screen Enrichment:
+    // If target section is an intro loader/splash overlay, companion the underlying primary hero/main section behind it!
+    const hasLoader =
+      $target('.loader, [class*="preloader"], [class*="splash-screen"], [class*="intro-screen"]').length > 0;
+
+    if (hasLoader) {
+      const heroOrSection = $snap(
+        '[class*="hero-storytelling"], section.hero-1, main > [class*="hero"], main > section, section[class*="hero"], [class*="hero-section"], section'
+      )
+        .not('.loader, [class*="preloader"], [class*="splash"]')
+        .first();
+      if (heroOrSection.length > 0) {
+        addCompanion(heroOrSection.get(0));
+      }
     }
   } catch {}
 

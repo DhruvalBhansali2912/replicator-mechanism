@@ -609,6 +609,13 @@ export class HtmlSynthesizer {
             ) {
               return;
             }
+            // Universal Preloader + Main/Hero Section Pairing Preservation:
+            if (
+              (targetEl.is('.loader, [class*="preloader"], [class*="splash-screen"]') && ($sib.is('main, [role="main"], [class*="hero"], section') || $sib.find('section, [class*="hero"]').length > 0)) ||
+              ($sib.is('.loader, [class*="preloader"], [class*="splash-screen"]') && (targetEl.is('main, [role="main"], [class*="hero"], section') || targetEl.find('section, [class*="hero"]').length > 0))
+            ) {
+              return;
+            }
             if (
               $sib.is('[data-search-dialog-menu-item], [class*="search-dialog"], [class*="SearchDialog"]') ||
               $sib.find('[data-search-dialog-menu-item]').length > 0
@@ -1692,7 +1699,11 @@ ${drawerListItems.join('\n')}
             ? $snap('header:not(dialog header):not([role="dialog"] header):not([role="alertdialog"] header):not([class*="modal"] header):not([class*="dialog"] header), [role="banner"], [class*="site-header"], [class*="Header"]').first()
             : $snap(wrapperTag).first();
           if (snapLandmark.length > 0) {
-            originalLandmarkClasses = (snapLandmark.attr('class') || '').trim();
+            const cls = (snapLandmark.attr('class') || '').trim();
+            // Do not copy the class onto the outer container wrapper if the child element itself is already inside
+            if (cls && !$.html().includes(cls)) {
+              originalLandmarkClasses = cls;
+            }
           }
         } catch {}
       }
