@@ -444,38 +444,20 @@ export function optimizeCssForDocument(css: string, html: string): string {
       if ($(clean).length > 0) return true;
     } catch (_) {}
 
-    // 2. Dynamic interactive state classes
-    const strippedStates = clean.replace(dynamicStateRegex, '').trim();
+    // 2. Dynamic interactive state classes on elements (e.g. .col-full-nav.is-open or .mobile-toggled .col-full-nav)
+    const strippedStates = clean.replace(dynamicStateRegex, '').replace(/\s+/g, ' ').trim();
     if (strippedStates && strippedStates !== clean) {
       try {
         if ($(strippedStates).length > 0) return true;
       } catch (_) {}
-    }
 
-    // 3. Universal Subject Target Resolution:
-    // In CSS, rules are often qualified by ancestor classes (e.g. .header-4 .header-4-container, body.dark .nav-item, .mobile-toggled .col-full-nav).
-    // If the leaf / subject element exists in the DOM, the rule belongs to this section and must be preserved!
-    const parts = clean.split(/\s*[\s>+~]\s*/).filter(Boolean);
-    if (parts.length > 1) {
-      const subject = parts[parts.length - 1];
-      const cleanSubject = stripPseudos(subject).replace(dynamicStateRegex, '').trim();
-      if (cleanSubject && cleanSubject !== '*' && cleanSubject !== 'div' && cleanSubject !== 'span') {
+      // If the dynamic state was on an ancestor, check the remaining selector parts (e.g. .col-full-nav)
+      const parts = clean.split(/\s*[\s>+~]\s*/).filter(p => !dynamicStateRegex.test(p) && p.trim().length > 0);
+      if (parts.length > 0) {
+        const remainingSel = parts.join(' ');
         try {
-          if ($(cleanSubject).length > 0) return true;
+          if ($(remainingSel).length > 0) return true;
         } catch (_) {}
-      }
-    }
-
-    // 4. Any specific class in the selector matching an element in the section DOM
-    const classesInSelector = clean.match(/\.([a-zA-Z0-9_-]+)/g);
-    if (classesInSelector) {
-      for (const cls of classesInSelector) {
-        const cName = cls.slice(1);
-        if (cName !== 'dark' && cName !== 'light' && cName !== 'container' && cName.length >= 3) {
-          try {
-            if ($(cls).length > 0) return true;
-          } catch (_) {}
-        }
       }
     }
 
