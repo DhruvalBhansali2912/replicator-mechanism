@@ -1461,6 +1461,16 @@ ${drawerListItems.join('\n')}
     // Explicitly serve style.css and script.js with proper content types
     if (req.path === '/style.css') {
       const cssPath = path.join(jobDir, 'style.css');
+      const recCssPath = path.join(CONFIG.jobsDir, req.params.id, 'reconstruction.css');
+      if (fs.existsSync(recCssPath)) {
+        try {
+          const recStat = fs.statSync(recCssPath);
+          const curStat = fs.existsSync(cssPath) ? fs.statSync(cssPath) : null;
+          if (!curStat || curStat.size < recStat.size * 0.7) {
+            fs.copyFileSync(recCssPath, cssPath);
+          }
+        } catch (_) {}
+      }
       if (fs.existsSync(cssPath)) {
         res.type('text/css').sendFile(cssPath);
         return;
