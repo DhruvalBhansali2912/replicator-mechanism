@@ -6297,7 +6297,7 @@ export class JsSynthesizer {
     try {
       (function() {
         const tracks = Array.from(document.querySelectorAll(
-          '.archive-gallery__motion, .archive-gallery__track, [class*="gallery__motion"], [class*="gallery__track"], [class*="carousel__track"], [class*="slider__track"], [class*="horizontal-track"], .gallery-track, .gallery'
+          '.archive-gallery__motion, .archive-gallery__track, [class*="gallery__motion"], [class*="gallery__track"], [class*="carousel__track"], [class*="slider__track"], [class*="horizontal-track"], .gallery-track, .gallery, [class*="gallery--intro"]'
         ));
 
         tracks.forEach(function(track) {
@@ -6312,25 +6312,31 @@ export class JsSynthesizer {
           function updateBounds() {
             const parent = track.parentElement || track;
             const parentWidth = parent.clientWidth || window.innerWidth;
-            maxScroll = Math.max(0, track.scrollWidth - parentWidth);
+            let totalChildrenWidth = 0;
+            const children = Array.from(track.children);
+            if (children.length > 0) {
+              const firstRect = children[0].getBoundingClientRect();
+              const lastRect = children[children.length - 1].getBoundingClientRect();
+              totalChildrenWidth = Math.abs(lastRect.right - firstRect.left);
+            }
+            const measuredWidth = Math.max(track.scrollWidth || 0, totalChildrenWidth);
+            maxScroll = Math.max(0, measuredWidth - parentWidth);
+            if (maxScroll < 50 && children.length >= 2) {
+              maxScroll = children.length * 360;
+            }
           }
           window.addEventListener('resize', updateBounds);
           updateBounds();
 
-          const isTransformTrack = track.classList.contains('archive-gallery__motion') ||
-            track.classList.contains('archive-gallery__track') ||
-            (track.className && typeof track.className === 'string' && track.className.includes('motion')) ||
-            (track.className && typeof track.className === 'string' && track.className.includes('track'));
+          const isTransformTrack = true;
 
           window.addEventListener('wheel', function(e) {
             const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
-            if (Math.abs(delta) > 2) {
+            if (Math.abs(delta) > 1) {
               updateBounds();
               if (maxScroll > 10) {
                 targetX += delta * 1.35;
                 targetX = Math.max(0, Math.min(maxScroll, targetX));
-              } else if (!isTransformTrack) {
-                track.scrollLeft += delta;
               }
             }
           }, { passive: true });
@@ -6360,7 +6366,7 @@ export class JsSynthesizer {
           });
 
           function animate() {
-            if (isTransformTrack || maxScroll > 10) {
+            if (maxScroll > 10) {
               currentX += (targetX - currentX) * 0.12;
               if (Math.abs(targetX - currentX) > 0.05) {
                 track.style.transform = 'translate3d(' + (-currentX) + 'px, 0, 0)';
@@ -6370,22 +6376,43 @@ export class JsSynthesizer {
             requestAnimationFrame(animate);
           }
           requestAnimationFrame(animate);
+
+          // Card hover micro-interactions
+          const cards = Array.from(track.querySelectorAll('.item, [class*="item"], [class*="card"]'));
+          cards.forEach(function(card) {
+            card.addEventListener('pointerenter', function() {
+              card.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+              card.style.transform = 'scale(1.04)';
+            });
+            card.addEventListener('pointerleave', function() {
+              card.style.transform = 'scale(1)';
+            });
+          });
         });
 
-        // Universal Hover Preview & Magnetism Controller
+        // Universal Hover Preview & Floating Target Controller
         const hoverItems = Array.from(document.querySelectorAll(
-          '.archive-gallery__item, .item, [class*="gallery__item"], [class*="menu-link"], [class*="item"], .menu-tile'
+          '.archive-gallery__item, .item, [class*="gallery__item"], [class*="menu-link"], [class*="item"], .menu-tile, header a, nav a'
         ));
         const previewTargets = Array.from(document.querySelectorAll(
           '.archive-menu-image-target, .archive-menu-image-target__frame, [class*="menu-image-target"], [class*="preview-target"], [class*="hover-target"]'
         ));
+
+        window.addEventListener('pointermove', function(e) {
+          previewTargets.forEach(function(target) {
+            target.style.position = 'fixed';
+            target.style.pointerEvents = 'none';
+            target.style.zIndex = '9999';
+            target.style.transform = 'translate3d(' + (e.clientX + 20) + 'px, ' + (e.clientY + 20) + 'px, 0)';
+          });
+        });
 
         hoverItems.forEach(function(item) {
           item.addEventListener('pointerenter', function() {
             previewTargets.forEach(function(target) {
               target.style.opacity = '1';
               target.style.visibility = 'visible';
-              target.style.transition = 'opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
+              target.style.transition = 'opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
             });
             const childImg = item.querySelector('img, video');
             if (childImg) {

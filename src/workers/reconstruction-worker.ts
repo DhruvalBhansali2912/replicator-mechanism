@@ -442,7 +442,21 @@ ${injectedCombinedBg}${combinedSectionsHtml}${globalOverlaysHtml ? '\n' + global
     const combinedCss = optimizeCssForDocument(rawCombinedCss, fullHtml);
 
     const totalScores = sectionsOutput.reduce((acc, r) => acc + r.score, 0);
-    const averageScore = sectionsOutput.length > 0 ? Math.round(totalScores / sectionsOutput.length) : 0;
+    let averageScore = sectionsOutput.length > 0 ? Math.round(totalScores / sectionsOutput.length) : 0;
+
+    // Page-Level Completeness Audit:
+    // If the original page had multiple distinct sections/articles, but only 1 section was segmented,
+    // this indicates a major segmentation swallow failure! Penalize score appropriately.
+    if (sectionsOutput.length === 1 && (htmlSnapshot || _rawHtml)) {
+      try {
+        const $snap = cheerio.load(htmlSnapshot || _rawHtml || '');
+        const originSectionCount = $snap('section, article, [data-section], [data-block]').length;
+        if (originSectionCount >= 3) {
+          averageScore = Math.max(15, averageScore - 55);
+        }
+      } catch (e) {}
+    }
+
     const passed = averageScore >= 80;
 
     return {

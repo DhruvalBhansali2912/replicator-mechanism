@@ -114,6 +114,22 @@ export class VisualSegmentationWorker {
       if (text.length < 15 && mediaCount === 0) return;
       if (tag === 'dialog' || $el.attr('role') === 'dialog' || $el.attr('aria-modal') === 'true' || cls.includes('modal') || (cls.includes('dialog') && !cls.includes('catalogue')) || cls.includes('gnb-search') || cls.includes('search-layer')) return;
 
+      // Container check: If an element is a wrapper enclosing semantic sections, articles, or a footer,
+      // never add the monolithic container; allow its granular child sections to be segmented individually!
+      if (tag !== 'footer' && $el.find('footer, [role="contentinfo"]').length > 0) {
+        return;
+      }
+      if (tag !== 'section' && tag !== 'article') {
+        const hasInnerSections = $el.find('section, article').length > 0;
+        const hasMultipleBlockChildren = $el.children('[data-section], [data-block], [class*="section-"]').length > 1;
+        if (hasInnerSections || hasMultipleBlockChildren) {
+          return;
+        }
+      } else if (tag === 'section' && $el.find('section').length > 0) {
+        // Nested sections: prefer leaf sections over outer container sections
+        return;
+      }
+
       // Mutual exclusion: Never extract both a parent and its descendant child!
       for (const existing of candidateElements) {
         if ($(existing).find(el).length > 0) {
@@ -154,7 +170,7 @@ export class VisualSegmentationWorker {
     // 2. Main content rows and sections
     // Detect builder / layout rows and semantic sections across platforms (AEM, Next.js, Webflow, Shopify, WordPress, standard HTML5)
     if (activeMain && activeMain.length > 0) {
-      activeMain.children('section, article, [class*="gallery"], [class*="hero"], [class*="showcase"], [class*="portfolio"], [class*="project"], [class*="work"], [class*="storytelling"], [class*="about"], [class*="content"]').each((_, el) => {
+      activeMain.children('section, article, [class*="gallery"], [class*="hero"], [class*="showcase"], [class*="portfolio"], [class*="project"], [class*="work"], [class*="storytelling"], [class*="about"]').each((_, el) => {
         addCandidate(el);
       });
     }

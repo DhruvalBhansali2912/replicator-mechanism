@@ -1972,6 +1972,12 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n#gl canvas, [class*="webgl"]:not([class*="button"]):not([class*="btn"]) canvas, [id*="webgl"]:not([id*="button"]) canvas { width: 100% !important; height: 100% !important; display: block !important; }\n';
     scopedCss += '\nbody > section, section, .hero-storytelling, [class*="hero-storytelling"], [class*="storytelling"] { position: relative !important; z-index: 2 !important; }\n';
     scopedCss += '\n:root[data-theme="light"] h1, :root[data-theme="light"] [class*="title"], :root[data-theme="light"] [class*="hero-"], [data-theme="light"] h1, [data-theme="light"] h1 span, [data-theme="light"] [class*="title"], [data-theme="light"] [class*="title"] span, html:not([data-theme="dark"]) h1, html:not([data-theme="dark"]) [class*="hero-1__title"] { color: var(--foreground, #2a1647) !important; -webkit-text-fill-color: var(--foreground, #2a1647) !important; }\n';
+    scopedCss += '\n.link-inner, [class*="link-inner"], [class*="rolling-text"], [class*="split-text"] { display: inline-flex !important; flex-direction: column !important; height: 1.15em !important; overflow: hidden !important; vertical-align: middle !important; }\n';
+    scopedCss += '\n.link-inner > span, [class*="link-inner"] > span { display: block !important; line-height: 1.15em !important; transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
+    scopedCss += '\n.link-inner:hover > span, *:hover > .link-inner > span, a:hover .link-inner > span, button:hover .link-inner > span { transform: translateY(-100%) !important; }\n';
+    scopedCss += '\nheader a, nav a, .menu-link, .nav-link, [class*="nav"] a, [class*="menu"] a, .link { transition: color 0.25s ease, opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
+    scopedCss += '\nheader a:hover, nav a:hover, .menu-link:hover, .nav-link:hover, [class*="nav"] a:hover, [class*="menu"] a:hover, .link:hover { opacity: 0.8 !important; transform: translateY(-1px) !important; }\n';
+    scopedCss += '\n.gallery, [class*="gallery--intro"], [class*="archive-gallery"] { display: flex !important; flex-wrap: nowrap !important; overflow: visible !important; }\n';
 
 
     // Sanitize unescaped newlines inside url(...) so CSS parsers do not abort or drop rules
