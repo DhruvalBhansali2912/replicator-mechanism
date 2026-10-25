@@ -2104,8 +2104,14 @@ export class JsSynthesizer {
         tab.setAttribute('tabindex', '0');
         tab.classList.add('is-active', 'active');
 
-        // Hide sibling panels within this specific two-pane/menu container
-        const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], [class*="two-pane__panel"]'));
+        // Ensure parent panel wrappers remain visible
+        paneContainer.querySelectorAll('[class*="panel-wrap"], [class*="panels-wrap"]').forEach(function(pw) {
+          pw.style.setProperty('display', 'block', 'important');
+          pw.style.setProperty('visibility', 'visible', 'important');
+        });
+
+        // Hide sibling leaf panels within this specific two-pane/menu container
+        const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], .pathfinder-two-pane__panel, [class*="two-pane__panel"]:not([class*="wrap"])'));
         allPanels.forEach(function(p) {
           p.style.setProperty('display', 'none', 'important');
           p.setAttribute('aria-hidden', 'true');
