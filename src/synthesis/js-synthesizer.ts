@@ -3503,6 +3503,19 @@ export class JsSynthesizer {
         }
       }
 
+      // When the track has no outer viewport wrapper (it is the container itself or direct child of body/section/main),
+      // translating the track would shift the entire container off-screen and leave a void.
+      // In this case, programmatic scrolling (container.scrollTo / container.scrollLeft) must be used instead.
+      const isDirectScroll = (container === transformTrack) ||
+        (transformTrack.parentElement && ['SECTION', 'BODY', 'MAIN', 'HTML'].includes(transformTrack.parentElement.tagName)) ||
+        (container.scrollWidth > container.clientWidth && Math.abs(transformTrack.offsetWidth - container.offsetWidth) < 5);
+
+      if (isDirectScroll) {
+        transformTrack.style.transform = 'none';
+        container.style.overflowX = 'hidden';
+        container.style.scrollbarWidth = 'none';
+      }
+
       const carouselScope = transformTrack.closest(
         '[class*="list-wrap"], [class*="carousel-wrap"], [class*="slider-wrap"], [class*="primary-panel"], [role="tabpanel"], .swiper-container, .basic-swiper, [class*="carousel"], [class*="slider"], [class*="gallery"]'
       ) || container.parentElement || sectionScope;
@@ -3775,12 +3788,22 @@ export class JsSynthesizer {
                 ? targetSlide.offsetLeft
                 : (baseIdx + currentIndex) * step);
 
-          transformTrack.style.transition = 'transform 600ms cubic-bezier(0.25, 1, 0.5, 1)';
-          transformTrack.style.transform = 'translate3d(' + (-offset) + 'px, 0px, 0px)';
-          if (container && container !== document.body && container.tagName !== 'SECTION' && container.tagName !== 'MAIN' && container.scrollWidth > container.clientWidth) {
+          if (isDirectScroll) {
+            transformTrack.style.transform = 'none';
+            container.style.overflowX = 'hidden';
             try {
               container.scrollTo({ left: offset, behavior: 'smooth' });
-            } catch (_) {}
+            } catch (_) {
+              container.scrollLeft = offset;
+            }
+          } else {
+            transformTrack.style.transition = 'transform 600ms cubic-bezier(0.25, 1, 0.5, 1)';
+            transformTrack.style.transform = 'translate3d(' + (-offset) + 'px, 0px, 0px)';
+            if (container && container !== document.body && container.tagName !== 'SECTION' && container.tagName !== 'MAIN' && container.scrollWidth > container.clientWidth) {
+              try {
+                container.scrollTo({ left: offset, behavior: 'smooth' });
+              } catch (_) {}
+            }
           }
 
           // Universal circular wrapping for pre-positioned slides ONLY when stacked at same offset
@@ -4013,8 +4036,12 @@ export class JsSynthesizer {
           startX = e.clientX;
           startY = e.clientY;
           currentDeltaX = 0;
-          startOffset = getCurrentTranslateX();
-          transformTrack.style.transition = 'none';
+          if (isDirectScroll) {
+            startOffset = container.scrollLeft;
+          } else {
+            startOffset = getCurrentTranslateX();
+            transformTrack.style.transition = 'none';
+          }
           container.style.cursor = 'grabbing';
           if (autoplayTimer) clearInterval(autoplayTimer);
         });
@@ -4025,14 +4052,20 @@ export class JsSynthesizer {
           const deltaY = e.clientY - startY;
           if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaX) < 10) return;
           currentDeltaX = deltaX;
-          transformTrack.style.transform = 'translate3d(' + (startOffset + deltaX) + 'px, 0px, 0px)';
+          if (isDirectScroll) {
+            container.scrollLeft = startOffset - deltaX;
+          } else {
+            transformTrack.style.transform = 'translate3d(' + (startOffset + deltaX) + 'px, 0px, 0px)';
+          }
         });
 
         function onDragEnd() {
           if (!isDragging) return;
           isDragging = false;
           container.style.cursor = 'grab';
-          transformTrack.style.transition = 'transform 600ms cubic-bezier(0.25, 1, 0.5, 1)';
+          if (!isDirectScroll) {
+            transformTrack.style.transition = 'transform 600ms cubic-bezier(0.25, 1, 0.5, 1)';
+          }
           const step = getSlideStep() || 400;
           const threshold = Math.min(step * 0.2, 50);
           const maxIdx = getMaxIndex();
