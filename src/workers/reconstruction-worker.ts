@@ -216,6 +216,45 @@ header.site-header, header {
   z-index: 9999 !important;
 }
 
+/* Universal Pinned Storytelling Scroll Deck */
+.universal-scroll-storytelling {
+  position: relative !important;
+  width: 100% !important;
+  display: block !important;
+  z-index: 2 !important;
+}
+.universal-storytelling-viewport {
+  position: sticky !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 2 !important;
+}
+.universal-storytelling-viewport > section,
+.universal-storytelling-viewport > div {
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  transition: opacity 0.45s ease-out, transform 0.55s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  transform: translate3d(0, 24px, 0) !important;
+}
+.universal-storytelling-viewport > section.is-active-slide,
+.universal-storytelling-viewport > div.is-active-slide {
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
 /* Universal SplitText & Char Base Unhiding (Non-destructive to inline animations) */
 h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [class*="title"] [aria-hidden="true"] {
   display: inline-block;
@@ -333,7 +372,49 @@ ${injectedBg}${sec.html}${globalOverlaysHtml ? '\n' + globalOverlaysHtml : ''}
       };
     }
 
-    const combinedSectionsHtml = sectionsOutput.map((r) => r.html).join('\n\n');
+    // Universal Storytelling Deck Grouping:
+    // If consecutive sections are sequential hero slides (e.g. hero-1, hero-2, hero-3, hero-4, hero-5
+    // or slide-1, slide-2 or storytelling steps), wrap them in a sticky pinned storytelling viewport!
+    const groupedHtmlParts: string[] = [];
+    let currentSlideGroup: ReconstructedSectionOutput[] = [];
+
+    function isStorytellingSlide(sec: ReconstructedSectionOutput): boolean {
+      const h = sec.html.toLowerCase();
+      return /class=["'][^"']*\bhero-[1-9]\b[^"']*["']/i.test(h) ||
+             /class=["'][^"']*\bslide-[1-9]\b[^"']*["']/i.test(h) ||
+             /class=["'][^"']*\bstory-step\b[^"']*["']/i.test(h) ||
+             /class=["'][^"']*\bscreen-[1-9]\b[^"']*["']/i.test(h);
+    }
+
+    function flushSlideGroup() {
+      if (currentSlideGroup.length > 1) {
+        const heightVh = currentSlideGroup.length * 100;
+        const slidesHtml = currentSlideGroup.map((s, idx) => {
+          if (idx === 0) {
+            return s.html.replace(/class=(["'])/i, 'class=$1is-active-slide ');
+          }
+          return s.html;
+        }).join('\n');
+        groupedHtmlParts.push(
+          `<div class="universal-scroll-storytelling" style="height: ${heightVh}vh;" data-story-slides="${currentSlideGroup.length}">\n  <div class="universal-storytelling-viewport">\n${slidesHtml}\n  </div>\n</div>`
+        );
+      } else if (currentSlideGroup.length === 1) {
+        groupedHtmlParts.push(currentSlideGroup[0].html);
+      }
+      currentSlideGroup = [];
+    }
+
+    for (const sec of sectionsOutput) {
+      if (isStorytellingSlide(sec)) {
+        currentSlideGroup.push(sec);
+      } else {
+        flushSlideGroup();
+        groupedHtmlParts.push(sec.html);
+      }
+    }
+    flushSlideGroup();
+
+    const combinedSectionsHtml = groupedHtmlParts.join('\n\n');
     const injectedCombinedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');

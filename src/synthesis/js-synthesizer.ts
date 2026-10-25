@@ -6455,6 +6455,48 @@ export class JsSynthesizer {
             });
           });
         });
+
+        // Universal Pinned Storytelling Scroll Deck Controller
+        const storyDecks = Array.from(document.querySelectorAll(
+          '.universal-scroll-storytelling, [class*="hero-storytelling"]'
+        ));
+        storyDecks.forEach(function(deck) {
+          const slides = Array.from(deck.querySelectorAll(
+            '.universal-storytelling-viewport > section, .universal-storytelling-viewport > div, .hero-storytelling__screens > section'
+          ));
+          if (slides.length <= 1) return;
+
+          function scrubStory() {
+            const rect = deck.getBoundingClientRect();
+            const totalScroll = deck.offsetHeight - window.innerHeight;
+            if (totalScroll <= 0) return;
+            const currentScroll = -rect.top;
+            const progress = Math.max(0, Math.min(0.999, currentScroll / totalScroll));
+            const activeIndex = Math.min(slides.length - 1, Math.floor(progress * slides.length));
+
+            slides.forEach(function(slide, idx) {
+              if (idx === activeIndex) {
+                slide.classList.add('is-active-slide');
+                slide.style.opacity = '1';
+                slide.style.visibility = 'visible';
+                slide.style.pointerEvents = 'auto';
+                slide.style.transform = 'translate3d(0, 0, 0)';
+              } else {
+                slide.classList.remove('is-active-slide');
+                slide.style.opacity = '0';
+                slide.style.visibility = 'hidden';
+                slide.style.pointerEvents = 'none';
+                slide.style.transform = idx < activeIndex ? 'translate3d(0, -24px, 0)' : 'translate3d(0, 24px, 0)';
+              }
+            });
+
+            window.__globalStoryProgress = progress;
+          }
+
+          window.addEventListener('scroll', scrubStory, { passive: true });
+          window.addEventListener('resize', scrubStory);
+          scrubStory();
+        });
       })();
     } catch (_) {}
 
@@ -6661,6 +6703,9 @@ export class JsSynthesizer {
             const cosX = Math.cos(rotationX);
             const sinX = Math.sin(rotationX);
 
+            const storyProgress = window.__globalStoryProgress || 0;
+            const scrollZoom = storyProgress * 160;
+
             const projected = [];
             for (let i = 0; i < particles.length; i++) {
               const p = particles[i];
@@ -6669,7 +6714,7 @@ export class JsSynthesizer {
               let x1 = p.x * cosY - p.z * sinY;
               let z1 = p.z * cosY + p.x * sinY;
               let y1 = p.y * cosX - z1 * sinX;
-              let z2 = z1 * cosX + p.y * sinX;
+              let z2 = z1 * cosX + p.y * sinX - scrollZoom;
 
               const scale = fov / (fov + z2 + 200);
               const px = centerX + x1 * scale;
