@@ -658,6 +658,7 @@ ${html}
     try {
       const browser = await BrowserManager.getBrowser();
       const { context, page } = await BrowserManager.createPage({ viewportWidth: 1440, viewportHeight: 900 });
+      page.on('dialog', (d) => d.accept().catch(() => {}));
 
       try {
         await page.setContent(fullDoc, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -834,7 +835,7 @@ ${html}
 
             // Universal Navigation Blocker: Prevent test clicks from triggering page redirects
             await page.evaluate(() => {
-              window.addEventListener('beforeunload', (e) => { e.preventDefault(); e.returnValue = ''; return ''; }, true);
+              window.onbeforeunload = null;
               document.addEventListener('click', (e) => {
                 const a = (e.target as HTMLElement)?.closest?.('a');
                 if (a && a.getAttribute('href') && !a.getAttribute('href')?.startsWith('#')) {
