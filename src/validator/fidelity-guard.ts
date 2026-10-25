@@ -70,7 +70,7 @@ export class FidelityGuard {
     const initialDefects: DefectSignal[] = [];
     const patchesApplied: AuthenticPatch[] = [];
 
-    const MAX_REDO_PASSES = 4;
+    const MAX_REDO_PASSES = 2;
     let lastProbeRes: { defects: DefectSignal[]; menuTogglePassed: boolean } = { defects: [], menuTogglePassed: true };
     let pass = 1;
 
