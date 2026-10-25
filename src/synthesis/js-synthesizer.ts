@@ -6336,16 +6336,14 @@ export class JsSynthesizer {
           const compStyle = window.getComputedStyle(document.documentElement);
           const primaryColor = compStyle.getPropertyValue('--primary').trim() || compStyle.getPropertyValue('--color-primary').trim() || '#9047ff';
 
-          const isLight = document.documentElement.getAttribute('data-theme') === 'light' ||
-            (!document.documentElement.getAttribute('data-theme') && (function() {
-              const bg = window.getComputedStyle(document.body).backgroundColor;
-              const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-              if (match) {
-                const lum = 0.299 * (+match[1]) + 0.587 * (+match[2]) + 0.114 * (+match[3]);
-                return lum > 140;
-              }
-              return false;
-            })());
+          const isLight = (function() {
+            const theme = document.documentElement.getAttribute('data-theme');
+            if (theme === 'light') return true;
+            if (theme === 'dark') return false;
+            const bg = (window.getComputedStyle(document.body).backgroundColor || '').toLowerCase();
+            if (bg.includes('245, 239, 255') || bg.includes('255, 255, 255') || bg.includes('fff')) return true;
+            return false;
+          })();
 
           // 3D Morphing Particle Vortex
           const particleCount = 750;
