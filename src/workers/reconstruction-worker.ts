@@ -185,7 +185,7 @@ header.site-header, header {
 }
 
 /* Universal SplitText & Char Reveal Unhiding */
-.char, .word, .line, [class*="char-"], [class*="word-"], [class*="split-"], [data-split], [aria-hidden="true"] > div, [aria-hidden="true"] > span {
+h1 div, h1 span, h2 div, h2 span, h3 div, h3 span, [class*="title"] div, [class*="title"] span, .char, .word, .line, [class*="char"], [class*="word"], [class*="split"], [data-split], [aria-hidden="true"] {
   opacity: 1 !important;
   visibility: visible !important;
   transform: none !important;

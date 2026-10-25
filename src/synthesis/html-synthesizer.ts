@@ -1709,6 +1709,14 @@ ${drawerListItems.join('\n')}
       if (aria && aria.trim().length > 1 && text.length === 0) {
         $el.text(aria.trim());
       }
+      // Strip initial hidden/scale(0) transforms from child split elements
+      $el.find('div, span, [aria-hidden="true"]').each((_, child) => {
+        const $child = $(child);
+        const style = ($child.attr('style') || '');
+        if (style.includes('visibility: hidden') || style.includes('opacity: 0') || style.includes('scale(0')) {
+          $child.removeAttr('style');
+        }
+      });
     });
 
     // 5. Ensure top element has semantic landmark and id
