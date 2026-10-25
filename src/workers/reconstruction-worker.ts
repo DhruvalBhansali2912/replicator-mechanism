@@ -84,6 +84,7 @@ export class ReconstructionWorker {
     let htmlAttrs = 'lang="en"';
     let bodyAttrs = '';
     let globalBgCanvasHtml = '';
+    let globalOverlaysHtml = '';
     if (htmlSnapshot || _rawHtml) {
       try {
         const $snap = cheerio.load(htmlSnapshot || _rawHtml);
@@ -126,6 +127,16 @@ export class ReconstructionWorker {
             }
             globalBgCanvasHtml = $snap.html(bgContainer) || '';
           }
+        }
+
+        // Universal Body-Level Overlays, Drawers & Hover Targets Extraction
+        const bodyOverlays = $snap(
+          'body > .menu-overlay, body > .menu-tiles-wrapper, body > [class*="menu-overlay"], body > .archive-menu-image-target, body > [class*="menu-image-target"], body > [class*="cursor"], body > [id*="cursor"], body > [class*="custom-cursor"], body > [class*="hover-target"]'
+        );
+        if (bodyOverlays.length > 0) {
+          bodyOverlays.each((_, el) => {
+            globalOverlaysHtml += '\n' + $snap.html(el);
+          });
         }
       } catch (_) {}
     }
@@ -284,7 +295,7 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
   <link rel="stylesheet" href="style.css">
 </head>
 <body ${bodyAttrs}>
-${injectedBg}${sec.html}
+${injectedBg}${sec.html}${globalOverlaysHtml ? '\n' + globalOverlaysHtml : ''}
   <script src="script.js" defer></script>
 </body>
 </html>`.trim();
@@ -322,7 +333,7 @@ ${injectedBg}${sec.html}
   <link rel="stylesheet" href="style.css">
 </head>
 <body ${bodyAttrs}>
-${injectedCombinedBg}${combinedSectionsHtml}
+${injectedCombinedBg}${combinedSectionsHtml}${globalOverlaysHtml ? '\n' + globalOverlaysHtml : ''}
   <script src="script.js" defer></script>
 </body>
 </html>`.trim();
