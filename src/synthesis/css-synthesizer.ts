@@ -1951,7 +1951,11 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n.html-mesh-hidden, [data-text-mesh], [data-gl-hidden], [data-webgl-hidden], [class*="mesh-hidden"], [class*="webgl-hide"] { opacity: 1 !important; visibility: visible !important; display: block !important; pointer-events: auto !important; }\n';
 
     // Universal SplitText & Char Reveal Unhiding (Awwwards websites)
-    scopedCss += '\nh1 div, h1 span, h2 div, h2 span, h3 div, h3 span, [class*="title"] div, [class*="title"] span, .char, .word, .line, [class*="char"], [class*="word"], [class*="split"], [data-split], [aria-hidden="true"] { opacity: 1 !important; visibility: visible !important; transform: none !important; filter: none !important; }\n';
+    scopedCss += '\nh1 div, h1 span, h2 div, h2 span, h3 div, h3 span, [class*="title"] div, [class*="title"] span, .char, .word, .line, [class*="char"], [class*="word"], [class*="split"], [data-split], h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [class*="title"] [aria-hidden="true"], [data-split] [aria-hidden="true"] { opacity: 1 !important; visibility: visible !important; transform: none !important; filter: none !important; }\n';
+
+    // Universal Off-Canvas Drawer & Overlay Resting State (Never push document flow)
+    scopedCss += '\n#site-menu, [id*="site-menu"], [class*="site-menu"], [class*="mobile-nav-drawer"], [class*="menu-drawer"], [class*="drawer"]:not([class*="cart"]):not([class*="product"]), [class*="offcanvas"], [class*="off-canvas"] { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; pointer-events: none !important; visibility: hidden !important; opacity: 0 !important; z-index: 10000 !important; }\n';
+    scopedCss += '\n#site-menu.is-active, #site-menu.open, [class*="site-menu"].is-active, [class*="site-menu"].open { pointer-events: auto !important; visibility: visible !important; opacity: 1 !important; }\n';
 
     // Universal Lenis & Virtual Smooth Scroll Normalization
     scopedCss += '\nhtml.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped { height: auto !important; min-height: 100% !important; overflow-y: auto !important; overflow-x: hidden !important; }\n';

@@ -185,11 +185,29 @@ header.site-header, header {
 }
 
 /* Universal SplitText & Char Reveal Unhiding */
-h1 div, h1 span, h2 div, h2 span, h3 div, h3 span, [class*="title"] div, [class*="title"] span, .char, .word, .line, [class*="char"], [class*="word"], [class*="split"], [data-split], [aria-hidden="true"] {
+h1 div, h1 span, h2 div, h2 span, h3 div, h3 span, [class*="title"] div, [class*="title"] span, .char, .word, .line, [class*="char"], [class*="word"], [class*="split"], [data-split], h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [class*="title"] [aria-hidden="true"], [data-split] [aria-hidden="true"] {
   opacity: 1 !important;
   visibility: visible !important;
   transform: none !important;
   filter: none !important;
+}
+
+/* Universal Off-Canvas Drawer & Overlay Resting State */
+#site-menu, [id*="site-menu"], [class*="site-menu"], [class*="mobile-nav-drawer"], [class*="menu-drawer"], [class*="drawer"]:not([class*="cart"]):not([class*="product"]), [class*="offcanvas"], [class*="off-canvas"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  z-index: 10000 !important;
+}
+#site-menu.is-active, #site-menu.open, [class*="site-menu"].is-active, [class*="site-menu"].open {
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Universal Lenis & Virtual Smooth Scroll Normalization */
@@ -251,6 +269,10 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
     if (htmlSnapshot || _rawHtml) {
       try {
         const $snapForBg = cheerio.load(htmlSnapshot || _rawHtml);
+        const metaTheme = $snapForBg('meta[name="theme-color"]').attr('content');
+        if (metaTheme && metaTheme.trim() && metaTheme.trim() !== 'transparent') {
+          globalCssPreamble += `html, body { background-color: ${metaTheme.trim()} !important; }\n`;
+        }
         const bStyle = $snapForBg('body').attr('style') || '';
         const bgMatch = bStyle.match(/background(?:-color)?\s*:\s*([^;!]+)/i);
         if (bgMatch && bgMatch[1]) {
