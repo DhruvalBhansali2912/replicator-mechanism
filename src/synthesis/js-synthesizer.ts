@@ -2090,6 +2090,8 @@ export class JsSynthesizer {
     const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
     if (tabs.length < 2) return;
 
+    const paneContainer = tablist.closest('.pathfinder-two-pane, [class*="two-pane"], .nav-dropdown-menu, [class*="megamenu"], [class*="dropdown-menu"]') || tablist.parentElement || document;
+
     tabs.forEach(function(tab) {
       function activateTab() {
         const panelId = tab.getAttribute('aria-controls');
@@ -2097,21 +2099,21 @@ export class JsSynthesizer {
           t.setAttribute('aria-selected', 'false');
           t.setAttribute('tabindex', '-1');
           t.classList.remove('is-active', 'active');
-          const pId = t.getAttribute('aria-controls');
-          if (pId) {
-            const p = document.getElementById(pId);
-            if (p) {
-              p.style.setProperty('display', 'none', 'important');
-              p.setAttribute('aria-hidden', 'true');
-              p.classList.remove('is-active', 'active');
-            }
-          }
         });
         tab.setAttribute('aria-selected', 'true');
         tab.setAttribute('tabindex', '0');
         tab.classList.add('is-active', 'active');
+
+        // Hide sibling panels within this specific two-pane/menu container
+        const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], [class*="two-pane__panel"]'));
+        allPanels.forEach(function(p) {
+          p.style.setProperty('display', 'none', 'important');
+          p.setAttribute('aria-hidden', 'true');
+          p.classList.remove('is-active', 'active');
+        });
+
         if (panelId) {
-          const panel = document.getElementById(panelId);
+          const panel = paneContainer.querySelector('#' + CSS.escape(panelId)) || document.getElementById(panelId);
           if (panel) {
             panel.style.setProperty('display', 'block', 'important');
             panel.setAttribute('aria-hidden', 'false');
@@ -2724,7 +2726,7 @@ export class JsSynthesizer {
     });
 
     const tabGroups = tabLists.concat(directButtonGroups);
-    if (tabGroups.length === 0) tabGroups.push(tabScope);
+    if (tabGroups.length === 0) return;
     
     tabGroups.forEach(function(group) {
       // 1. Collect candidate clickable triggers inside this group
