@@ -1947,6 +1947,14 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n.gallery .item:hover img, .gallery .item:hover video, [class*="gallery"] [class*="item"]:hover img { transform: scale(1.04) !important; }\n';
     scopedCss += '\n.gallery .item img, .gallery .item video, [class*="gallery"] [class*="item"] img { transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
 
+    // Universal WebGL & 3D text mesh fallback visibility (ensures titles/captions are visible when 3D text shaders are isolated)
+    scopedCss += '\n.html-mesh-hidden, [data-text-mesh], [data-gl-hidden], [data-webgl-hidden], [class*="mesh-hidden"], [class*="webgl-hide"] { opacity: 1 !important; visibility: visible !important; display: block !important; pointer-events: auto !important; }\n';
+
+    // Universal ambient background canvas container positioning
+    scopedCss += '\n#gl, [class*="webgl"]:has(canvas), [id*="webgl"]:has(canvas), [class*="canvas-container"]:has(canvas) { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 0 !important; pointer-events: none !important; }\n';
+    scopedCss += '\n#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, [class*="canvas-container"] canvas { width: 100% !important; height: 100% !important; display: block !important; }\n';
+    scopedCss += '\nbody > section, section, .hero-storytelling, [class*="hero-storytelling"], [class*="storytelling"] { position: relative !important; z-index: 2 !important; }\n';
+
 
     // Sanitize unescaped newlines inside url(...) so CSS parsers do not abort or drop rules
     scopedCss = scopedCss.replace(/url\(([\s\S]*?)\)/gi, (m, inner) => {

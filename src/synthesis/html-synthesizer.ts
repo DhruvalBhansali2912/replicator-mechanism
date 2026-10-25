@@ -616,6 +616,13 @@ export class HtmlSynthesizer {
             ) {
               return;
             }
+            // Universal Background Canvas / WebGL Preservation:
+            if (
+              $sib.is('#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"]') ||
+              $sib.find('canvas').length > 0
+            ) {
+              return;
+            }
             if (
               $sib.is('[data-search-dialog-menu-item], [class*="search-dialog"], [class*="SearchDialog"]') ||
               $sib.find('[data-search-dialog-menu-item]').length > 0

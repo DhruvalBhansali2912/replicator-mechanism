@@ -477,7 +477,12 @@ export function enrichSectionWithCompanions(
       if (id) addedIds.add(id);
       addedOuterHtmls.add(outer);
       addedOuterHtmls.add(sanitizedOuter);
-      targetHtml += '\n' + sanitizedOuter;
+      const isBg = $el.is('#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"]') || $el.find('canvas').length > 0;
+      if (isBg) {
+        targetHtml = sanitizedOuter + '\n' + targetHtml;
+      } else {
+        targetHtml += '\n' + sanitizedOuter;
+      }
     }
 
     // 1. Declarative Target Inspection:
@@ -628,7 +633,7 @@ export function enrichSectionWithCompanions(
 
     if (hasLoader) {
       const heroOrSection = $snap(
-        '[class*="hero-storytelling"], section.hero-1, main > [class*="hero"], main > section, section[class*="hero"], [class*="hero-section"], section'
+        '[class*="storytelling"], [class*="hero-storytelling"], section.hero-1, section[class*="hero-"], main > [class*="hero"], main > section, section[class*="hero"], [class*="hero-section"], section'
       )
         .not('.loader, [class*="preloader"], [class*="splash"]')
         .first();
@@ -636,6 +641,22 @@ export function enrichSectionWithCompanions(
         addCompanion(heroOrSection.get(0));
       }
     }
+
+    // 4. Fixed & Ambient Background WebGL / Canvas Container Enrichment:
+    // If page has a fixed full-screen canvas container (e.g. #gl, .webgl, #canvas-container) that acts
+    // as an ambient 3D / particle background, companion it so background animations are preserved.
+    const bgCanvasSelector = '#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"]';
+    $snap(bgCanvasSelector).each((_, el) => {
+      const $el = $snap(el);
+      if ($el.find('canvas').length > 0) {
+        const cls = ($el.attr('class') || '').toLowerCase();
+        const id = ($el.attr('id') || '').toLowerCase();
+        // Avoid tiny button canvases, sound viz, or offcanvas menus
+        if (!cls.includes('button') && !cls.includes('offcanvas') && !cls.includes('icon') && !cls.includes('btn') && !cls.includes('sound')) {
+          addCompanion(el);
+        }
+      }
+    });
   } catch {}
 
   return targetHtml;

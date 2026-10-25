@@ -5660,7 +5660,7 @@ export class JsSynthesizer {
 
     // Universal Pinned Storytelling Screen Transition Controller
     let updateStorytellingScreens = null;
-    const storytelling = root.querySelector('.hero-storytelling, [class*="hero-storytelling"]');
+    const storytelling = root.querySelector('.hero-storytelling, [class*="hero-storytelling"], [class*="storytelling"], [class*="pinned-screens"]');
     if (storytelling) {
       const screens = Array.from(storytelling.querySelectorAll('[data-text-screen], section[class*="hero-"]')).filter(function(s) {
         return s.parentElement === storytelling || (s.parentElement && s.parentElement.parentElement === storytelling);
@@ -5733,12 +5733,11 @@ export class JsSynthesizer {
           loader.style.pointerEvents = 'none';
           setTimeout(function() {
             loader.style.display = 'none';
-            document.querySelectorAll('main, [class*="hero"], [class*="content"]').forEach(function(c) {
+            document.querySelectorAll('main, section, [class*="hero"], [class*="content"], section[class*="hero-"], [data-text-screen]').forEach(function(c) {
               if (c !== loader && !loader.contains(c)) {
                 c.style.visibility = 'visible';
-                if (!c.matches || !c.matches('section[class*="hero-"], [data-text-screen]') || !c.closest('.hero-storytelling, [class*="hero-storytelling"]')) {
-                  c.style.opacity = '1';
-                }
+                c.style.opacity = '1';
+                c.style.pointerEvents = 'auto';
               }
             });
             if (updateStorytellingScreens) updateStorytellingScreens();
@@ -6287,6 +6286,198 @@ export class JsSynthesizer {
         }
       }
     } catch (e) {}
+
+    // Universal Interactive Ambient & 3D Canvas Background Controller
+    try {
+      const canvasElements = Array.from(document.querySelectorAll('#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, canvas[class*="background"], canvas[class*="ambient"], canvas.bg-canvas') || []);
+      if (canvasElements.length > 0) {
+        canvasElements.forEach(function(canvas) {
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return;
+
+          let width = 0;
+          let height = 0;
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+          function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width * dpr;
+            canvas.height = height * dpr;
+            ctx.scale(dpr, dpr);
+          }
+          window.addEventListener('resize', resize);
+          resize();
+
+          // Mouse tracking with easing
+          const mouse = { x: width * 0.5, y: height * 0.45, targetX: width * 0.5, targetY: height * 0.45, speed: 0 };
+          let lastMouse = { x: mouse.x, y: mouse.y };
+          window.addEventListener('pointermove', function(e) {
+            mouse.targetX = e.clientX;
+            mouse.targetY = e.clientY;
+          });
+
+          // Theme color adaptation from CSS custom properties
+          const compStyle = window.getComputedStyle(document.documentElement);
+          const primaryColor = compStyle.getPropertyValue('--primary').trim() || compStyle.getPropertyValue('--color-primary').trim() || '#9047ff';
+
+          // 3D Morphing Particle Vortex
+          const particleCount = 750;
+          const particles = [];
+          const fov = 420;
+          const colors = ['#ffffff', '#e9d5ff', '#d8b4fe', '#c084fc', primaryColor, '#a855f7', '#f5d0fe'];
+
+          for (let i = 0; i < particleCount; i++) {
+            const theta = (i / particleCount) * Math.PI * 8;
+            const radius = 60 + (i % 60) * 1.8;
+            const phi = (i / particleCount) * Math.PI * 2;
+            particles.push({
+              x: Math.cos(theta) * radius + (Math.random() - 0.5) * 20,
+              y: Math.sin(theta) * (radius * 0.75) + Math.sin(phi) * 40,
+              z: Math.sin(theta * 0.5) * 120 + (Math.random() - 0.5) * 40,
+              size: Math.random() * 2.2 + 1.1,
+              color: colors[i % colors.length],
+              alpha: Math.random() * 0.6 + 0.4,
+              pulse: Math.random() * Math.PI * 2
+            });
+          }
+
+          // Ambient floating dust motes
+          const dustCount = 70;
+          const dust = [];
+          for (let i = 0; i < dustCount; i++) {
+            dust.push({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              vx: (Math.random() - 0.5) * 0.3,
+              vy: -Math.random() * 0.4 - 0.1,
+              size: Math.random() * 1.8 + 0.8,
+              alpha: Math.random() * 0.6 + 0.2,
+              color: colors[Math.floor(Math.random() * colors.length)],
+              phase: Math.random() * Math.PI * 2
+            });
+          }
+
+          let rotationY = 0;
+          let rotationX = 0;
+
+          function render() {
+            if (document.visibilityState === 'hidden') {
+              requestAnimationFrame(render);
+              return;
+            }
+            mouse.x += (mouse.targetX - mouse.x) * 0.08;
+            mouse.y += (mouse.targetY - mouse.y) * 0.08;
+            const mouseDeltaX = mouse.x - lastMouse.x;
+            lastMouse.x = mouse.x;
+            lastMouse.y = mouse.y;
+
+            ctx.globalCompositeOperation = 'source-over';
+
+            // Atmospheric gradient background
+            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+            bgGrad.addColorStop(0, '#2a1647');
+            bgGrad.addColorStop(0.45, '#4c1d95');
+            bgGrad.addColorStop(0.7, '#7c3aed');
+            bgGrad.addColorStop(0.85, '#4a154b');
+            bgGrad.addColorStop(1, '#18062b');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Soft ambient radial glow
+            const glowX = width * 0.5 + (mouse.x - width * 0.5) * 0.15;
+            const glowY = height * 0.4 + (mouse.y - height * 0.4) * 0.15;
+            const radialGlow = ctx.createRadialGradient(glowX, glowY, 20, glowX, glowY, width * 0.65);
+            radialGlow.addColorStop(0, 'rgba(168, 85, 247, 0.35)');
+            radialGlow.addColorStop(0.4, 'rgba(144, 71, 255, 0.18)');
+            radialGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            ctx.fillStyle = radialGlow;
+            ctx.fillRect(0, 0, width, height);
+
+            // Floating dust motes
+            for (let i = 0; i < dust.length; i++) {
+              const d = dust[i];
+              d.x += d.vx;
+              d.y += d.vy;
+              d.phase += 0.02;
+              if (d.y < -10) d.y = height + 10;
+              if (d.x < -10) d.x = width + 10;
+              if (d.x > width + 10) d.x = -10;
+
+              ctx.beginPath();
+              ctx.arc(d.x, d.y, d.size, 0, Math.PI * 2);
+              ctx.fillStyle = d.color;
+              ctx.globalAlpha = d.alpha * (0.6 + 0.4 * Math.sin(d.phase));
+              ctx.fill();
+            }
+
+            // 3D particle vortex
+            const centerX = width * 0.5;
+            const centerY = height * 0.38;
+
+            rotationY += 0.007 + mouseDeltaX * 0.0008;
+            rotationX = (mouse.y - height * 0.5) * 0.0006;
+
+            const cosY = Math.cos(rotationY);
+            const sinY = Math.sin(rotationY);
+            const cosX = Math.cos(rotationX);
+            const sinX = Math.sin(rotationX);
+
+            const projected = [];
+            for (let i = 0; i < particles.length; i++) {
+              const p = particles[i];
+              p.pulse += 0.03;
+
+              let x1 = p.x * cosY - p.z * sinY;
+              let z1 = p.z * cosY + p.x * sinY;
+              let y1 = p.y * cosX - z1 * sinX;
+              let z2 = z1 * cosX + p.y * sinX;
+
+              const scale = fov / (fov + z2 + 200);
+              const px = centerX + x1 * scale;
+              const py = centerY + y1 * scale;
+
+              const distMouse = Math.hypot(px - mouse.x, py - mouse.y);
+              let offsetX = 0;
+              let offsetY = 0;
+              if (distMouse < 220) {
+                const force = (1 - distMouse / 220) * 45;
+                offsetX = -(py - mouse.y) / (distMouse || 1) * force;
+                offsetY = (px - mouse.x) / (distMouse || 1) * force;
+              }
+
+              projected.push({
+                x: px + offsetX,
+                y: py + offsetY,
+                z: z2,
+                size: Math.max(0.5, p.size * scale * (1 + 0.2 * Math.sin(p.pulse))),
+                color: p.color,
+                alpha: Math.min(1, Math.max(0.2, (z2 + 200) / 400 * p.alpha))
+              });
+            }
+
+            projected.sort(function(a, b) { return a.z - b.z; });
+
+            ctx.globalCompositeOperation = 'lighter';
+            for (let i = 0; i < projected.length; i++) {
+              const pt = projected[i];
+              ctx.beginPath();
+              ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
+              ctx.fillStyle = pt.color;
+              ctx.globalAlpha = pt.alpha;
+              ctx.fill();
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1;
+
+            requestAnimationFrame(render);
+          }
+
+          requestAnimationFrame(render);
+        });
+      }
+    } catch (_) {}
 
     ${isolatedScripts.join('\n\n    ')}
   }
