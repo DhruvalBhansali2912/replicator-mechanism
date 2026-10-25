@@ -1951,9 +1951,10 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n.html-mesh-hidden, [data-text-mesh], [data-gl-hidden], [data-webgl-hidden], [class*="mesh-hidden"], [class*="webgl-hide"] { opacity: 1 !important; visibility: visible !important; display: block !important; pointer-events: auto !important; }\n';
 
     // Universal ambient background canvas container positioning
-    scopedCss += '\n#gl, [class*="webgl"]:has(canvas), [id*="webgl"]:has(canvas), [class*="canvas-container"]:has(canvas) { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 0 !important; pointer-events: none !important; }\n';
-    scopedCss += '\n#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, [class*="canvas-container"] canvas { width: 100% !important; height: 100% !important; display: block !important; }\n';
+    scopedCss += '\n#gl, [class*="webgl"]:not([class*="button"]):not([class*="btn"]):has(canvas), [id*="webgl"]:not([id*="button"]):has(canvas) { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 0 !important; pointer-events: none !important; }\n';
+    scopedCss += '\n#gl canvas, [class*="webgl"]:not([class*="button"]):not([class*="btn"]) canvas, [id*="webgl"]:not([id*="button"]) canvas { width: 100% !important; height: 100% !important; display: block !important; }\n';
     scopedCss += '\nbody > section, section, .hero-storytelling, [class*="hero-storytelling"], [class*="storytelling"] { position: relative !important; z-index: 2 !important; }\n';
+    scopedCss += '\n:root[data-theme="light"] h1, :root[data-theme="light"] [class*="title"], :root[data-theme="light"] [class*="hero-"], [data-theme="light"] h1, [data-theme="light"] h1 span, [data-theme="light"] [class*="title"], [data-theme="light"] [class*="title"] span, html:not([data-theme="dark"]) h1, html:not([data-theme="dark"]) [class*="hero-1__title"] { color: var(--foreground, #2a1647) !important; -webkit-text-fill-color: var(--foreground, #2a1647) !important; }\n';
 
 
     // Sanitize unescaped newlines inside url(...) so CSS parsers do not abort or drop rules
@@ -2049,8 +2050,8 @@ ${this.getUniversalInteractiveRules(ast)}
 }
 
 :root[data-theme="dark"],
-[data-theme="dark"],
-.dark {
+[data-theme="dark"]:not([data-theme="light"]),
+.dark:not([data-theme="light"]) {
   --color-text-primary: #f7f8f8;
   --color-text-secondary: #d0d6e0;
   --color-text-tertiary: #8a8f98;
@@ -2059,6 +2060,18 @@ ${this.getUniversalInteractiveRules(ast)}
   --color-bg-secondary: #1c1c1f;
   --color-bg-tertiary: #232326;
   color: var(--color-text-primary);
+}
+
+:root[data-theme="light"],
+[data-theme="light"] {
+  --color-text-primary: ${colors.textPrimary && colors.textPrimary !== '#ffffff' ? colors.textPrimary : '#171a20'};
+  --color-text-secondary: #5c5e62;
+  --color-bg-primary: #ffffff;
+}
+
+html[data-theme="light"] .authentic-section.dark,
+:root[data-theme="light"] .authentic-section.dark {
+  color: var(--color-text-primary, #2a1647);
 }
 
 /* ==========================================================================

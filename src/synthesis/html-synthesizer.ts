@@ -1735,7 +1735,12 @@ ${drawerListItems.join('\n')}
         : ast.archetype === 'navbar'
         ? (hasExistingHeaderTag ? 'authentic-navbar header-nav' : 'site-header shared-header header-nav')
         : 'site-section page-section';
-      const darkCls = ast.theme === 'dark' ? ' dark' : '';
+      const snapshotHasLightTheme = ast.rawHtmlSnapshot ? (
+        ast.rawHtmlSnapshot.includes('data-theme="light"') ||
+        ast.rawHtmlSnapshot.includes("data-theme='light'") ||
+        ast.rawHtmlSnapshot.includes('data-color-mode="light"')
+      ) : false;
+      const darkCls = (ast.theme === 'dark' && !snapshotHasLightTheme) ? ' dark' : '';
       const combinedClasses = `${originalLandmarkClasses ? originalLandmarkClasses + ' ' : ''}authentic-section ${ast.archetype}-section ${archetypeClasses}${darkCls}`.trim();
       result = `<${wrapperTag} class="${combinedClasses}" id="${ast.id}" data-theme="${ast.theme || 'light'}">\n${$.html().trim()}\n</${wrapperTag}>`;
     } else {

@@ -176,6 +176,14 @@ export class SectionInspector {
       /<body[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot)
     ) : false;
 
+    const snapshotHasLightTheme = htmlSnapshot ? (
+      htmlSnapshot.includes('data-theme="light"') ||
+      htmlSnapshot.includes("data-theme='light'") ||
+      htmlSnapshot.includes('data-color-mode="light"') ||
+      /<html[^>]*class="[^"]*\blight\b/i.test(htmlSnapshot) ||
+      /<body[^>]*class="[^"]*\blight\b/i.test(htmlSnapshot)
+    ) : false;
+
     const rootVarsIndicateDark = rootCssVariables ? (
       rootCssVariables['--color-bg-primary'] === '#08090a' ||
       rootCssVariables['--color-bg'] === '#08090a' ||
@@ -205,7 +213,9 @@ export class SectionInspector {
       rootStyleAttr.includes('background: rgb(0, 0, 0)') ||
       rootStyleAttr.includes('background-color: rgb(0, 0, 0)');
 
-    if (
+    if (snapshotHasLightTheme && !isRootDarkTheme) {
+      theme = 'light';
+    } else if (
       isRootDarkTheme ||
       (!hasMultipleCards && (
         lower.includes('scrim--black') ||

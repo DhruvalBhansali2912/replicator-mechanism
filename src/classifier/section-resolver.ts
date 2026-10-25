@@ -652,20 +652,22 @@ export function enrichSectionWithCompanions(
 
     // 4. Fixed & Ambient Background WebGL / Canvas Container Enrichment:
     // If page has a fixed full-screen canvas container (e.g. #gl, .webgl, #canvas-container) that acts
-    // as an ambient 3D / particle background, companion it so background animations are preserved.
-    const bgCanvasSelector = '#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"]';
-    $snap(bgCanvasSelector).each((_, el) => {
-      const $el = $snap(el);
-      const hasCanvas = $el.find('canvas').length > 0 || $el.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]').length > 0;
-      if (hasCanvas) {
-        const cls = ($el.attr('class') || '').toLowerCase();
-        const id = ($el.attr('id') || '').toLowerCase();
-        // Avoid tiny button canvases, sound viz, or offcanvas menus
-        if (!cls.includes('button') && !cls.includes('offcanvas') && !cls.includes('icon') && !cls.includes('btn') && !cls.includes('sound')) {
-          addCompanion(el);
+    // as an ambient 3D / particle background, companion it for standalone hero sections (NEVER inside navbars).
+    if (!isNav) {
+      const bgCanvasSelector = '#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"]';
+      $snap(bgCanvasSelector).each((_, el) => {
+        const $el = $snap(el);
+        const hasCanvas = $el.find('canvas').length > 0 || $el.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]').length > 0;
+        if (hasCanvas) {
+          const cls = ($el.attr('class') || '').toLowerCase();
+          const id = ($el.attr('id') || '').toLowerCase();
+          // Avoid tiny button canvases, sound viz, or offcanvas menus
+          if (!cls.includes('button') && !cls.includes('offcanvas') && !cls.includes('icon') && !cls.includes('btn') && !cls.includes('sound')) {
+            addCompanion(el);
+          }
         }
-      }
-    });
+      });
+    }
   } catch {}
 
   return targetHtml;

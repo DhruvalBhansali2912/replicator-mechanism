@@ -6293,9 +6293,21 @@ export class JsSynthesizer {
         document.querySelectorAll(
           '#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, canvas[class*="background"], canvas[class*="ambient"], canvas.bg-canvas, #gl img, [class*="webgl"] img, img.rep-canvas-replacement'
         ) || []
-      );
+      ).filter(function(targetEl) {
+        let parent = targetEl.parentElement;
+        while (parent && parent !== document.body) {
+          const pCls = (parent.className || '').toLowerCase();
+          const pId = (parent.id || '').toLowerCase();
+          if (pCls.includes('button') || pCls.includes('btn') || pCls.includes('sound') || pId.includes('sound') || pCls.includes('icon')) {
+            return false;
+          }
+          parent = parent.parentElement;
+        }
+        return true;
+      });
       if (rawCanvasCandidates.length > 0) {
-        rawCanvasCandidates.forEach(function(targetEl) {
+        const targetEl = rawCanvasCandidates[0];
+        (function() {
           let canvas = targetEl;
           if (targetEl.tagName === 'IMG') {
             const realCanvas = document.createElement('canvas');
@@ -6521,7 +6533,7 @@ export class JsSynthesizer {
           }
 
           requestAnimationFrame(render);
-        });
+        })();
       }
     } catch (_) {}
 

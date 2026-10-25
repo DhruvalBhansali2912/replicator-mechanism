@@ -130,8 +130,32 @@ export class ReconstructionWorker {
       } catch (_) {}
     }
 
+    // Strip any trapped ambient canvas containers from individual section HTMLs
+    // so they are never nested inside headers (stacking context 9999) or relative content wrappers
+    for (const sec of sectionsOutput) {
+      if (sec.html && (sec.html.includes('id="gl"') || sec.html.includes('class="webgl"') || sec.html.includes('id="webgl"'))) {
+        try {
+          const $sec = cheerio.load(sec.html, { xmlMode: false }, false);
+          const found = $sec('#gl, #webgl, .webgl, [class*="webgl"]').filter((_, el) => {
+            const cls = ($sec(el).attr('class') || '').toLowerCase();
+            return !cls.includes('button') && !cls.includes('btn');
+          });
+          if (found.length > 0) {
+            if (!globalBgCanvasHtml) {
+              if (found.find('canvas').length === 0) {
+                found.append('<canvas></canvas>');
+              }
+              globalBgCanvasHtml = $sec.html(found.first()) || '<div id="gl"><canvas></canvas></div>';
+            }
+            found.remove();
+            sec.html = $sec.html() || sec.html;
+          }
+        } catch (_) {}
+      }
+    }
+
     const bgCanvasCss = `
-#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"] {
+#gl, #webgl, .webgl, [class*="webgl"]:not([class*="button"]):not([class*="btn"]), [id*="webgl"]:not([id*="button"]) {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -142,7 +166,7 @@ export class ReconstructionWorker {
   pointer-events: none !important;
   overflow: hidden !important;
 }
-#gl canvas, #webgl canvas, .webgl canvas, [class*="webgl"] canvas, [class*="canvas-container"] canvas, [id*="canvas-container"] canvas {
+#gl canvas, #webgl canvas, .webgl canvas, [class*="webgl"]:not([class*="button"]):not([class*="btn"]) canvas, [id*="webgl"]:not([id*="button"]) canvas {
   position: absolute !important;
   top: 0 !important;
   left: 0 !important;
@@ -155,6 +179,10 @@ body > section, section, main, [class*="hero"], [class*="storytelling"] {
   position: relative !important;
   z-index: 2 !important;
 }
+header.site-header, header {
+  position: relative !important;
+  z-index: 9999 !important;
+}
 `;
 
     if (segmentedSections.length === 1) {
@@ -163,8 +191,7 @@ body > section, section, main, [class*="hero"], [class*="storytelling"] {
         ? `// [Universal Interactive Resilience Controller]\n${sec.js}`
         : wrappedRawJs;
 
-      const hasBg = sec.html.includes('id="gl"') || sec.html.includes('class="webgl"') || (globalBgCanvasHtml && sec.html.includes(globalBgCanvasHtml.slice(0, 30)));
-      const injectedBg = (!hasBg && globalBgCanvasHtml) ? `${globalBgCanvasHtml}\n` : '';
+      const injectedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
       const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${sec.css}`;
       const fullHtml = `<!DOCTYPE html>
@@ -195,8 +222,7 @@ ${injectedBg}${sec.html}
     }
 
     const combinedSectionsHtml = sectionsOutput.map((r) => r.html).join('\n\n');
-    const hasCombinedBg = combinedSectionsHtml.includes('id="gl"') || combinedSectionsHtml.includes('class="webgl"') || (globalBgCanvasHtml && combinedSectionsHtml.includes(globalBgCanvasHtml.slice(0, 30)));
-    const injectedCombinedBg = (!hasCombinedBg && globalBgCanvasHtml) ? `${globalBgCanvasHtml}\n` : '';
+    const injectedCombinedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');
     const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
