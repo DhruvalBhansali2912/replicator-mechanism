@@ -304,7 +304,25 @@
     // 2. If inside a top-level header, footer, or nav (not inside a section/article):
     let landmark = el.closest('header, footer, nav');
     if (landmark && !isPageShell(landmark) && !landmark.closest('section, article')) {
-      return landmark;
+      let compRoot = landmark;
+      let p = landmark.parentElement;
+      while (p && p !== document.body && p !== document.documentElement) {
+        if (isPageShell(p)) break;
+        const pTag = p.tagName.toLowerCase();
+        if (['main', 'article', 'section'].includes(pTag)) break;
+        const pCls = (p.className || '').toString().toLowerCase();
+        const pId = (p.id || '').toLowerCase();
+        const nonScriptChildren = Array.from(p.children).filter(c => !['script', 'style', 'noscript'].includes(c.tagName.toLowerCase()));
+        const isDedicatedWrapper = nonScriptChildren.length <= 2 &&
+          (pCls.includes('nav') || pCls.includes('header') || pCls.includes('footer') || pCls.includes('scope') || pCls.includes('holder') || pId.includes('nav') || pId.includes('header') || pCls.includes('bar'));
+        if (isDedicatedWrapper) {
+          compRoot = p;
+          p = p.parentElement;
+        } else {
+          break;
+        }
+      }
+      return compRoot;
     }
 
     // 3. Non-semantic or div-based layouts: climb up towards the multi-section container / page shell

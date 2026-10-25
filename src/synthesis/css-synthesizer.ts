@@ -1957,6 +1957,9 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\n#site-menu, [id*="site-menu"], [class*="site-menu"], [class*="mobile-nav-drawer"], [class*="menu-drawer"], [class*="drawer"]:not([class*="cart"]):not([class*="product"]), [class*="offcanvas"], [class*="off-canvas"] { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; pointer-events: none !important; visibility: hidden !important; opacity: 0 !important; z-index: 10000 !important; }\n';
     scopedCss += '\n#site-menu.is-active, #site-menu.open, [class*="site-menu"].is-active, [class*="site-menu"].open { pointer-events: auto !important; visibility: visible !important; opacity: 1 !important; }\n';
 
+    // Universal Container Query Root & Component Isolation
+    scopedCss += '\nhtml, body, .container, [class*="nav-wrapper"], [class*="navbar"], header, [class*="holder"], [class*="scope"] { container-type: inline-size; }\n';
+
     // Universal Lenis & Virtual Smooth Scroll Normalization
     scopedCss += '\nhtml.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped { height: auto !important; min-height: 100% !important; overflow-y: auto !important; overflow-x: hidden !important; }\n';
     scopedCss += '\n.lenis.lenis-stopped, [class*="lenis-stopped"] { overflow: visible !important; }\n';
@@ -2747,6 +2750,23 @@ nav:has([aria-expanded="true"]),
 ul:has([aria-expanded="true"]),
 div:has(> [aria-expanded="true"]) {
   overflow: visible;
+}
+
+/* Universal Desktop Mega-Menu & Dropdown Open Resilience */
+@media (min-width: 900px) {
+  .nav-dropdown:hover > .nav-dropdown-menu,
+  .nav-dropdown.is-open > .nav-dropdown-menu,
+  .nav-dropdown.open > .nav-dropdown-menu,
+  .nav-dropdown[aria-expanded="true"] > .nav-dropdown-menu,
+  [class*="nav-dropdown"]:hover > [class*="nav-dropdown-menu"],
+  [class*="nav-dropdown"].is-open > [class*="nav-dropdown-menu"],
+  [class*="nav-dropdown"].open > [class*="nav-dropdown-menu"] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    transform: translateY(0) !important;
+    display: block !important;
+  }
 }
 
 /* Universal Detached Modal & Drawer Overlay */

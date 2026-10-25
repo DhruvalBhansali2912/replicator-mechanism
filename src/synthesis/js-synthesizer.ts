@@ -544,7 +544,7 @@ export class JsSynthesizer {
   function syncMobileNavState() {
     if (!drawer || !menuBtn) return;
     try {
-      const isMobile = isElementVisible(menuBtn);
+      const isMobile = window.innerWidth < 992 && isElementVisible(menuBtn);
       if (isMobile) {
         const isOpen = menuBtn.getAttribute('aria-expanded') === 'true' || drawer.classList.contains('is-open');
         if (!isOpen) {
@@ -649,10 +649,25 @@ export class JsSynthesizer {
         }
       }
     }
+    // Check parent's child dropdowns when item is a trigger button/link
+    if (!match && item.parentElement && item.parentElement !== navRoot) {
+      const p = item.parentElement;
+      const sibs = Array.from(p.children);
+      for (let s = 0; s < sibs.length; s++) {
+        const sib = sibs[s];
+        if (sib !== item) {
+          const sCls = (sib.getAttribute('class') || '').toLowerCase();
+          if (sCls.includes('dropdown-menu') || sCls.includes('flyout') || sCls.includes('megamenu') || sCls.includes('submenu') || sCls.includes('dropdown-card') || sCls.includes('two-pane')) {
+            match = sib;
+            break;
+          }
+        }
+      }
+    }
     // Semantic resolution for detached companion popups matching trigger archetype/keyword
     if (!match) {
       const trgEl = item.querySelector('button, a, span') || item;
-      const cleanTxt = (trgEl.textContent || '').replace(/[\\r\\n\\t\\s]+/g, ' ').trim().toLowerCase();
+      const cleanTxt = (trgEl.textContent || '').replace(/[\r\n\t\s]+/g, ' ').trim().toLowerCase();
       if (cleanTxt && cleanTxt.length >= 3 && cleanTxt.length <= 25 && /^[a-z0-9_-]+$/.test(cleanTxt)) {
         const popupCandidates = Array.from(document.querySelectorAll('[class*="popup"], [class*="nav-panel"], [class*="megamenu"], [class*="flyout"], [role="menu"]'));
         for (let p = 0; p < popupCandidates.length; p++) {
@@ -689,68 +704,6 @@ export class JsSynthesizer {
           if (idx >= 0 && idx < megaPanels.length) {
             match = megaPanels[idx];
           }
-        }
-      }
-    }
-
-    // 5. Fallback synthesizer for unmounted/portaled dropdown menus in navbar
-    if (!match) {
-      const popupTrg = (item.matches && item.matches('[aria-haspopup], [aria-expanded]')) ? item : item.querySelector('[aria-haspopup], [aria-expanded]');
-      if (popupTrg) {
-        const pTxt = (popupTrg.innerText || '').toLowerCase().trim();
-        const pLbl = (popupTrg.getAttribute('aria-label') || '').toLowerCase();
-        if (!pTxt.includes('search') && !pLbl.includes('search') && !pLbl.includes('menu') && !pLbl.includes('navigation') && !popupTrg.closest('.universal-nav-toggle-wrapper, [class*="mobilenav" i]')) {
-          const synthId = 'synth-dropdown-' + (popupTrg.id ? popupTrg.id.replace(/[^a-zA-Z0-9_-]/g, '_') : Math.random().toString(36).slice(2, 8));
-          let synthPanel = document.getElementById(synthId);
-          if (!synthPanel) {
-            synthPanel = document.createElement('div');
-            synthPanel.id = synthId;
-            synthPanel.setAttribute('role', 'menu');
-            synthPanel.className = 'synth-dropdown-menu authentic-panel';
-            synthPanel.style.cssText = 'display: none; position: absolute; top: calc(100% + 4px); min-width: 170px; max-height: 360px; overflow-y: auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); padding: 6px; z-index: 2147483647; box-sizing: border-box;';
-
-            let options = ['Option 1', 'Option 2', 'Option 3'];
-            if (pTxt === 'en' || pLbl.includes('language') || pLbl.includes('country')) {
-              options = ['English (US)', 'Español', 'Français', 'Deutsch', 'Italiano', '日本語', 'Português'];
-            } else if (pTxt.includes('api') || pTxt.includes('sdk')) {
-              options = ['API', 'Stripe.js', 'CLI', 'iOS', 'Android', 'React Native'];
-            } else if (pTxt.includes('help') || pTxt.includes('support')) {
-              options = ['Support', 'Contact sales', 'Documentation'];
-            } else if (pTxt.length > 0) {
-              options = [popupTrg.innerText.trim(), 'Popular', 'Featured', 'All Options'];
-            }
-
-            options.forEach(function(optText) {
-              const mItem = document.createElement('a');
-              mItem.setAttribute('role', 'menuitem');
-              mItem.className = 'synth-menu-item';
-              mItem.href = '#' + optText.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-              mItem.style.cssText = 'display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; font-size: 13px; font-weight: 500; font-family: inherit; color: #1e293b; text-decoration: none; border-radius: 6px; cursor: pointer; transition: background 0.15s, color 0.15s; white-space: nowrap;';
-              mItem.textContent = optText;
-              mItem.onmouseenter = function() { mItem.style.background = '#f1f5f9'; mItem.style.color = '#533afd'; };
-              mItem.onmouseleave = function() { mItem.style.background = 'transparent'; mItem.style.color = '#1e293b'; };
-              mItem.onclick = function(e) {
-                e.stopPropagation();
-                closeFlyoutItem(item);
-              };
-              synthPanel.appendChild(mItem);
-            });
-
-            const mountTarget = popupTrg.parentElement || popupTrg;
-            if (window.getComputedStyle(mountTarget).position === 'static') {
-              mountTarget.style.setProperty('position', 'relative');
-            }
-            const trgRect = popupTrg.getBoundingClientRect();
-            if (trgRect.right > window.innerWidth * 0.75) {
-              synthPanel.style.right = '0';
-              synthPanel.style.left = 'auto';
-            } else {
-              synthPanel.style.left = '0';
-              synthPanel.style.right = 'auto';
-            }
-            mountTarget.appendChild(synthPanel);
-          }
-          match = synthPanel;
         }
       }
     }
@@ -809,8 +762,20 @@ export class JsSynthesizer {
 
     return true;
   }).filter(function(item, idx, arr) {
-    // Deduplicate: If item contains any other candidate in arr, item is an enclosing container, NOT the specific leaf item!
-    // Keep the more specific child item and drop the container!
+    // Deduplicate: If item contains the dropdown menu itself (e.g. <li class="nav-dropdown"> containing both trigger and dropdown menu),
+    // item is the authentic dropdown host and must NEVER be dropped!
+    const dd = getDropdownFor(item);
+    if (dd && item.contains(dd)) {
+      return true;
+    }
+    // If another candidate in arr contains this item AND that candidate contains the dropdown, exclude this inner child!
+    const parentCandidate = arr.find(function(p) { return p !== item && p.contains(item); });
+    if (parentCandidate) {
+      const pDd = getDropdownFor(parentCandidate);
+      if (pDd && parentCandidate.contains(pDd)) {
+        return false;
+      }
+    }
     return !arr.some(function(other) {
       return other !== item && item.contains(other);
     });
@@ -1039,7 +1004,7 @@ export class JsSynthesizer {
       drawer.setAttribute('aria-hidden', 'true');
       drawer.setAttribute('data-state', 'closed');
       drawer.setAttribute('data-status', 'close');
-      const isMobile = menuBtn && isElementVisible(menuBtn);
+      const isMobile = window.innerWidth < 992 && menuBtn && isElementVisible(menuBtn);
       if (isMobile) {
         drawer.style.visibility = 'hidden';
         drawer.style.opacity = '0';
@@ -1387,7 +1352,7 @@ export class JsSynthesizer {
             } else {
               const cs = window.getComputedStyle(drawer);
               const isContained = (!drawer.style.position && (cs.position === 'static' || cs.position === 'relative')) || cs.position === 'static';
-              const isMobileViewport = window.innerWidth <= 900 || (menuBtn && isElementVisible(menuBtn));
+              const isMobileViewport = window.innerWidth <= 900 && (menuBtn && isElementVisible(menuBtn));
               if (isContained && isMobileViewport) {
                 drawer.setAttribute('data-mobile-fixed', 'true');
                 const navRect = (navRoot || drawer.parentElement).getBoundingClientRect();
@@ -2117,6 +2082,51 @@ export class JsSynthesizer {
     if (!isInsideNav && !isInsideDropdown) {
       scheduleFlyoutClose();
     }
+  });
+
+  // Universal WAI-ARIA Tab & Two-Pane Category Controller
+  const tablists = Array.from(document.querySelectorAll('[role="tablist"]'));
+  tablists.forEach(function(tablist) {
+    const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+    if (tabs.length < 2) return;
+
+    tabs.forEach(function(tab) {
+      function activateTab() {
+        const panelId = tab.getAttribute('aria-controls');
+        tabs.forEach(function(t) {
+          t.setAttribute('aria-selected', 'false');
+          t.setAttribute('tabindex', '-1');
+          t.classList.remove('is-active', 'active');
+          const pId = t.getAttribute('aria-controls');
+          if (pId) {
+            const p = document.getElementById(pId);
+            if (p) {
+              p.style.setProperty('display', 'none', 'important');
+              p.setAttribute('aria-hidden', 'true');
+              p.classList.remove('is-active', 'active');
+            }
+          }
+        });
+        tab.setAttribute('aria-selected', 'true');
+        tab.setAttribute('tabindex', '0');
+        tab.classList.add('is-active', 'active');
+        if (panelId) {
+          const panel = document.getElementById(panelId);
+          if (panel) {
+            panel.style.setProperty('display', 'block', 'important');
+            panel.setAttribute('aria-hidden', 'false');
+            panel.classList.add('is-active', 'active');
+          }
+        }
+      }
+
+      tab.addEventListener('mouseenter', activateTab);
+      tab.addEventListener('click', function(e) {
+        e.preventDefault();
+        activateTab();
+      });
+      tab.addEventListener('focus', activateTab);
+    });
   });
 
   // Dialog & modal close button handler

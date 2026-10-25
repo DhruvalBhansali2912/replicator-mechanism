@@ -344,7 +344,7 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
 
       const injectedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
-      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${sec.css}`;
+      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\nhtml, body { container-type: inline-size; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${sec.css}`;
       const fullHtml = `<!DOCTYPE html>
 <html ${htmlAttrs}>
 <head>
@@ -418,7 +418,7 @@ ${injectedBg}${sec.html}${globalOverlaysHtml ? '\n' + globalOverlaysHtml : ''}
     const injectedCombinedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');
-    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
+    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nhtml, body { container-type: inline-size; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
     const syntheticJs = sectionsOutput.map((r) => r.js).filter(Boolean).join('\n\n');
     const effectiveFullJs = [
       wrappedRawJs,

@@ -23,22 +23,32 @@ export function resolveTargetSectionFromSnapshot(
         const first = explicit.first();
         const tag = (first.get(0) as any)?.tagName?.toLowerCase() || '';
 
-        // If the element is already an explicit top-level semantic container, do not ascend to page-level wrappers
-        if (tag === 'header' || tag === 'footer' || first.attr('role') === 'banner' || first.attr('role') === 'contentinfo') {
-          return first;
-        }
-        if (tag === 'nav') {
-          const headerAncestors = first.parents('header, [role="banner"], [class*="Header"], [class*="site-header"], [class*="navbar"]').filter((_, el) => {
-            const t = el.tagName.toLowerCase();
-            const c = ($snap(el).attr('class') || '').toLowerCase();
-            if (t === 'body' || t === 'html' || t === 'main') return false;
-            if (c.includes('page-wrapper') || c.includes('layout-wrapper') || c.includes('shell') || c.includes('article') || c.includes('dialog')) return false;
-            return true;
-          });
-          if (headerAncestors.length > 0) {
-            return $snap(headerAncestors.last());
+        // If the element is an explicit semantic header/footer/nav landmark:
+        if (tag === 'header' || tag === 'footer' || tag === 'nav' || first.attr('role') === 'banner' || first.attr('role') === 'contentinfo') {
+          // Ascend to 1:1 dedicated component wrappers before reaching body/main
+          // (e.g. <div class="visitor-nav-v2-holder"><div class="ma-scope_visitor-v2"><div class="nav-v2"><header>...)
+          let componentRoot = first;
+          let p = first.parent();
+          while (p && p.length > 0) {
+            const pEl = p.get(0);
+            const pTag = (pEl?.tagName || '').toLowerCase();
+            const pCls = (p.attr('class') || '').toLowerCase();
+            const pId = (p.attr('id') || '').toLowerCase();
+            if (['html', 'body', 'main', 'article', 'section'].includes(pTag)) break;
+            if (pCls.includes('page-wrapper') || pCls.includes('layout-wrapper') || pCls.includes('site-wrapper')) break;
+
+            const nonScriptChildren = p.children().not('script, style, noscript');
+            const isDedicatedWrapper = nonScriptChildren.length <= 2 &&
+              (pCls.includes('nav') || pCls.includes('header') || pCls.includes('scope') || pCls.includes('holder') || pId.includes('nav') || pId.includes('header') || pCls.includes('bar'));
+
+            if (isDedicatedWrapper) {
+              componentRoot = p;
+              p = p.parent();
+            } else {
+              break;
+            }
           }
-          return first;
+          return componentRoot;
         }
 
         const isLeafTag = ['button', 'a', 'span', 'p', 'img', 'svg', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'input', 'li', 'label', 'strong', 'em', 'small', 'b', 'i'].includes(tag);
