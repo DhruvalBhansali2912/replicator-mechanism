@@ -448,6 +448,8 @@ export class JsSynthesizer {
     const parentCls = (el.parentElement ? (typeof el.parentElement.className === 'string' ? el.parentElement.className : (el.parentElement.getAttribute && el.parentElement.getAttribute('class')) || '') : '').toLowerCase();
     if (cls.includes('back') || cls.includes('submenu') || cls.includes('close') || cls.includes('search')) return false;
     if (parentCls.includes('submenu-trigger') || parentCls.includes('menuback')) return false;
+    // Exclude dropdown, popover, and profile menu triggers so they are not hijacked by mobile drawer
+    if (el.hasAttribute('data-tooltip-anchor-id') || el.hasAttribute('data-anchor-id') || el.hasAttribute('data-popover-target') || (el.hasAttribute('aria-haspopup') && !cls.includes('hamburger') && !cls.includes('nav-toggle'))) return false;
     // Exclude top-level or sub-level navigation items
     if (cls.includes('l0-') || cls.includes('l1-') || cls.includes('l2-') || parentCls.includes('l0-') || parentCls.includes('l1-') || parentCls.includes('l2-')) return false;
     if (cls.includes('nav-link') || cls.includes('menu-link') || cls.includes('nav-item') || cls.includes('menu-item')) return false;
@@ -4410,16 +4412,7 @@ export class JsSynthesizer {
     }
 
     // 5. Universal Interactive Controls: Dropdowns, Popovers, Swatches & Faceted Filtering
-    const hasInteractiveFormsOrCards =
-      (ast.archetype === 'generic-section' ||
-        (ast.archetype as string) === 'catalog') &&
-      Boolean(
-        ast.rawSectionHtml &&
-          (ast.rawSectionHtml.includes('facet') ||
-            ast.rawSectionHtml.includes('data-baseweb="popover"') ||
-            ast.rawSectionHtml.includes('sort-by') ||
-            ast.rawSectionHtml.includes('filter-dropdown'))
-      );
+    const hasInteractiveFormsOrCards = true;
 
     if (hasInteractiveFormsOrCards) {
       scripts.push(`
@@ -4813,7 +4806,7 @@ export class JsSynthesizer {
   const allDropdownTriggers = Array.from(scope.querySelectorAll(
     'button[aria-expanded], [role="button"][aria-expanded], a[aria-expanded], button[aria-haspopup], [role="button"][aria-haspopup], a[aria-haspopup], [aria-haspopup="true"], [aria-haspopup="menu"], [data-toggle="dropdown"], [data-bs-toggle="dropdown"], [data-dropdown], button[class*="dropdown-toggle"], [role="button"][class*="dropdown-toggle"], button[class*="opener"], [role="button"][class*="opener"], [id*="menu-button"], [id*="listbox-button"], [class*="nav-filters__item"], [class*="filter-trigger"], [class*="filter__trigger"], [class*="dropdown-trigger"], [class*="dropdown__trigger"], [class*="select-trigger"], [class*="select__trigger"]'
   )).filter(function(b) {
-    if (b.hasAttribute('data-has-recorded-interaction') && !b.matches('[aria-haspopup], [aria-expanded]')) return false;
+    if (b.hasAttribute('data-has-recorded-interaction')) return false;
     // Skip items inside another dropdown panel (options, subitems, etc.)
     if (b.closest('[class*="dropdown-menu"], [class*="dropdown"], [role="menu"], [role="listbox"], [class*="sublist"]')) return false;
     // Skip nav items that are already actively managed by the navigation flyout controller
