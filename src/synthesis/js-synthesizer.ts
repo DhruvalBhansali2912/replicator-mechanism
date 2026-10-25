@@ -107,20 +107,8 @@ export class JsSynthesizer {
     recordedInteractions.forEach(function(interaction) {
       if (
         interaction.triggerSelector &&
-        (interaction.triggerSelector.includes('category') ||
-         interaction.triggerSelector.includes('tab__item') ||
-         interaction.triggerSelector.includes('[role="tab"]') ||
-         interaction.triggerSelector.includes('arrow') ||
-         interaction.triggerSelector.includes('swiper') ||
-         interaction.triggerSelector.includes('indicator') ||
-         interaction.triggerSelector.includes('next') ||
-         interaction.triggerSelector.includes('prev') ||
-         interaction.triggerSelector.includes('slider') ||
-         interaction.triggerSelector.includes('carousel') ||
-         interaction.triggerSelector.includes('nav') ||
-         interaction.triggerSelector.includes('menu') ||
-         interaction.triggerSelector.includes('header') ||
-         interaction.triggerSelector.includes('accordion'))
+        (interaction.triggerSelector.includes('swiper-button-') ||
+         interaction.triggerSelector.includes('swiper-pagination-bullet'))
       ) {
         return;
       }
@@ -128,7 +116,7 @@ export class JsSynthesizer {
       if (!triggers.length) return;
 
       triggers.forEach(function(trigger) {
-        if (trigger.matches && trigger.matches('[role="tab"], .tab__item-title, [aria-controls*="category"], [class*="arrow"], [class*="swiper-button"], [class*="indicator__arrow"], [class*="carousel-arrow"], [class*="nav"], [class*="menu"], [class*="accordion"], [class*="header"]')) {
+        if (trigger.matches && trigger.matches('.swiper-button-next, .swiper-button-prev, .swiper-pagination-bullet')) {
           return;
         }
         let isToggled = false;
@@ -181,33 +169,44 @@ export class JsSynthesizer {
                     return;
                   }
 
-                  // 4. Dynamic Multi-Item Containers (Chips, Tags, Overlays)
-                  const existing = target.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
+                  // 4. Dynamic Multi-Item Containers (Chips, Tags, Overlays, Menus)
+                  let existing = null;
+                  const temp = document.createElement('div');
+                  temp.innerHTML = m.html;
+                  const newEl = temp.firstElementChild;
+                  const elId = newEl ? newEl.id : null;
+                  if (elId) {
+                    existing = target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId);
+                  }
                   if (!existing) {
-                    const temp = document.createElement('div');
-                    temp.innerHTML = m.html;
-                    const newEl = temp.firstElementChild;
-                    if (newEl) {
-                      newEl.setAttribute('data-mutation-src', interaction.triggerSelector);
-                      const closeBtn = newEl.matches('button, a, [role="button"]') ? newEl : newEl.querySelector('button, a, [role="button"], [class*="close"], [class*="cancel"], [class*="remove"]');
-                      if (closeBtn) {
-                        closeBtn.addEventListener('click', function(e) {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (trigger.tagName === 'INPUT' && (trigger.type === 'checkbox' || trigger.type === 'radio')) {
-                            trigger.checked = false;
-                            trigger.dispatchEvent(new Event('change', { bubbles: true }));
-                          } else {
-                            handleToggleState(false);
-                          }
-                        });
-                      }
-                      const anchor = target.querySelector('[class*="view-more"], [class*="clear-wrap"], [class*="clear_wrap"]');
-                      if (anchor) {
-                        target.insertBefore(newEl, anchor);
-                      } else {
-                        target.appendChild(newEl);
-                      }
+                    existing = target.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]') ||
+                               root.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
+                  }
+                  if (existing) {
+                    existing.style.setProperty('display', 'block', 'important');
+                    existing.setAttribute('data-state', 'open');
+                    existing.classList.add('is-open', 'open', 'show', 'active');
+                  } else if (newEl) {
+                    newEl.setAttribute('data-mutation-src', interaction.triggerSelector);
+                    newEl.setAttribute('data-state', 'open');
+                    const closeBtn = newEl.matches('button, a, [role="button"]') ? newEl : newEl.querySelector('button, a, [role="button"], [class*="close"], [class*="cancel"], [class*="remove"]');
+                    if (closeBtn) {
+                      closeBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (trigger.tagName === 'INPUT' && (trigger.type === 'checkbox' || trigger.type === 'radio')) {
+                          trigger.checked = false;
+                          trigger.dispatchEvent(new Event('change', { bubbles: true }));
+                        } else {
+                          handleToggleState(false);
+                        }
+                      });
+                    }
+                    const anchor = target.querySelector('[class*="view-more"], [class*="clear-wrap"], [class*="clear_wrap"]');
+                    if (anchor) {
+                      target.insertBefore(newEl, anchor);
+                    } else {
+                      target.appendChild(newEl);
                     }
                   }
                 } else if (m.action === 'removed' && m.html) {
@@ -260,8 +259,24 @@ export class JsSynthesizer {
             targets.forEach(function(target) {
               if (m.mutationType === 'childList') {
                 if (m.action === 'added') {
-                  const existing = target.querySelectorAll('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
-                  existing.forEach(function(el) { el.remove(); });
+                  const temp = document.createElement('div');
+                  temp.innerHTML = m.html;
+                  const remEl = temp.firstElementChild;
+                  const elId = remEl ? remEl.id : null;
+                  let existing = elId ? (target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId)) : null;
+                  if (!existing) {
+                    existing = target.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]') ||
+                               root.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
+                  }
+                  if (existing) {
+                    if (existing.hasAttribute('data-interactive-portal') || existing.id) {
+                      existing.style.setProperty('display', 'none', 'important');
+                      existing.setAttribute('data-state', 'closed');
+                      existing.classList.remove('is-open', 'open', 'show', 'active');
+                    } else {
+                      existing.remove();
+                    }
+                  }
                 }
                 return;
               }
@@ -290,11 +305,6 @@ export class JsSynthesizer {
               }
             });
           });
-        }
-
-        // Delegate dropdown/popover triggers to the universal dropdown controller
-        if (trigger.matches && trigger.matches('button[aria-haspopup], [role="button"][aria-haspopup], a[aria-haspopup], [aria-haspopup], button[aria-expanded], [role="button"][aria-expanded], a[aria-expanded], [aria-expanded="true"], [aria-expanded="false"], [data-toggle="dropdown"], [data-bs-toggle="dropdown"]')) {
-          return;
         }
 
         trigger.setAttribute('data-has-recorded-interaction', 'true');
@@ -347,6 +357,21 @@ export class JsSynthesizer {
               handleToggleState(!isToggled);
             } else {
               applyMutations(interaction.mutations);
+            }
+          });
+
+          // Click-outside and Escape dismisser
+          document.addEventListener('click', function(e) {
+            if (isToggled && !trigger.contains(e.target)) {
+              const portal = root.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
+              if (!portal || !portal.contains(e.target)) {
+                handleToggleState(false);
+              }
+            }
+          });
+          document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isToggled) {
+              handleToggleState(false);
             }
           });
         }
@@ -4404,10 +4429,28 @@ export class JsSynthesizer {
   // Helper: Find controlled popover/panel for any toggle trigger
   function findControlledPanel(trigger) {
     if (!trigger) return null;
-    const ctrlId = trigger.getAttribute('aria-controls') || trigger.getAttribute('data-target') || trigger.getAttribute('data-bs-target');
+    const ctrlId = trigger.getAttribute('aria-controls') || 
+                   trigger.getAttribute('data-target') || 
+                   trigger.getAttribute('data-bs-target') ||
+                   trigger.getAttribute('data-tooltip-anchor-id') ||
+                   trigger.getAttribute('data-anchor-id') ||
+                   trigger.getAttribute('data-popover-target') ||
+                   trigger.getAttribute('data-dropdown-toggle') ||
+                   trigger.getAttribute('data-menu-id');
     if (ctrlId) {
-      const el = document.getElementById(ctrlId.replace(/^#/, ''));
+      const el = document.getElementById(ctrlId.replace(/^#/, '')) || (scope || document).querySelector(ctrlId) || document.querySelector(ctrlId);
       if (el) return el;
+    }
+    if (trigger.id) {
+      const byPortal = (scope || document).querySelector('[data-portal-for="' + CSS.escape(trigger.id) + '"], [aria-labelledby="' + CSS.escape(trigger.id) + '"]') ||
+                       document.querySelector('[data-portal-for="' + CSS.escape(trigger.id) + '"], [aria-labelledby="' + CSS.escape(trigger.id) + '"]');
+      if (byPortal) return byPortal;
+    }
+    const testId = trigger.getAttribute('data-testid');
+    if (testId) {
+      const byTestId = (scope || document).querySelector('[data-portal-for="' + CSS.escape(testId) + '"]') ||
+                       document.querySelector('[data-portal-for="' + CSS.escape(testId) + '"]');
+      if (byTestId) return byTestId;
     }
     // Check next element sibling
     const sib = trigger.nextElementSibling;
@@ -6248,6 +6291,83 @@ export class JsSynthesizer {
         }
       }
     }, false);
+
+    // Universal Interactive Portal & ARIA Controller (Pure W3C Standards, Zero Hardcoding)
+    try {
+      (function() {
+        const portalElements = Array.from(document.querySelectorAll('[data-portal-for], [data-interactive-portal]'));
+
+        portalElements.forEach(function(portal) {
+          const triggerId = portal.getAttribute('data-portal-for');
+          const trigger = triggerId ? document.getElementById(triggerId) : null;
+          if (!trigger) return;
+
+          function positionPortal() {
+            const rect = trigger.getBoundingClientRect();
+            const screenWidth = window.innerWidth;
+            portal.style.position = 'fixed';
+            portal.style.top = (rect.bottom + 8) + 'px';
+            portal.style.zIndex = '2147483647';
+            if (rect.right > screenWidth / 2) {
+              portal.style.right = Math.max(12, screenWidth - rect.right) + 'px';
+              portal.style.left = 'auto';
+            } else {
+              portal.style.left = Math.max(12, rect.left) + 'px';
+              portal.style.right = 'auto';
+            }
+          }
+
+          function openPortal() {
+            trigger.setAttribute('aria-expanded', 'true');
+            portal.setAttribute('data-state', 'open');
+            portal.setAttribute('aria-hidden', 'false');
+            portal.classList.add('is-open', 'open');
+            portal.style.display = 'block';
+            portal.style.visibility = 'visible';
+            positionPortal();
+          }
+
+          function closePortal() {
+            trigger.setAttribute('aria-expanded', 'false');
+            portal.setAttribute('data-state', 'closed');
+            portal.setAttribute('aria-hidden', 'true');
+            portal.classList.remove('is-open', 'open');
+            portal.style.display = 'none';
+          }
+
+          trigger.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const isOpen = portal.getAttribute('data-state') === 'open' || portal.style.display === 'block';
+            if (isOpen) {
+              closePortal();
+            } else {
+              portalElements.forEach(function(other) {
+                if (other !== portal) {
+                  other.setAttribute('data-state', 'closed');
+                  other.style.display = 'none';
+                }
+              });
+              openPortal();
+            }
+          });
+
+          document.addEventListener('click', function(e) {
+            if (!trigger.contains(e.target) && !portal.contains(e.target)) {
+              closePortal();
+            }
+          });
+
+          document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+              closePortal();
+            }
+          });
+        });
+      })();
+    } catch (e) {
+      console.warn('[InteractivePortalController] error:', e);
+    }
 
     // Universal Inline Video Animation Controller (Dynamic Viewport Play-Once)
     try {

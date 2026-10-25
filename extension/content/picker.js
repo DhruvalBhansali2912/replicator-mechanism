@@ -1590,6 +1590,49 @@
       console.warn('[replicator] Interactive behavior recording warning:', recordErr);
     }
 
+    let finalSectionHtml = dynamicSectionHtml || data.sectionHtml;
+    if (recordedInteractions && recordedInteractions.length > 0) {
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(finalSectionHtml, 'text/html');
+        recordedInteractions.forEach((inter) => {
+          if (inter.mutations) {
+            inter.mutations.forEach((m) => {
+              if (m.action === 'added' && m.html && m.html.trim().length > 10) {
+                const temp = document.createElement('div');
+                temp.innerHTML = m.html.trim();
+                const node = temp.firstElementChild;
+                if (node) {
+                  const nodeId = node.id;
+                  if (!nodeId || !doc.getElementById(nodeId)) {
+                    node.setAttribute('data-mutation-src', inter.triggerSelector || '');
+                    node.setAttribute('data-interactive-portal', 'true');
+                    node.setAttribute('data-state', 'closed');
+                    node.style.display = 'none';
+                    let target = m.targetSelector ? doc.querySelector(m.targetSelector) : null;
+                    if (!target && inter.triggerSelector) {
+                      const trig = doc.querySelector(inter.triggerSelector);
+                      if (trig && trig.parentElement) target = trig.parentElement;
+                    }
+                    if (target) {
+                      target.appendChild(node);
+                    } else if (doc.body.firstElementChild) {
+                      doc.body.firstElementChild.appendChild(node);
+                    }
+                  }
+                }
+              }
+            });
+          }
+        });
+        if (doc.body.innerHTML) {
+          finalSectionHtml = doc.body.innerHTML;
+        }
+      } catch (e) {
+        console.warn('[replicator] Failed to inject recorded nodes into sectionHtml:', e);
+      }
+    }
+
     if (progressStepEl) progressStepEl.textContent = 'Extracting styles & synthesizing code...';
 
     // Harvest page client stylesheets in strict document cascade order
@@ -1674,7 +1717,7 @@
           url: window.location.href,
           options: {
             sectionSelector: data.selector,
-            sectionHtml: dynamicSectionHtml || data.sectionHtml,
+            sectionHtml: finalSectionHtml,
             targetArchetype: data.archetype,
             clientStylesheets: sheets,
             stylesheetUrls: Array.from(fetchedHrefs),

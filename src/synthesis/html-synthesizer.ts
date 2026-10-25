@@ -632,8 +632,8 @@ export class HtmlSynthesizer {
               return;
             }
             if (isNavHeader && (
-              $sib.is('dialog, [role="dialog"], [data-testid*="drawer"], [data-testid*="modal"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"], [class*="mega-menu"], [class*="header-panel"], [data-elementor-type="popup"], [class*="location-popup"], [id*="elementor-popup"], [class*="offcanvas"], [class*="off-canvas"], [class*="drawer"], [class*="sidebar"], [class*="mobile-menu"], [class*="site-menu"], [class*="nav-drawer"], [id*="mobile-menu"], [id*="sidebar"]') ||
-              $sib.find('dialog, [role="dialog"], [data-testid*="drawer"], [data-baseweb="drawer"], [data-baseweb="modal"], [lang], nav, [role="menu"], [class*="nav-menu"], a').length > 0
+              $sib.is('[data-interactive-portal], [data-portal-for], [role="menu"], dialog, [role="dialog"], [data-testid*="drawer"], [data-testid*="modal"], [data-baseweb="drawer"], [data-baseweb="modal"], [aria-modal="true"], [class*="mega-menu"], [class*="header-panel"], [data-elementor-type="popup"], [class*="location-popup"], [id*="elementor-popup"], [class*="offcanvas"], [class*="off-canvas"], [class*="drawer"], [class*="sidebar"], [class*="mobile-menu"], [class*="site-menu"], [class*="nav-drawer"], [id*="mobile-menu"], [id*="sidebar"]') ||
+              $sib.find('[data-interactive-portal], [data-portal-for], dialog, [role="dialog"], [data-testid*="drawer"], [data-baseweb="drawer"], [data-baseweb="modal"], [lang], nav, [role="menu"], [class*="nav-menu"], a').length > 0
             )) {
               // Preserve associated navigation dialogs, mega menus, and drawers
               return;
@@ -1131,6 +1131,58 @@ export class HtmlSynthesizer {
         if (s && s.includes('display: none')) $(ch).removeAttr('style');
       });
     });
+
+    // Universal Dynamic Portal / Dropdown Injection:
+    // If recordedTransitions captured authentic DOM nodes added during live interaction
+    // (e.g. React/Next.js/Radix portals rendered on click), ensure they are present in the section HTML!
+    if (ast.interactive?.recordedTransitions) {
+      ast.interactive.recordedTransitions.forEach((interaction) => {
+        if (interaction.mutations) {
+          interaction.mutations.forEach((m) => {
+            if (m.action === 'added' && m.html && m.html.trim().length > 10) {
+              const cleanHtml = m.html.trim();
+              const $mut = cheerio.load(cleanHtml, { xmlMode: false }, false);
+              const mutId = $mut.root().children().first().attr('id');
+              const alreadyPresent = mutId ? $(`[id="${mutId}"]`).length > 0 : false;
+              if (!alreadyPresent) {
+                const $rootNode = $mut.root().children().first();
+                $rootNode.attr('data-mutation-src', interaction.triggerSelector);
+                $rootNode.attr('data-interactive-portal', 'true');
+                $rootNode.attr('data-state', 'closed');
+                const curStyle = $rootNode.attr('style') || '';
+                $rootNode.attr('style', (curStyle ? curStyle + '; ' : '') + 'display: none;');
+
+                let appended = false;
+                if (m.targetSelector) {
+                  const $target = $(m.targetSelector).first();
+                  if ($target.length > 0) {
+                    $target.append('\n' + $mut.html());
+                    appended = true;
+                  }
+                }
+                if (!appended && interaction.triggerSelector) {
+                  const $trig = $(interaction.triggerSelector).first();
+                  if ($trig.length > 0 && $trig.parent().length > 0) {
+                    $trig.parent().append('\n' + $mut.html());
+                    appended = true;
+                  }
+                }
+                if (!appended) {
+                  const $rootEl = $.root().children().first();
+                  if ($rootEl.length > 0) {
+                    $rootEl.append('\n' + $mut.html());
+                    appended = true;
+                  }
+                }
+                if (!appended) {
+                  $.root().append('\n' + $mut.html());
+                }
+              }
+            }
+          });
+        }
+      });
+    }
 
     // 4. Ensure universal mobile toggle and curtain/backdrop exist for navbars
     const rawLower = (ast.rawSectionHtml || '').toLowerCase();

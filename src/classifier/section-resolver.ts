@@ -540,6 +540,21 @@ export function enrichSectionWithCompanions(
         if (match.length > 0) addCompanion(match.get(0));
       }
 
+      // B2. Universal Trigger-to-Portal linkage (from live MutationObserver probe)
+      const trgId = $trg.attr('id');
+      if (trgId) {
+        const portal = $snap(`[data-portal-for="${trgId}"]`);
+        if (portal.length > 0) addCompanion(portal.get(0));
+      }
+
+      // B3. Tooltip / Popover anchor IDs (e.g. data-tooltip-anchor-id)
+      const tooltipAnchor = $trg.attr('data-tooltip-anchor-id') || $trg.attr('data-anchor-id') || $trg.attr('data-popover-target') || $trg.attr('data-dropdown-toggle');
+      if (tooltipAnchor && tooltipAnchor.trim()) {
+        const cleanAnchor = tooltipAnchor.trim().replace(/^#/, '');
+        const match = $snap('[id="' + cleanAnchor + '"]');
+        if (match.length > 0) addCompanion(match.get(0));
+      }
+
       // C. Elementor action popup links: #elementor-action:action=popup:open&settings=...
       if (href && (href.includes('elementor-action') || href.includes('popup'))) {
         try {
@@ -616,6 +631,7 @@ export function enrichSectionWithCompanions(
         '[class*="header-panel"]',
         '[class*="mega-menu-panel"]',
         '[role="dialog"]:not([class*="search"]):not([class*="video"]):not([class*="cookie"]):not([class*="login"])',
+        '[data-interactive-portal="true"]',
         '#nav-content',
         '#mobile-menu'
       ];

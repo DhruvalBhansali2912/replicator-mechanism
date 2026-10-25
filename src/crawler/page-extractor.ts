@@ -283,7 +283,7 @@ export class PageExtractor {
       await this.scrollAndSettlePage(page, hasSnapshot, (options as any).animationDelayMs || (options as any).settleWaitMs);
       await page.waitForTimeout(hasSnapshot ? 300 : CONFIG.crawler.settleWaitMs);
 
-      // Dismiss cookie/GDPR banners on live page before capturing baselines
+      // Dismiss cookie/GDPR banners, interstitial modals, and price transparency overlays on live page before capturing baselines
       await page.evaluate(() => {
         const cookieSelectors = [
           '[id*="onetrust-accept"]',
@@ -295,7 +295,10 @@ export class PageExtractor {
           '.cc-btn.cc-allow',
           '[id*="cookie-banner"] button',
           '[class*="cookie-banner"] button',
-          '.cookie-banner button'
+          '.cookie-banner button',
+          '[data-testid="modal-container"] button',
+          '[aria-label*="close" i][class*="modal"]',
+          '[aria-label*="close" i][class*="dialog"]'
         ];
         for (const sel of cookieSelectors) {
           try {
@@ -303,8 +306,20 @@ export class PageExtractor {
             if (btn) btn.click();
           } catch {}
         }
+
+        // Text-based dismissal for interstitial notice buttons ("Got it", "Accept all", "I agree", etc.)
+        try {
+          const allButtons = Array.from(document.querySelectorAll('button, [role="button"], a.btn'));
+          for (const btn of allButtons) {
+            const txt = (btn.textContent || '').trim().toLowerCase();
+            if (['got it', 'accept all', 'accept all cookies', 'agree & continue', 'i agree', 'accept', 'agree', 'allow all'].includes(txt)) {
+              (btn as HTMLElement).click();
+              break;
+            }
+          }
+        } catch {}
       });
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(400);
 
       // Universal Navigation Blocker: Prevent link clicks, form submits, and redirects from destroying the page during exploration
       await page.evaluate(() => {
@@ -1145,27 +1160,87 @@ export class PageExtractor {
   }
 
   /**
-   * Universally hovers and focuses interactive triggers to reveal dynamic submenus and portals.
-   * Explicitly waits for CSS animations, Framer Motion, and React portal mounts (300ms).
+   * Universal Interactive Mutation Harvester:
+   * Dynamically explores interactive triggers (buttons, menus, tabs, popovers, drawers)
+   * on the live page using a MutationObserver to capture real, authentic React, Next.js,
+   * Vue, and Radix UI dynamic portals directly as they mount into the DOM.
    */
   private async revealDynamicSections(page: any): Promise<void> {
     try {
-      const handles = await page.$$(
+      // 1. Universal Hover Pass for pure CSS transitions and hover-based mega-menus
+      const hoverHandles = await page.$$(
         'header button, header a, nav button, nav a, [role="navigation"] button, [role="navigation"] a, [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [class*="nav-item"] button, [class*="nav-item"] a, [class*="filter"] button, [role="tab"]'
       );
-      for (const h of handles.slice(0, 16)) {
+      for (const h of hoverHandles.slice(0, 16)) {
         try {
           if (await h.isVisible().catch(() => false)) {
             const box = await h.boundingBox().catch(() => null);
             if (box && box.width > 0 && box.height > 0) {
               await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-              await page.waitForTimeout(200);
+              await page.waitForTimeout(150);
             }
           }
         } catch {}
       }
       await page.mouse.move(0, 0);
-      await page.waitForTimeout(200);
+      await page.waitForTimeout(100);
+
+      // 2. Universal Click Pass with live MutationObserver to capture conditionally mounted portals
+      await page.evaluate(async () => {
+        const triggers = Array.from(document.querySelectorAll(
+          'header button, header [role="button"], nav button, nav [role="button"], [role="navigation"] button, summary, [aria-haspopup], [aria-expanded], [data-toggle], [data-dropdown], [role="tab"], [role="combobox"]'
+        )).filter(el => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && window.getComputedStyle(el).display !== 'none' && window.getComputedStyle(el).visibility !== 'hidden';
+        });
+
+        for (const trg of triggers.slice(0, 16)) {
+          const addedNodes: HTMLElement[] = [];
+          const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+              if (m.type === 'childList') {
+                m.addedNodes.forEach(node => {
+                  if (node.nodeType === 1) {
+                    const el = node as HTMLElement;
+                    addedNodes.push(el);
+                    el.setAttribute('data-interactive-portal', 'true');
+                  }
+                });
+              }
+            }
+          });
+
+          observer.observe(document.body, { childList: true, subtree: true });
+
+          try {
+            trg.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          } catch {}
+
+          await new Promise(r => setTimeout(r, 350));
+          observer.disconnect();
+
+          if (addedNodes.length > 0) {
+            const trgId = trg.id || ('rep-trg-' + Math.random().toString(36).slice(2, 9));
+            if (!trg.id) trg.id = trgId;
+            addedNodes.forEach((node: HTMLElement) => {
+              if (!node.getAttribute('data-portal-for')) {
+                node.setAttribute('data-portal-for', trgId);
+              }
+              // Mark as closed and hide at rest so it does not obscure visual baseline screenshots,
+              // while ensuring the full authentic DOM subtree is captured in page.content()!
+              node.setAttribute('data-state', 'closed');
+              node.style.display = 'none';
+            });
+          }
+
+          // Reset trigger state with Escape
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+          await new Promise(r => setTimeout(r, 100));
+        }
+      });
+
+      await page.mouse.move(0, 0);
+      await page.waitForTimeout(150);
     } catch (e) {
       console.warn('[PageExtractor] Dynamic section reveal pass skipped:', e);
     }

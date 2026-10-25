@@ -1408,11 +1408,40 @@ export class SectionInspector {
 
     return interactions.map(interaction => {
       const cleanMuts = (interaction.mutations || []).filter(filterMut);
-      const cleanRevMuts = interaction.reverseMutations ? interaction.reverseMutations.filter(filterMut) : undefined;
+      const cleanRevMuts = interaction.reverseMutations ? interaction.reverseMutations.filter(filterMut) : [];
+
+      // If cleanMuts has both added and removed for the same portal/childList target,
+      // the removed action is the reverse mutation from when the probe closed the element!
+      const finalMuts: any[] = [];
+      const extractedRevMuts: any[] = [...cleanRevMuts];
+
+      const addedIds = new Set<string>();
+      cleanMuts.forEach(m => {
+        if (m.mutationType === 'childList' && m.action === 'added' && m.html) {
+          const match = m.html.match(/id=["']([^"']+)["']/);
+          if (match) addedIds.add(match[1]);
+        }
+      });
+
+      cleanMuts.forEach(m => {
+        if (m.mutationType === 'childList' && m.action === 'removed') {
+          let matchesAdded = false;
+          if (m.html) {
+            const match = m.html.match(/id=["']([^"']+)["']/);
+            if (match && addedIds.has(match[1])) matchesAdded = true;
+          }
+          if (matchesAdded || addedIds.size > 0) {
+            extractedRevMuts.push(m);
+            return;
+          }
+        }
+        finalMuts.push(m);
+      });
+
       return {
         ...interaction,
-        mutations: cleanMuts,
-        reverseMutations: cleanRevMuts
+        mutations: finalMuts,
+        reverseMutations: extractedRevMuts.length > 0 ? extractedRevMuts : undefined
       };
     }).filter(i => (i.mutations && i.mutations.length > 0) || (i.reverseMutations && i.reverseMutations.length > 0));
   }
