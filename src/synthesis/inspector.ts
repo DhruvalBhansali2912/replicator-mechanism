@@ -357,10 +357,12 @@ export class SectionInspector {
     }
 
     // 1. Footer check (landmarks or copyright content: check before navbar so footer nav links do not misclassify footer as navbar)
-    const isExplicitFooter = $('footer, [role="contentinfo"]').length > 0;
-    const hasFooterClass = lower.includes('site-footer') || lower.includes('page-footer');
-    const hasFooterContent = lower.includes('copyright') || lower.includes('all rights reserved');
-    if (isExplicitFooter || hasFooterClass || (hasFooterContent && !visibleHeroH1)) {
+    const rootEl = $.root().children().first();
+    const hasMultipleSubSections = $('section, article, main, [class*="section"], [class*="hero-"], [class*="project"], [class*="what-we-do"]').length > 1;
+    const isExplicitFooter = rootEl.is('footer, [role="contentinfo"]') || ($('footer, [role="contentinfo"]').length > 0 && !hasMultipleSubSections);
+    const hasFooterClass = (rootEl.attr('class') || '').toLowerCase().includes('footer') && !hasMultipleSubSections;
+    const hasFooterContent = (lower.includes('copyright') || lower.includes('all rights reserved')) && !hasMultipleSubSections && $('h1, h2, h3').length <= 2;
+    if ((isExplicitFooter || hasFooterClass || (hasFooterContent && !visibleHeroH1)) && !hasMultipleSubSections) {
       return 'footer';
     }
 

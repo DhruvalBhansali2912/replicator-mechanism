@@ -123,8 +123,22 @@ export class QualityScorer {
       failureReasons.push('Missing CSS rules for click toggles (e.g. .is-open or .is-active)');
     }
 
-    const totalScore = structuralScore + visualScore + interactiveScore;
-    const passed = totalScore >= 90;
+    // Structural Integrity Audits
+    let structuralPenalty = 0;
+    // 1. Swallowed wrapper detection: if classified as footer or navbar but contains multiple content sections
+    if ((ast.archetype === 'footer' || ast.archetype === 'navbar') && $('section, article, [class*="hero-"], [class*="what-we-do"], [class*="project"]').length > 1) {
+      structuralPenalty += 45;
+      failureReasons.push('Structural failure: multi-section content container misclassified as footer/navbar landmark');
+    }
+    // 2. Empty content check
+    const textLen = $.text().trim().length;
+    if (textLen < 15 && $('img, video, canvas, svg').length === 0) {
+      structuralPenalty += 50;
+      failureReasons.push('Structural failure: section is virtually empty');
+    }
+
+    const totalScore = Math.max(0, Math.min(100, structuralScore + visualScore + interactiveScore - structuralPenalty));
+    const passed = totalScore >= 80;
 
     return {
       structuralScore,

@@ -1001,12 +1001,12 @@ export class PageExtractor {
         if (!el || el.nodeType !== 1) return false;
         const s = window.getComputedStyle(el);
         const r = el.getBoundingClientRect();
+        // Modern award-winning sites have resting animation states before scroll trigger (opacity: 0, visibility: hidden).
+        // Never discard valid content sections solely because their initial resting opacity is 0!
+        const hasContent = (el.textContent && el.textContent.trim().length > 0) || el.querySelector('img, video, canvas, svg') !== null;
         return (
           s.display !== 'none' &&
-          s.visibility !== 'hidden' &&
-          parseFloat(s.opacity || '1') > 0 &&
-          r.height > 0 &&
-          r.width > 0
+          (r.height > 0 || (el as HTMLElement).scrollHeight > 20 || hasContent)
         );
       };
 
@@ -1026,7 +1026,7 @@ export class PageExtractor {
       const allHeaders = Array.from(document.querySelectorAll('header, [role="banner"], nav, [role="navigation"], [class*="header"]'));
       const header = allHeaders.find((el) => {
         const r = el.getBoundingClientRect();
-        return isElementVisible(el) && r.top <= 50 && r.height >= 20 && r.width >= 200;
+        return isElementVisible(el) && r.top <= 80 && (r.height >= 20 || (el as HTMLElement).scrollHeight >= 20);
       });
 
       if (header) {
@@ -1066,11 +1066,14 @@ export class PageExtractor {
             return [only];
           }
 
-          // Multiple visible children. Check if any child is an abnormally tall wrapper (> 2500px) that contains sub-rows
+          // Multiple visible children. Check if any child is an abnormally tall wrapper (> 1200px) or contains sub-sections
           const result: Element[] = [];
           for (const child of visibleChildren) {
             const r = child.getBoundingClientRect();
-            if (r.height > 2500) {
+            const tag = child.tagName.toLowerCase();
+            const scrollH = (child as HTMLElement).scrollHeight || 0;
+            const hasSubSections = child.querySelectorAll('section, article, [class*="section"], [class*="hero-"]').length > 1;
+            if (r.height > 1200 || scrollH > 1200 || hasSubSections || tag === 'main') {
               const sub = unwrapToSections(child, depth + 1);
               if (sub.length > 1) {
                 result.push(...sub);
