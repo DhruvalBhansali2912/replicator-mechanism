@@ -667,7 +667,7 @@ export class JsSynthesizer {
     // Semantic resolution for detached companion popups matching trigger archetype/keyword
     if (!match) {
       const trgEl = item.querySelector('button, a, span') || item;
-      const cleanTxt = (trgEl.textContent || '').replace(/[\r\n\t\s]+/g, ' ').trim().toLowerCase();
+      const cleanTxt = (trgEl.textContent || '').replace(/[\\r\\n\\t\\s]+/g, ' ').trim().toLowerCase();
       if (cleanTxt && cleanTxt.length >= 3 && cleanTxt.length <= 25 && /^[a-z0-9_-]+$/.test(cleanTxt)) {
         const popupCandidates = Array.from(document.querySelectorAll('[class*="popup"], [class*="nav-panel"], [class*="megamenu"], [class*="flyout"], [role="menu"]'));
         for (let p = 0; p < popupCandidates.length; p++) {
