@@ -4295,6 +4295,10 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
       )
       .replace(/(?<!\\):is\(([^)]+)\)/gi, '$1')
       .replace(/(?<!\\):where\(([^)]+)\)/gi, '$1')
+      .replace(/(?<!\\):local\(([^)]+)\)/gi, '$1')
+      .replace(/(?<!\\):global\(([^)]+)\)/gi, '$1')
+      .replace(/(?<!\\):local\b/gi, '')
+      .replace(/(?<!\\):global\b/gi, '')
       .replace(/(?<!\\):not\([^)]*\)/gi, '')
       .replace(/\s+/g, ' ')
       .trim();

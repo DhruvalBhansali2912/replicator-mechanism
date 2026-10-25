@@ -368,8 +368,10 @@ export function resolveTargetSectionFromSnapshot(
 
   // 4. Default / Generic Section
   if (sectionSelector) {
-    const selMatch = $snap(sectionSelector).first();
-    if (selMatch.length > 0) return selMatch;
+    try {
+      const selMatch = $snap(sectionSelector).first();
+      if (selMatch.length > 0) return selMatch;
+    } catch (_) {}
   }
 
   const defSec = $snap('section, main > div, article').first();
