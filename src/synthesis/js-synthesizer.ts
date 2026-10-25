@@ -6211,10 +6211,6 @@ export class JsSynthesizer {
       `.trim());
     }
 
-    if (scripts.length === 0) {
-      return '';
-    }
-
     const isolatedScripts = scripts.map((s) => `try {\n      ${s.split('\n').join('\n      ')}\n    } catch (err) {\n      console.warn('[Synthesized Controller Error]', err);\n    }`);
 
     return `
