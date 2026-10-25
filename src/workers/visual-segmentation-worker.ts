@@ -22,11 +22,27 @@ export class VisualSegmentationWorker {
   public static readonly workerName = 'VisualSegmentationWorker';
   private classifier = new SectionClassifier();
 
-  public async execute(html: string): Promise<VisualSegmentationResult> {
+  public async execute(html: string, sourceUrl?: string): Promise<VisualSegmentationResult> {
     const $ = cheerio.load(html);
     const candidateNodes: { selector: string; tagName: string; html: string; rect: any }[] = [];
 
     const seenElements = new Set<any>();
+
+    // Handle SPA Multi-Main Route Prerendering (e.g. Nuxt, Next.js, Vue where archive/about/home are all in DOM)
+    let activeMain: cheerio.Cheerio<any> = $('main').first();
+    if ($('main').length > 1) {
+      const urlPath = (sourceUrl || '').split('?')[0].replace(/\/+$/, '').split('/').pop() || '';
+      if (!urlPath || urlPath === 'index' || urlPath === 'home') {
+        const homeMain = $('main[class*="home"], main[class*="index"], main[id*="home"], main[id*="index"]').first();
+        if (homeMain.length > 0) activeMain = homeMain;
+      } else {
+        const slugMain = $('main[class*="' + urlPath + '"], main[id*="' + urlPath + '"]').first();
+        if (slugMain.length > 0) activeMain = slugMain;
+      }
+      $('main').not(activeMain as any).each((_, inactiveEl) => {
+        $(inactiveEl).attr('data-inactive-spa-main', 'true');
+      });
+    }
 
     const getUniqueSelector = (el: any): string => {
       const $el = $(el);
@@ -63,11 +79,12 @@ export class VisualSegmentationWorker {
       const cls = ($el.attr('class') || '').toLowerCase();
       const id = ($el.attr('id') || '').toLowerCase();
 
-      // Skip full page wrappers
+      // Skip full page wrappers or inactive SPA subroutes
       if (
         tag === 'body' || tag === 'html' ||
         id === 'root' || id === '__next' || id === 'app' ||
-        cls.includes('page-wrapper') || cls.includes('columns') || cls.includes('main-wrapper')
+        cls.includes('page-wrapper') || cls.includes('columns') || cls.includes('main-wrapper') ||
+        $el.parents('[data-inactive-spa-main="true"]').length > 0
       ) {
         return;
       }
@@ -109,6 +126,12 @@ export class VisualSegmentationWorker {
 
     // 2. Main content rows and sections
     // Detect builder / layout rows and semantic sections across platforms (AEM, Next.js, Webflow, Shopify, WordPress, standard HTML5)
+    if (activeMain && activeMain.length > 0) {
+      activeMain.children('section, article, [class*="gallery"], [class*="hero"], [class*="showcase"], [class*="portfolio"], [class*="project"], [class*="work"], [class*="storytelling"], [class*="about"], [class*="content"]').each((_, el) => {
+        addCandidate(el);
+      });
+    }
+
     const majorRows = $('main > [data-block-id], [data-block-id], [data-block], [data-section], main [class*="element-row"], [class*="builder"] > [class*="row"], [class*="builder"] > div, main > section, main > article, main > div > section, main > div > div > section, body > section, body > article, [class*="site-section"], [id*="content"] > section, [class*="content"] > section, section:not(header section):not(footer section):not(nav section), article:not(header article):not(footer article):not(nav article)');
     if (majorRows.length >= 2) {
       majorRows.each((_, el) => {

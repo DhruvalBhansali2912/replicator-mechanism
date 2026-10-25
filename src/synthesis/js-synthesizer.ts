@@ -6287,6 +6287,42 @@ export class JsSynthesizer {
       }
     } catch (e) {}
 
+    // Universal Lenis Smooth Scroll Unlock
+    try {
+      document.documentElement.classList.remove('lenis-stopped');
+      document.body.classList.remove('lenis-stopped');
+    } catch (_) {}
+
+    // Universal Horizontal Gallery Wheel & Drag Controller
+    try {
+      const galleries = document.querySelectorAll('.gallery, [class*="gallery"]:not([class*="grid"])');
+      galleries.forEach(function(gal) {
+        gal.addEventListener('wheel', function(e) {
+          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            gal.scrollLeft += e.deltaY;
+            e.preventDefault();
+          }
+        }, { passive: false });
+
+        let isDown = false;
+        let startX = 0;
+        let scrollLeft = 0;
+        gal.addEventListener('mousedown', function(e) {
+          isDown = true;
+          startX = e.pageX - (gal as HTMLElement).offsetLeft;
+          scrollLeft = gal.scrollLeft;
+        });
+        window.addEventListener('mouseup', function() { isDown = false; });
+        gal.addEventListener('mousemove', function(e) {
+          if (!isDown) return;
+          e.preventDefault();
+          const x = e.pageX - (gal as HTMLElement).offsetLeft;
+          const walk = (x - startX) * 1.5;
+          gal.scrollLeft = scrollLeft - walk;
+        });
+      });
+    } catch (_) {}
+
     // Universal Interactive Ambient & 3D Canvas Background Controller
     try {
       const rawCanvasCandidates = Array.from(

@@ -1950,8 +1950,21 @@ ${this.getUniversalInteractiveRules(ast)}
     // Universal WebGL & 3D text mesh fallback visibility (ensures titles/captions are visible when 3D text shaders are isolated)
     scopedCss += '\n.html-mesh-hidden, [data-text-mesh], [data-gl-hidden], [data-webgl-hidden], [class*="mesh-hidden"], [class*="webgl-hide"] { opacity: 1 !important; visibility: visible !important; display: block !important; pointer-events: auto !important; }\n';
 
+    // Universal SplitText & Char Reveal Unhiding (Awwwards websites)
+    scopedCss += '\n.char, .word, .line, [class*="char-"], [class*="word-"], [class*="split-"], [data-split], [aria-hidden="true"] > div, [aria-hidden="true"] > span { opacity: 1 !important; visibility: visible !important; transform: none !important; filter: none !important; }\n';
+
+    // Universal Lenis & Virtual Smooth Scroll Normalization
+    scopedCss += '\nhtml.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped { height: auto !important; min-height: 100% !important; overflow-y: auto !important; overflow-x: hidden !important; }\n';
+    scopedCss += '\n.lenis.lenis-stopped, [class*="lenis-stopped"] { overflow: visible !important; }\n';
+
+    // Universal GSAP ScrollTrigger Pin-Spacer & Horizontal Carousel Normalization
+    scopedCss += '\n.pin-spacer { height: auto !important; width: 100% !important; padding: 0 !important; margin: 0 !important; position: relative !important; inset: auto !important; overflow: visible !important; }\n';
+    scopedCss += '\n.gallery, [class*="gallery"]:not([class*="grid"]) { visibility: visible !important; opacity: 1 !important; overflow-x: auto !important; overflow-y: hidden !important; -webkit-overflow-scrolling: touch !important; scrollbar-width: none !important; }\n';
+    scopedCss += '\n.gallery::-webkit-scrollbar, [class*="gallery"]::-webkit-scrollbar { display: none !important; }\n';
+    scopedCss += '\n.gallery .item, [class*="gallery"] .item, [class*="gallery"] [class*="item"] { flex-shrink: 0 !important; }\n';
+
     // Universal ambient background canvas container positioning
-    scopedCss += '\n#gl, [class*="webgl"]:not([class*="button"]):not([class*="btn"]):has(canvas), [id*="webgl"]:not([id*="button"]):has(canvas) { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 0 !important; pointer-events: none !important; }\n';
+    scopedCss += '\n#gl, #canvas.fixed, canvas#canvas.fixed, [class*="webgl"]:not([class*="button"]):not([class*="btn"]):has(canvas), [id*="webgl"]:not([id*="button"]):has(canvas), canvas[class*="fixed"][class*="inset-0"] { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 0 !important; pointer-events: none !important; }\n';
     scopedCss += '\n#gl canvas, [class*="webgl"]:not([class*="button"]):not([class*="btn"]) canvas, [id*="webgl"]:not([id*="button"]) canvas { width: 100% !important; height: 100% !important; display: block !important; }\n';
     scopedCss += '\nbody > section, section, .hero-storytelling, [class*="hero-storytelling"], [class*="storytelling"] { position: relative !important; z-index: 2 !important; }\n';
     scopedCss += '\n:root[data-theme="light"] h1, :root[data-theme="light"] [class*="title"], :root[data-theme="light"] [class*="hero-"], [data-theme="light"] h1, [data-theme="light"] h1 span, [data-theme="light"] [class*="title"], [data-theme="light"] [class*="title"] span, html:not([data-theme="dark"]) h1, html:not([data-theme="dark"]) [class*="hero-1__title"] { color: var(--foreground, #2a1647) !important; -webkit-text-fill-color: var(--foreground, #2a1647) !important; }\n';

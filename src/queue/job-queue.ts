@@ -456,7 +456,7 @@ export class JobQueue {
       // --- STAGE 5: Visual Segmentation & Section Archetypes ---
       setStep('Visual Section Segmentation', VisualSegmentationWorker.workerName, 'started');
       const segWorker = new VisualSegmentationWorker();
-      let segRes = await segWorker.execute(options.htmlSnapshot || domRes.cleanedHtml);
+      let segRes = await segWorker.execute(options.htmlSnapshot || domRes.cleanedHtml, url);
 
       // Section Isolation: ONLY if options.sectionSelector or options.sectionHtml or options.targetArchetype is provided
       const isTargetedSection = !!(options.sectionSelector || options.sectionHtml || options.targetArchetype);

@@ -1700,6 +1700,17 @@ ${drawerListItems.join('\n')}
     // Ensure modal dialogs are closed at rest if aria-hidden is true or they are interactive modals
     $('dialog[aria-hidden="true"], dialog[class*="modal"], dialog[data-shoptimizermodal-id]').removeAttr('open');
 
+    // Universal SplitText / Aria-Label Headline Recovery:
+    // If an h1, h2, or h3 has aria-label and its inner text was stripped or whitespace, recover the authentic text
+    $('h1, h2, h3, [class*="heading"], [class*="title"]').each((_, el) => {
+      const $el = $(el);
+      const aria = $el.attr('aria-label') || $el.attr('title');
+      const text = $el.text()?.trim() || '';
+      if (aria && aria.trim().length > 1 && text.length === 0) {
+        $el.text(aria.trim());
+      }
+    });
+
     // 5. Ensure top element has semantic landmark and id
     let result = '';
     const rootEl = $.root().children().first();

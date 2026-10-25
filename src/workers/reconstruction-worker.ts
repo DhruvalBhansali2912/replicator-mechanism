@@ -155,7 +155,7 @@ export class ReconstructionWorker {
     }
 
     const bgCanvasCss = `
-#gl, #webgl, .webgl, [class*="webgl"]:not([class*="button"]):not([class*="btn"]), [id*="webgl"]:not([id*="button"]) {
+#gl, #webgl, .webgl, #canvas.fixed, canvas#canvas.fixed, [class*="webgl"]:not([class*="button"]):not([class*="btn"]), [id*="webgl"]:not([id*="button"]), canvas[class*="fixed"][class*="inset-0"] {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -182,6 +182,50 @@ body > section, section, main, [class*="hero"], [class*="storytelling"] {
 header.site-header, header {
   position: relative !important;
   z-index: 9999 !important;
+}
+
+/* Universal SplitText & Char Reveal Unhiding */
+.char, .word, .line, [class*="char-"], [class*="word-"], [class*="split-"], [data-split], [aria-hidden="true"] > div, [aria-hidden="true"] > span {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Universal Lenis & Virtual Smooth Scroll Normalization */
+html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
+  height: auto !important;
+  min-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+.lenis.lenis-stopped, [class*="lenis-stopped"] {
+  overflow: visible !important;
+}
+
+/* Universal GSAP ScrollTrigger Pin-Spacer & Horizontal Carousel Normalization */
+.pin-spacer {
+  height: auto !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  position: relative !important;
+  inset: auto !important;
+  overflow: visible !important;
+}
+.gallery, [class*="gallery"]:not([class*="grid"]) {
+  visibility: visible !important;
+  opacity: 1 !important;
+  overflow-x: auto !important;
+  overflow-y: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  scrollbar-width: none !important;
+}
+.gallery::-webkit-scrollbar, [class*="gallery"]::-webkit-scrollbar {
+  display: none !important;
+}
+.gallery .item, [class*="gallery"] .item, [class*="gallery"] [class*="item"] {
+  flex-shrink: 0 !important;
 }
 `;
 

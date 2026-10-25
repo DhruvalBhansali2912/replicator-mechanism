@@ -470,7 +470,8 @@ export class SectionInspector {
     $('h1').each((_, el) => {
       if (titleEl) return;
       if ($(el).parents('[class*="badge"], [class*="stat"], [class*="metric"]').length > 0) return;
-      const text = $(el).text().trim();
+      const aria = $(el).attr('aria-label') || $(el).attr('title') || '';
+      const text = $(el).text().trim() || aria.trim();
       if (text && text.length >= 2) {
         titleEl = $(el);
       }
@@ -484,7 +485,8 @@ export class SectionInspector {
 
     if (!titleEl || !titleEl.length) return {};
 
-    const text = titleEl.text().trim();
+    const aria = titleEl.attr('aria-label') || titleEl.attr('title') || '';
+    const text = titleEl.text().trim() || aria.trim();
     let titleHtml: string | undefined;
 
     // Check if inner content has gradient or highlighted text
@@ -518,7 +520,8 @@ export class SectionInspector {
 
       const clone = $(el).clone();
       clone.find('sup, sub').remove();
-      const text = clone.text().trim();
+      const aria = clone.attr('aria-label') || clone.attr('title') || '';
+      const text = clone.text().trim() || aria.trim();
 
       if (text && text !== title && text.length >= 4 && text.length <= 250) {
         if (!/^(order|buy|learn|explore|view|get started|demo|sign up|schedule)/i.test(text)) {
