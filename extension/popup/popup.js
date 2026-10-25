@@ -592,11 +592,18 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch (e) {}
               }
 
-              // Convert HTML5 canvas elements (maps/charts/WebGL) to inline images so they survive snapshotting
+              // Convert only small 2D widgets (charts/QR/static maps) to inline images,
+              // while strictly preserving WebGL and background canvases as real <canvas> elements!
               document.querySelectorAll('canvas').forEach((canvas) => {
                 try {
+                  const isBgOrWebGL = canvas.closest('#gl, #webgl, .webgl, [class*="webgl"], [id*="webgl"], [class*="canvas-container"]') ||
+                    window.getComputedStyle(canvas).position === 'fixed' ||
+                    (canvas.width > 600 && canvas.height > 400);
+                  if (isBgOrWebGL) {
+                    return; // Preserve real canvas tag for WebGL particle renderers
+                  }
                   const dataUrl = canvas.toDataURL('image/png');
-                  if (dataUrl && dataUrl.length > 100) {
+                  if (dataUrl && dataUrl.length > 200) {
                     const img = document.createElement('img');
                     img.src = dataUrl;
                     img.className = (canvas.className || '') + ' rep-canvas-replacement';

@@ -27,7 +27,7 @@ export const BENCHMARK_SITES: BenchmarkSite[] = [
     id: 'brandon-yasin',
     name: 'Brandon Yasin',
     url: 'https://brandonyasin.com/',
-    expectedKeywords: ['Brandon', 'Yasin', 'Archive', 'Work'],
+    expectedKeywords: ['Brandon', 'Yasin', 'Awwwards', 'Contact'],
   },
   {
     id: 'basic-agency',
@@ -42,16 +42,16 @@ export const BENCHMARK_SITES: BenchmarkSite[] = [
     expectedKeywords: ['iPhone', 'Apple', 'Titanium', 'Camera'],
   },
   {
-    id: 'phantom-land',
-    name: 'Phantom',
-    url: 'https://phantom.land/',
-    expectedKeywords: ['Phantom', 'Creative', 'Design', 'Studio'],
+    id: 'framer-com',
+    name: 'Framer',
+    url: 'https://framer.com/',
+    expectedKeywords: ['Framer', 'Design', 'Publish', 'Site'],
   },
   {
     id: 'monopo-london',
     name: 'Monopo London',
     url: 'https://monopo.london/',
-    expectedKeywords: ['monopo', 'london', 'design', 'culture'],
+    expectedKeywords: ['monopo', 'london', 'Work', 'Services'],
   },
   {
     id: 'kffein-com',

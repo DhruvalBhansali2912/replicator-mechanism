@@ -6293,41 +6293,185 @@ export class JsSynthesizer {
       document.body.classList.remove('lenis-stopped');
     } catch (_) {}
 
-    // Universal Horizontal Gallery Wheel & Drag Controller
+    // Universal Inertial Horizontal Carousel, Track & Gallery Controller
     try {
-      const galleries = document.querySelectorAll('.gallery, [class*="gallery"]:not([class*="grid"])');
-      galleries.forEach(function(gal) {
-        gal.addEventListener('wheel', function(e) {
-          if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-            gal.scrollLeft += e.deltaY;
-            e.preventDefault();
-          }
-        }, { passive: false });
+      (function() {
+        const tracks = Array.from(document.querySelectorAll(
+          '.archive-gallery__motion, .archive-gallery__track, [class*="gallery__motion"], [class*="gallery__track"], [class*="carousel__track"], [class*="slider__track"], [class*="horizontal-track"], .gallery-track, .gallery'
+        ));
 
-        let isDown = false;
-        let startX = 0;
-        let scrollLeft = 0;
-        gal.addEventListener('mousedown', function(e) {
-          isDown = true;
-          startX = e.pageX - (gal as HTMLElement).offsetLeft;
-          scrollLeft = gal.scrollLeft;
+        tracks.forEach(function(track) {
+          let currentX = 0;
+          let targetX = 0;
+          let isDragging = false;
+          let startX = 0;
+          let lastX = 0;
+          let velocity = 0;
+          let maxScroll = 0;
+
+          function updateBounds() {
+            const parent = track.parentElement || track;
+            const parentWidth = parent.clientWidth || window.innerWidth;
+            maxScroll = Math.max(0, track.scrollWidth - parentWidth);
+          }
+          window.addEventListener('resize', updateBounds);
+          updateBounds();
+
+          const isTransformTrack = track.classList.contains('archive-gallery__motion') ||
+            track.classList.contains('archive-gallery__track') ||
+            (track.className && typeof track.className === 'string' && track.className.includes('motion')) ||
+            (track.className && typeof track.className === 'string' && track.className.includes('track'));
+
+          window.addEventListener('wheel', function(e) {
+            const delta = Math.abs(e.deltaY) > Math.abs(e.deltaX) ? e.deltaY : e.deltaX;
+            if (Math.abs(delta) > 2) {
+              updateBounds();
+              if (maxScroll > 10) {
+                targetX += delta * 1.35;
+                targetX = Math.max(0, Math.min(maxScroll, targetX));
+              } else if (!isTransformTrack) {
+                track.scrollLeft += delta;
+              }
+            }
+          }, { passive: true });
+
+          track.addEventListener('pointerdown', function(e) {
+            isDragging = true;
+            startX = e.clientX;
+            lastX = e.clientX;
+            velocity = 0;
+            updateBounds();
+          });
+
+          window.addEventListener('pointermove', function(e) {
+            if (!isDragging) return;
+            const dx = e.clientX - lastX;
+            lastX = e.clientX;
+            velocity = dx;
+            targetX -= dx * 1.5;
+            targetX = Math.max(0, Math.min(maxScroll, targetX));
+          });
+
+          window.addEventListener('pointerup', function() {
+            if (!isDragging) return;
+            isDragging = false;
+            targetX -= velocity * 8;
+            targetX = Math.max(0, Math.min(maxScroll, targetX));
+          });
+
+          function animate() {
+            if (isTransformTrack || maxScroll > 10) {
+              currentX += (targetX - currentX) * 0.12;
+              if (Math.abs(targetX - currentX) > 0.05) {
+                track.style.transform = 'translate3d(' + (-currentX) + 'px, 0, 0)';
+                track.style.willChange = 'transform';
+              }
+            }
+            requestAnimationFrame(animate);
+          }
+          requestAnimationFrame(animate);
         });
-        window.addEventListener('mouseup', function() { isDown = false; });
-        gal.addEventListener('mousemove', function(e) {
-          if (!isDown) return;
-          e.preventDefault();
-          const x = e.pageX - (gal as HTMLElement).offsetLeft;
-          const walk = (x - startX) * 1.5;
-          gal.scrollLeft = scrollLeft - walk;
+
+        // Universal Hover Preview & Magnetism Controller
+        const hoverItems = Array.from(document.querySelectorAll(
+          '.archive-gallery__item, .item, [class*="gallery__item"], [class*="menu-link"], [class*="item"], .menu-tile'
+        ));
+        const previewTargets = Array.from(document.querySelectorAll(
+          '.archive-menu-image-target, .archive-menu-image-target__frame, [class*="menu-image-target"], [class*="preview-target"], [class*="hover-target"]'
+        ));
+
+        hoverItems.forEach(function(item) {
+          item.addEventListener('pointerenter', function() {
+            previewTargets.forEach(function(target) {
+              target.style.opacity = '1';
+              target.style.visibility = 'visible';
+              target.style.transition = 'opacity 0.35s cubic-bezier(0.16, 1, 0.3, 1), transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
+            });
+            const childImg = item.querySelector('img, video');
+            if (childImg) {
+              childImg.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+              childImg.style.transform = 'scale(1.04)';
+            }
+          });
+
+          item.addEventListener('pointerleave', function() {
+            previewTargets.forEach(function(target) {
+              target.style.opacity = '0';
+              target.style.visibility = 'hidden';
+            });
+            const childImg = item.querySelector('img, video');
+            if (childImg) {
+              childImg.style.transform = 'scale(1)';
+            }
+          });
         });
-      });
+
+        // Universal Menu Overlay & Toggle Controller
+        const menuToggles = Array.from(document.querySelectorAll(
+          '.menu-toggle, [class*="menu-toggle"], button[aria-label*="menu" i], [class*="hamburger"], [class*="burger"]'
+        ));
+        const menuOverlays = Array.from(document.querySelectorAll(
+          '.menu-overlay, .menu-tiles-wrapper, [class*="menu-overlay"], [class*="site-menu"]'
+        ));
+
+        menuToggles.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            menuOverlays.forEach(function(ov) {
+              const isHidden = window.getComputedStyle(ov).display === 'none' ||
+                window.getComputedStyle(ov).visibility === 'hidden' ||
+                ov.style.display === 'none';
+              if (isHidden) {
+                ov.style.display = 'block';
+                ov.style.visibility = 'visible';
+                ov.style.opacity = '1';
+                ov.style.pointerEvents = 'auto';
+                ov.classList.add('is-active', 'open');
+              } else {
+                ov.style.opacity = '0';
+                ov.classList.remove('is-active', 'open');
+                setTimeout(function() {
+                  ov.style.display = 'none';
+                  ov.style.visibility = 'hidden';
+                }, 300);
+              }
+            });
+          });
+        });
+
+        // Sound Visualizer & Settings Trigger Controller
+        const soundBtns = Array.from(document.querySelectorAll(
+          '.sound-viz, [class*="sound"], [class*="audio-toggle"], .settings__trigger'
+        ));
+        soundBtns.forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            btn.classList.toggle('is-playing');
+            btn.classList.toggle('is-active');
+            const bars = btn.querySelectorAll('span, i, div');
+            bars.forEach(function(bar, idx) {
+              bar.style.animation = btn.classList.contains('is-playing')
+                ? 'soundWave ' + (0.4 + idx * 0.15) + 's ease-in-out infinite alternate'
+                : 'none';
+            });
+          });
+        });
+      })();
     } catch (_) {}
 
     // Universal Interactive Ambient & 3D Canvas Background Controller
     try {
+      // Ensure #gl or #webgl container has a canvas
+      const bgContainers = document.querySelectorAll('#gl, #webgl, .webgl, [class*="webgl"]:not([class*="btn"])');
+      bgContainers.forEach(function(cont) {
+        if (!cont.querySelector('canvas') && !cont.querySelector('img.rep-canvas-replacement')) {
+          const c = document.createElement('canvas');
+          cont.appendChild(c);
+        }
+      });
+
       const rawCanvasCandidates = Array.from(
         document.querySelectorAll(
-          '#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, canvas[class*="background"], canvas[class*="ambient"], canvas.bg-canvas, #gl img, [class*="webgl"] img, img.rep-canvas-replacement'
+          '#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, canvas[class*="background"], canvas[class*="ambient"], canvas.bg-canvas, #gl img, [class*="webgl"] img, img.rep-canvas-replacement, body > canvas'
         ) || []
       ).filter(function(targetEl) {
         let parent = targetEl.parentElement;

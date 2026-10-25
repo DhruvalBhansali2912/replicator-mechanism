@@ -184,12 +184,9 @@ header.site-header, header {
   z-index: 9999 !important;
 }
 
-/* Universal SplitText & Char Reveal Unhiding */
-h1 div, h1 span, h2 div, h2 span, h3 div, h3 span, [class*="title"] div, [class*="title"] span, .char, .word, .line, [class*="char"], [class*="word"], [class*="split"], [data-split], h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [class*="title"] [aria-hidden="true"], [data-split] [aria-hidden="true"] {
-  opacity: 1 !important;
-  visibility: visible !important;
-  transform: none !important;
-  filter: none !important;
+/* Universal SplitText & Char Base Unhiding (Non-destructive to inline animations) */
+h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [class*="title"] [aria-hidden="true"] {
+  display: inline-block;
 }
 
 /* Universal Off-Canvas Drawer & Overlay Resting State */
@@ -219,31 +216,6 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
 }
 .lenis.lenis-stopped, [class*="lenis-stopped"] {
   overflow: visible !important;
-}
-
-/* Universal GSAP ScrollTrigger Pin-Spacer & Horizontal Carousel Normalization */
-.pin-spacer {
-  height: auto !important;
-  width: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  position: relative !important;
-  inset: auto !important;
-  overflow: visible !important;
-}
-.gallery, [class*="gallery"]:not([class*="grid"]) {
-  visibility: visible !important;
-  opacity: 1 !important;
-  overflow-x: auto !important;
-  overflow-y: hidden !important;
-  -webkit-overflow-scrolling: touch !important;
-  scrollbar-width: none !important;
-}
-.gallery::-webkit-scrollbar, [class*="gallery"]::-webkit-scrollbar {
-  display: none !important;
-}
-.gallery .item, [class*="gallery"] .item, [class*="gallery"] [class*="item"] {
-  flex-shrink: 0 !important;
 }
 `;
 
@@ -284,11 +256,20 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
       } catch (_) {}
     }
 
+    // Universal Fixed Canvas Container Fallback (e.g. #gl on Nuxt/Three.js or ambient canvas sites)
+    if (!globalBgCanvasHtml && (
+      (htmlSnapshot && (htmlSnapshot.includes('id="gl"') || htmlSnapshot.includes('class="webgl"') || htmlSnapshot.includes('id="webgl"'))) ||
+      (_rawHtml && (_rawHtml.includes('id="gl"') || _rawHtml.includes('class="webgl"') || _rawHtml.includes('id="webgl"')))
+    )) {
+      globalBgCanvasHtml = '<div id="gl"><canvas></canvas></div>';
+    }
+
     if (segmentedSections.length === 1) {
       const sec = sectionsOutput[0];
-      const effectiveSectionJs = sec.js && sec.js.trim().length > 50
-        ? `// [Universal Interactive Resilience Controller]\n${sec.js}`
-        : wrappedRawJs;
+      const effectiveSectionJs = [
+        wrappedRawJs,
+        sec.js ? `// [Universal Interactive Resilience Controller]\n${sec.js}` : ''
+      ].filter(Boolean).join('\n\n');
 
       const injectedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
@@ -326,9 +307,10 @@ ${injectedBg}${sec.html}
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');
     const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
     const syntheticJs = sectionsOutput.map((r) => r.js).filter(Boolean).join('\n\n');
-    const effectiveFullJs = syntheticJs && syntheticJs.trim().length > 50
-      ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}`
-      : wrappedRawJs;
+    const effectiveFullJs = [
+      wrappedRawJs,
+      syntheticJs ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}` : ''
+    ].filter(Boolean).join('\n\n');
 
     const fullHtml = `<!DOCTYPE html>
 <html ${htmlAttrs}>
