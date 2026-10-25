@@ -1478,45 +1478,8 @@ ${drawerListItems.join('\n')}
     }
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
-      let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
-      const indexPath = path.join(jobDir, 'index.html');
-      const html = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, 'utf8') : '';
-      const isBloatedOrOutdated = !js ||
-        (html.includes('shoptimizer-modal') && (!js.includes('searchToggle') || !js.includes('search-modal-heading'))) ||
-        (html.includes('header-4') && (!js.includes('search-modal-open') || !js.includes('search-modal-heading'))) ||
-        js.split('\n').length > 2500 ||
-        !js.includes('universal-mobile-menu-drawer') ||
-        !js.includes('dx-mega-menu-panel') ||
-        !js.includes('hamburger-menu') ||
-        !js.includes('accordion-row-active-sync') ||
-        !js.includes("content-drawer-open', 'mobile-toggled')");
-
-      if (isBloatedOrOutdated && fs.existsSync(path.join(jobDir, 'index.html'))) {
-        const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
-        let jobData: any = {};
-        if (fs.existsSync(metaPath)) {
-          try {
-            jobData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
-          } catch (_) {}
-        }
-        try {
-          const ast = (synthesisEngine as any).inspector.inspect(
-            fs.readFileSync(path.join(jobDir, 'index.html'), 'utf8'),
-            jobData.url || 'https://example.com',
-            '',
-            jobData.options?.sectionSelector || 'header',
-            jobData.options?.targetArchetype || 'navbar',
-            jobData.options?.htmlSnapshot
-          );
-          const freshJs = (synthesisEngine as any).jsSynthesizer.synthesize(ast);
-          if (freshJs && freshJs.length > 50) {
-            js = freshJs;
-            fs.writeFileSync(jsPath, js, 'utf8');
-          }
-        } catch (_) {}
-      }
-      if (js) {
-        res.type('application/javascript').send(js);
+      if (fs.existsSync(jsPath)) {
+        res.type('application/javascript').sendFile(jsPath);
         return;
       }
     }
