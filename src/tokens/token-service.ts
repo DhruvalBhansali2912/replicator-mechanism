@@ -49,6 +49,15 @@ export class TokenService {
   public getUserBalance(userId: string): TokenBalanceSummary {
     const rawDb = this.db.getRawDb();
 
+    // Release any stale reservations older than 10 minutes
+    try {
+      rawDb.prepare(`
+        UPDATE token_reservations 
+        SET status = 'expired'
+        WHERE status = 'pending' AND (expires_at < datetime('now') OR created_at < datetime('now', '-10 minutes'))
+      `).run();
+    } catch (_) {}
+
     // 1. Calculate current settled balance from immutable ledger
     // Grants, purchases, adjustments add; consumptions subtract.
     const balanceStmt = rawDb.prepare(`
