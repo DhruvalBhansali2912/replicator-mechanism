@@ -619,7 +619,8 @@ export class HtmlSynthesizer {
             // Universal Background Canvas / WebGL Preservation:
             if (
               $sib.is('#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"]') ||
-              $sib.find('canvas').length > 0
+              $sib.find('canvas').length > 0 ||
+              $sib.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]').length > 0
             ) {
               return;
             }
@@ -647,6 +648,21 @@ export class HtmlSynthesizer {
     $('.pin-spacer').each((_, el) => {
       const $el = $(el);
       $el.replaceWith($el.children());
+    });
+
+    // Universal Interactive Canvas Container Rehydration:
+    // If a canvas container (#gl, .webgl, etc.) contains a replaced image or is empty, ensure real <canvas> is present
+    $('#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"]').each((_, el) => {
+      const $el = $(el);
+      const canvas = $el.find('canvas');
+      if (canvas.length === 0) {
+        const replacementImg = $el.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]');
+        if (replacementImg.length > 0) {
+          replacementImg.replaceWith('<canvas></canvas>');
+        } else {
+          $el.append('<canvas></canvas>');
+        }
+      }
     });
 
     // Universal Dynamic Text Restoration:

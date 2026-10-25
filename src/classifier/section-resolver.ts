@@ -397,7 +397,15 @@ export function enrichSectionWithCompanions(
     targetHtml.includes('preloader') ||
     targetHtml.includes('splash');
 
-  if (!isNav && !isLoader) return targetHtml;
+  const isHero =
+    targetArchetype === 'hero' ||
+    (sourceSelector && (sourceSelector.includes('hero') || sourceSelector.includes('banner') || sourceSelector.includes('intro'))) ||
+    targetHtml.includes('hero') ||
+    targetHtml.includes('intro');
+
+  const hasBgCanvasInSnap = $snap('#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"]').length > 0;
+
+  if (!isNav && !isLoader && !(isHero && hasBgCanvasInSnap)) return targetHtml;
 
   try {
     const $target = cheerio.load(targetHtml);
@@ -648,7 +656,8 @@ export function enrichSectionWithCompanions(
     const bgCanvasSelector = '#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"]';
     $snap(bgCanvasSelector).each((_, el) => {
       const $el = $snap(el);
-      if ($el.find('canvas').length > 0) {
+      const hasCanvas = $el.find('canvas').length > 0 || $el.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]').length > 0;
+      if (hasCanvas) {
         const cls = ($el.attr('class') || '').toLowerCase();
         const id = ($el.attr('id') || '').toLowerCase();
         // Avoid tiny button canvases, sound viz, or offcanvas menus

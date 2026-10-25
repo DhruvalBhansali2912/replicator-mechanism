@@ -83,6 +83,7 @@ export class ReconstructionWorker {
 
     let htmlAttrs = 'lang="en"';
     let bodyAttrs = '';
+    let globalBgCanvasHtml = '';
     if (htmlSnapshot || _rawHtml) {
       try {
         const $snap = cheerio.load(htmlSnapshot || _rawHtml);
@@ -99,8 +100,62 @@ export class ReconstructionWorker {
         for (const [k, v] of Object.entries(snapBody.attr() || {})) {
           if (k !== 'class') bodyAttrs += ` ${k}="${v}"`;
         }
+
+        // Universal Fixed Background WebGL / Canvas Container Extraction
+        const bgContainer = $snap(
+          '#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"], [class*="ambient-canvas"], [class*="background-canvas"], body > canvas, body > img.rep-canvas-replacement'
+        ).filter((_, el) => {
+          const $el = $snap(el);
+          const cls = ($el.attr('class') || '').toLowerCase();
+          const id = ($el.attr('id') || '').toLowerCase();
+          const isDirectCanvas = (el.tagName || '').toLowerCase() === 'canvas';
+          const isDirectReplacement = $el.is('img.rep-canvas-replacement, img[class*="canvas-replacement"]');
+          const hasCanvas = isDirectCanvas || isDirectReplacement || $el.find('canvas').length > 0 || $el.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]').length > 0;
+          return hasCanvas && !cls.includes('button') && !cls.includes('offcanvas') && !cls.includes('icon') && !cls.includes('btn') && !cls.includes('sound') && !id.includes('sound');
+        }).first();
+
+        if (bgContainer.length > 0) {
+          bgContainer.find('img.rep-canvas-replacement, img[class*="canvas-replacement"]').each((_, img) => {
+            $snap(img).replaceWith('<canvas></canvas>');
+          });
+          if (bgContainer.is('img.rep-canvas-replacement, img[class*="canvas-replacement"]')) {
+            globalBgCanvasHtml = '<div id="gl"><canvas></canvas></div>';
+          } else {
+            if (bgContainer.find('canvas').length === 0) {
+              bgContainer.append('<canvas></canvas>');
+            }
+            globalBgCanvasHtml = $snap.html(bgContainer) || '';
+          }
+        }
       } catch (_) {}
     }
+
+    const bgCanvasCss = `
+#gl, #webgl, .webgl, [class*="webgl"], [class*="canvas-container"], [id*="canvas-container"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  overflow: hidden !important;
+}
+#gl canvas, #webgl canvas, .webgl canvas, [class*="webgl"] canvas, [class*="canvas-container"] canvas, [id*="canvas-container"] canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  pointer-events: none !important;
+}
+body > section, section, main, [class*="hero"], [class*="storytelling"] {
+  position: relative !important;
+  z-index: 2 !important;
+}
+`;
 
     if (segmentedSections.length === 1) {
       const sec = sectionsOutput[0];
@@ -108,7 +163,10 @@ export class ReconstructionWorker {
         ? `// [Universal Interactive Resilience Controller]\n${sec.js}`
         : wrappedRawJs;
 
-      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${sec.css}`;
+      const hasBg = sec.html.includes('id="gl"') || sec.html.includes('class="webgl"') || (globalBgCanvasHtml && sec.html.includes(globalBgCanvasHtml.slice(0, 30)));
+      const injectedBg = (!hasBg && globalBgCanvasHtml) ? `${globalBgCanvasHtml}\n` : '';
+
+      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${sec.css}`;
       const fullHtml = `<!DOCTYPE html>
 <html ${htmlAttrs}>
 <head>
@@ -119,7 +177,7 @@ export class ReconstructionWorker {
   <link rel="stylesheet" href="style.css">
 </head>
 <body ${bodyAttrs}>
-${sec.html}
+${injectedBg}${sec.html}
   <script src="script.js" defer></script>
 </body>
 </html>`.trim();
@@ -137,8 +195,11 @@ ${sec.html}
     }
 
     const combinedSectionsHtml = sectionsOutput.map((r) => r.html).join('\n\n');
+    const hasCombinedBg = combinedSectionsHtml.includes('id="gl"') || combinedSectionsHtml.includes('class="webgl"') || (globalBgCanvasHtml && combinedSectionsHtml.includes(globalBgCanvasHtml.slice(0, 30)));
+    const injectedCombinedBg = (!hasCombinedBg && globalBgCanvasHtml) ? `${globalBgCanvasHtml}\n` : '';
+
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');
-    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${combinedRawCss}`;
+    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
     const syntheticJs = sectionsOutput.map((r) => r.js).filter(Boolean).join('\n\n');
     const effectiveFullJs = syntheticJs && syntheticJs.trim().length > 50
       ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}`
@@ -154,7 +215,7 @@ ${sec.html}
   <link rel="stylesheet" href="style.css">
 </head>
 <body ${bodyAttrs}>
-${combinedSectionsHtml}
+${injectedCombinedBg}${combinedSectionsHtml}
   <script src="script.js" defer></script>
 </body>
 </html>`.trim();

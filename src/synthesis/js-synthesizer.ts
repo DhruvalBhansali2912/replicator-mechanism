@@ -6289,9 +6289,24 @@ export class JsSynthesizer {
 
     // Universal Interactive Ambient & 3D Canvas Background Controller
     try {
-      const canvasElements = Array.from(document.querySelectorAll('#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, canvas[class*="background"], canvas[class*="ambient"], canvas.bg-canvas') || []);
-      if (canvasElements.length > 0) {
-        canvasElements.forEach(function(canvas) {
+      const rawCanvasCandidates = Array.from(
+        document.querySelectorAll(
+          '#gl canvas, [class*="webgl"] canvas, [id*="webgl"] canvas, canvas[class*="background"], canvas[class*="ambient"], canvas.bg-canvas, #gl img, [class*="webgl"] img, img.rep-canvas-replacement'
+        ) || []
+      );
+      if (rawCanvasCandidates.length > 0) {
+        rawCanvasCandidates.forEach(function(targetEl) {
+          let canvas = targetEl;
+          if (targetEl.tagName === 'IMG') {
+            const realCanvas = document.createElement('canvas');
+            realCanvas.className = (targetEl.className || '').replace('rep-canvas-replacement', '').trim();
+            realCanvas.style.cssText = targetEl.style.cssText;
+            if (targetEl.parentNode) {
+              targetEl.parentNode.replaceChild(realCanvas, targetEl);
+            }
+            canvas = realCanvas;
+          }
+
           const ctx = canvas.getContext('2d');
           if (!ctx) return;
 
@@ -6317,15 +6332,28 @@ export class JsSynthesizer {
             mouse.targetY = e.clientY;
           });
 
-          // Theme color adaptation from CSS custom properties
+          // Theme color adaptation from CSS tokens and computed styles
           const compStyle = window.getComputedStyle(document.documentElement);
           const primaryColor = compStyle.getPropertyValue('--primary').trim() || compStyle.getPropertyValue('--color-primary').trim() || '#9047ff';
+
+          const isLight = document.documentElement.getAttribute('data-theme') === 'light' ||
+            (!document.documentElement.getAttribute('data-theme') && (function() {
+              const bg = window.getComputedStyle(document.body).backgroundColor;
+              const match = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+              if (match) {
+                const lum = 0.299 * (+match[1]) + 0.587 * (+match[2]) + 0.114 * (+match[3]);
+                return lum > 140;
+              }
+              return false;
+            })());
 
           // 3D Morphing Particle Vortex
           const particleCount = 750;
           const particles = [];
           const fov = 420;
-          const colors = ['#ffffff', '#e9d5ff', '#d8b4fe', '#c084fc', primaryColor, '#a855f7', '#f5d0fe'];
+          const darkColors = ['#ffffff', '#e9d5ff', '#d8b4fe', '#c084fc', primaryColor, '#a855f7', '#f5d0fe'];
+          const lightColors = ['#5b21b6', '#6d28d9', '#7c3aed', '#8b5cf6', '#9047ff', '#a855f7', '#3b0764'];
+          const colors = isLight ? lightColors : darkColors;
 
           for (let i = 0; i < particleCount; i++) {
             const theta = (i / particleCount) * Math.PI * 8;
@@ -6374,25 +6402,45 @@ export class JsSynthesizer {
 
             ctx.globalCompositeOperation = 'source-over';
 
-            // Atmospheric gradient background
-            const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-            bgGrad.addColorStop(0, '#2a1647');
-            bgGrad.addColorStop(0.45, '#4c1d95');
-            bgGrad.addColorStop(0.7, '#7c3aed');
-            bgGrad.addColorStop(0.85, '#4a154b');
-            bgGrad.addColorStop(1, '#18062b');
-            ctx.fillStyle = bgGrad;
-            ctx.fillRect(0, 0, width, height);
+            if (isLight) {
+              // Soft atmospheric lavender gradient matching origin theme tokens
+              const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+              bgGrad.addColorStop(0, '#f5efff');
+              bgGrad.addColorStop(0.5, '#eee2ff');
+              bgGrad.addColorStop(1, '#e3ceff');
+              ctx.fillStyle = bgGrad;
+              ctx.fillRect(0, 0, width, height);
 
-            // Soft ambient radial glow
-            const glowX = width * 0.5 + (mouse.x - width * 0.5) * 0.15;
-            const glowY = height * 0.4 + (mouse.y - height * 0.4) * 0.15;
-            const radialGlow = ctx.createRadialGradient(glowX, glowY, 20, glowX, glowY, width * 0.65);
-            radialGlow.addColorStop(0, 'rgba(168, 85, 247, 0.35)');
-            radialGlow.addColorStop(0.4, 'rgba(144, 71, 255, 0.18)');
-            radialGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
-            ctx.fillStyle = radialGlow;
-            ctx.fillRect(0, 0, width, height);
+              // Soft ambient radial glow
+              const glowX = width * 0.5 + (mouse.x - width * 0.5) * 0.15;
+              const glowY = height * 0.4 + (mouse.y - height * 0.4) * 0.15;
+              const radialGlow = ctx.createRadialGradient(glowX, glowY, 20, glowX, glowY, width * 0.65);
+              radialGlow.addColorStop(0, 'rgba(144, 71, 255, 0.22)');
+              radialGlow.addColorStop(0.5, 'rgba(168, 85, 247, 0.08)');
+              radialGlow.addColorStop(1, 'rgba(245, 239, 255, 0)');
+              ctx.fillStyle = radialGlow;
+              ctx.fillRect(0, 0, width, height);
+            } else {
+              // Deep cosmic violet atmospheric gradient
+              const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
+              bgGrad.addColorStop(0, '#2a1647');
+              bgGrad.addColorStop(0.45, '#4c1d95');
+              bgGrad.addColorStop(0.7, '#7c3aed');
+              bgGrad.addColorStop(0.85, '#4a154b');
+              bgGrad.addColorStop(1, '#18062b');
+              ctx.fillStyle = bgGrad;
+              ctx.fillRect(0, 0, width, height);
+
+              // Soft ambient radial glow
+              const glowX = width * 0.5 + (mouse.x - width * 0.5) * 0.15;
+              const glowY = height * 0.4 + (mouse.y - height * 0.4) * 0.15;
+              const radialGlow = ctx.createRadialGradient(glowX, glowY, 20, glowX, glowY, width * 0.65);
+              radialGlow.addColorStop(0, 'rgba(168, 85, 247, 0.35)');
+              radialGlow.addColorStop(0.4, 'rgba(144, 71, 255, 0.18)');
+              radialGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+              ctx.fillStyle = radialGlow;
+              ctx.fillRect(0, 0, width, height);
+            }
 
             // Floating dust motes
             for (let i = 0; i < dust.length; i++) {
@@ -6458,7 +6506,7 @@ export class JsSynthesizer {
 
             projected.sort(function(a, b) { return a.z - b.z; });
 
-            ctx.globalCompositeOperation = 'lighter';
+            ctx.globalCompositeOperation = isLight ? 'source-over' : 'lighter';
             for (let i = 0; i < projected.length; i++) {
               const pt = projected[i];
               ctx.beginPath();
