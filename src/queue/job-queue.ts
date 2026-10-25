@@ -483,7 +483,11 @@ export class JobQueue {
               targetSectionHtml.includes('id="maincontent"')
             );
 
-            if (!targetSectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus || snapCount > curCount || isDirtyShell) {
+            const isAncestorWrapper = options.sectionSelector
+              ? resolvedTarget.find(options.sectionSelector).length > 0
+              : (resolvedTarget.is('div, header, nav, section') && resolvedTarget.find('header, nav, [role="banner"]').length > 0);
+
+            if (!targetSectionHtml || curText.length < 10 || curMedia === 0 || snapMenus >= curMenus || snapCount > curCount || isDirtyShell || isAncestorWrapper || options.targetArchetype === 'navbar') {
               targetSectionHtml = $snap.html(resolvedTarget) || targetSectionHtml;
               const resId = resolvedTarget.attr('id');
               if (resId && (!options.sectionSelector || !options.sectionSelector.includes(resId))) {

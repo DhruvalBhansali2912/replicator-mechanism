@@ -2096,6 +2096,8 @@ export async function processJob(job: JobState, jobs: Map<string, JobState> = ne
                      c === 'elementor' ||
                      c.startsWith('ast-') ||
                      c.startsWith('theme-') ||
+                     c.includes('scope') ||
+                     c.startsWith('nav-') ||
                      c === 'site-main')
                   ) {
                     if (!ancestorClasses.includes(c)) ancestorClasses.push(c);

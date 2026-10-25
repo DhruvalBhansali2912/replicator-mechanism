@@ -47,8 +47,13 @@ export class GroundUpSynthesisEngine {
           // If current sectionHtml is empty, lacks content, or snapshot has richer menus/structure or more complete container hierarchy
           const snapCount = resolvedTarget.find('*').length;
           const curCount = $cur('*').length;
-          const isEnclosingHeader = targetArchetypeHint === 'navbar' && resolvedTarget.is('header, [role="banner"], [class*="Header"], [class*="site-header"]');
-          if (!sectionHtml || curText.length < 10 || curMedia === 0 || snapMenus > curMenus || snapCount > curCount || isEnclosingHeader) {
+          const isAncestorWrapper = sourceSelector
+            ? resolvedTarget.find(sourceSelector).length > 0
+            : (resolvedTarget.is('div, header, nav, section') && resolvedTarget.find('header, nav, [role="banner"]').length > 0);
+          const isEnclosingHeader = targetArchetypeHint === 'navbar' && (
+            resolvedTarget.is('header, [role="banner"], [class*="Header"], [class*="site-header"]') || isAncestorWrapper
+          );
+          if (!sectionHtml || curText.length < 10 || curMedia === 0 || snapMenus >= curMenus || snapCount > curCount || isEnclosingHeader || isAncestorWrapper) {
             sectionHtml = $snap.html(resolvedTarget) || sectionHtml;
           }
         }
