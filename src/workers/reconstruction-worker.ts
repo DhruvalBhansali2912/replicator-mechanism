@@ -135,6 +135,27 @@ export class ReconstructionWorker {
         );
         if (bodyOverlays.length > 0) {
           bodyOverlays.each((_, el) => {
+            const $el = $snap(el);
+            $el.find('img, source, video').each((_, m) => {
+              const src = $snap(m).attr('src');
+              if (src && (src.startsWith('/') || !src.startsWith('http'))) {
+                try {
+                  $snap(m).attr('src', new URL(src, sourceUrl).href);
+                } catch {}
+              }
+              const srcset = $snap(m).attr('srcset');
+              if (srcset) {
+                const rewritten = srcset.split(',').map(part => {
+                  const [u, w] = part.trim().split(/\s+/);
+                  try {
+                    return `${new URL(u, sourceUrl).href}${w ? ' ' + w : ''}`;
+                  } catch {
+                    return part;
+                  }
+                }).join(', ');
+                $snap(m).attr('srcset', rewritten);
+              }
+            });
             globalOverlaysHtml += '\n' + $snap.html(el);
           });
         }
