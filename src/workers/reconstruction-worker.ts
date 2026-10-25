@@ -229,6 +229,39 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
 }
 `;
 
+    // Extract global :root variables, @font-face rules, and body background from rawCss & snapshot
+    let globalCssPreamble = '';
+    if (rawCss) {
+      const rootMatches = rawCss.match(/:root\s*\{[^}]*\}/gi);
+      if (rootMatches) {
+        globalCssPreamble += rootMatches.join('\n') + '\n';
+      }
+      const fontMatches = rawCss.match(/@font-face\s*\{[^}]*\}/gi);
+      if (fontMatches) {
+        globalCssPreamble += fontMatches.join('\n') + '\n';
+      }
+      const bodyBgMatch = rawCss.match(/(?:body|html|body\s*,\s*html)\s*\{[^}]*background(?:-color)?\s*:\s*([^;!}]+)[^}]*\}/i);
+      if (bodyBgMatch && bodyBgMatch[1]) {
+        const bgVal = bodyBgMatch[1].trim();
+        if (bgVal && bgVal !== 'none' && bgVal !== 'transparent') {
+          globalCssPreamble += `body { background-color: ${bgVal}; }\n`;
+        }
+      }
+    }
+    if (htmlSnapshot || _rawHtml) {
+      try {
+        const $snapForBg = cheerio.load(htmlSnapshot || _rawHtml);
+        const bStyle = $snapForBg('body').attr('style') || '';
+        const bgMatch = bStyle.match(/background(?:-color)?\s*:\s*([^;!]+)/i);
+        if (bgMatch && bgMatch[1]) {
+          const snapBg = bgMatch[1].trim();
+          if (snapBg && snapBg !== 'transparent' && snapBg !== 'none') {
+            globalCssPreamble += `body { background-color: ${snapBg} !important; }\n`;
+          }
+        }
+      } catch (_) {}
+    }
+
     if (segmentedSections.length === 1) {
       const sec = sectionsOutput[0];
       const effectiveSectionJs = sec.js && sec.js.trim().length > 50
@@ -237,7 +270,7 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
 
       const injectedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
-      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${sec.css}`;
+      const rawFullCss = `*, *::before, *::after { box-sizing: border-box; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${sec.css}`;
       const fullHtml = `<!DOCTYPE html>
 <html ${htmlAttrs}>
 <head>
@@ -269,7 +302,7 @@ ${injectedBg}${sec.html}
     const injectedCombinedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
 
     const combinedRawCss = sectionsOutput.map((r) => r.css).join('\n\n');
-    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
+    const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
     const syntheticJs = sectionsOutput.map((r) => r.js).filter(Boolean).join('\n\n');
     const effectiveFullJs = syntheticJs && syntheticJs.trim().length > 50
       ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}`

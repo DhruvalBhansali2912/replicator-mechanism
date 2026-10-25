@@ -25,7 +25,7 @@ export class VisualSegmentationWorker {
   public async execute(html: string, sourceUrl?: string): Promise<VisualSegmentationResult> {
     const $ = cheerio.load(html);
     const candidateNodes: { selector: string; tagName: string; html: string; rect: any }[] = [];
-
+    const candidateElements: any[] = [];
     const seenElements = new Set<any>();
 
     // Handle SPA Multi-Main Route Prerendering (e.g. Nuxt, Next.js, Vue where archive/about/home are all in DOM)
@@ -89,6 +89,15 @@ export class VisualSegmentationWorker {
         return;
       }
 
+      // Exclude off-canvas menus, mobile drawers, preloaders, curtains, popups, cookie banners
+      if (
+        id.includes('site-menu') || id.includes('mobile-nav') || id.includes('mobile-menu') || id.includes('drawer') || id.includes('offcanvas') || id.includes('off-canvas') ||
+        cls.includes('site-menu') || cls.includes('mobile-nav') || cls.includes('mobile-menu') || cls.includes('drawer') || cls.includes('offcanvas') || cls.includes('off-canvas') ||
+        cls.includes('preloader') || cls.includes('curtain') || cls.includes('loader') || cls.includes('intro-overlay') || cls.includes('cookie') || cls.includes('alert-message') || cls.includes('toast') || cls.includes('popup')
+      ) {
+        return;
+      }
+
       // A flow section must be a structural block element, not inline elements or list items
       if (['a', 'span', 'p', 'li', 'button', 'input', 'label', 'i', 'svg', 'img'].includes(tag)) {
         return;
@@ -103,12 +112,24 @@ export class VisualSegmentationWorker {
       const text = $el.text()?.trim() || '';
       const mediaCount = $el.find('img, video, picture, svg, canvas').length;
       if (text.length < 15 && mediaCount === 0) return;
-      if (cls.includes('cookie') || cls.includes('alert-message') || cls.includes('toast') || cls.includes('popup')) return;
       if (tag === 'dialog' || $el.attr('role') === 'dialog' || $el.attr('aria-modal') === 'true' || cls.includes('modal') || (cls.includes('dialog') && !cls.includes('catalogue')) || cls.includes('gnb-search') || cls.includes('search-layer')) return;
+
+      // Mutual exclusion: Never extract both a parent and its descendant child!
+      for (const existing of candidateElements) {
+        if ($(existing).find(el).length > 0) {
+          // el is already inside an existing section candidate -> reject el
+          return;
+        }
+        if ($el.find(existing).length > 0) {
+          // An existing section candidate is already inside el -> reject el (prefer more granular section)
+          return;
+        }
+      }
 
       const elHtml = $.html(el) || '';
       if (elHtml.trim().length > 30) {
         seenElements.add(el);
+        candidateElements.push(el);
         const resolvedSel = sel || getUniqueSelector(el);
         candidateNodes.push({
           selector: resolvedSel,
@@ -120,8 +141,14 @@ export class VisualSegmentationWorker {
     };
 
     // 1. Headers / Banners / Navigation Landmarks (exclude card headers inside sections)
+    let headerAdded = false;
     $('header:not(section header):not(article header):not(li header):not(footer header), [role="banner"], .page-header, [class*="site-header"], nav:not(header nav):not(footer nav):not(section nav), [role="navigation"]:not(header [role="navigation"]):not(footer [role="navigation"]):not(section [role="navigation"])').each((_, el) => {
+      if (headerAdded) return;
+      const countBefore = candidateNodes.length;
       addCandidate(el);
+      if (candidateNodes.length > countBefore) {
+        headerAdded = true;
+      }
     });
 
     // 2. Main content rows and sections
@@ -161,8 +188,13 @@ export class VisualSegmentationWorker {
     }
 
     // 3. Footers
+    let footerAdded = false;
     $('footer, [role="contentinfo"], .page-footer, [class*="site-footer"]').each((_, el) => {
+      const countBefore = candidateNodes.length;
       addCandidate(el);
+      if (candidateNodes.length > countBefore) {
+        footerAdded = true;
+      }
     });
 
     // 4. Extreme Fallback: If no distinct sections discovered, look inside SPA root containers or body
