@@ -104,7 +104,56 @@ export class JsSynthesizer {
       }
     }
 
+    // 0. Granular Scroll & Dynamic Background/Canvas Controller (10px increments)
+    const scrollInteractions = recordedInteractions.filter(function(i) {
+      return i.eventType === 'scroll' && i.scrollTransitions && i.scrollTransitions.length > 0;
+    });
+    if (scrollInteractions.length > 0) {
+      let scrollTicking = false;
+      const allScrollTransitions = [];
+      scrollInteractions.forEach(function(si) {
+        si.scrollTransitions.forEach(function(st) {
+          allScrollTransitions.push(st);
+        });
+      });
+      allScrollTransitions.sort(function(a, b) { return a.threshold - b.threshold; });
+
+      window.addEventListener('scroll', function() {
+        if (!scrollTicking) {
+          window.requestAnimationFrame(function() {
+            const currentY = window.scrollY || window.pageYOffset || 0;
+            allScrollTransitions.forEach(function(st) {
+              const targets = queryElements(st.targetSelector);
+              const isPassed = currentY >= st.threshold;
+              targets.forEach(function(target) {
+                if (isPassed) {
+                  if (st.addedClasses && st.addedClasses.length) target.classList.add(...st.addedClasses);
+                  if (st.removedClasses && st.removedClasses.length) target.classList.remove(...st.removedClasses);
+                  if (st.styles) {
+                    for (const [prop, val] of Object.entries(st.styles)) {
+                      target.style[prop] = val;
+                    }
+                  }
+                } else {
+                  if (st.addedClasses && st.addedClasses.length) target.classList.remove(...st.addedClasses);
+                  if (st.removedClasses && st.removedClasses.length) target.classList.add(...st.removedClasses);
+                  if (st.initialStyles) {
+                    for (const [prop, val] of Object.entries(st.initialStyles)) {
+                      target.style[prop] = val;
+                    }
+                  }
+                }
+              });
+            });
+            scrollTicking = false;
+          });
+          scrollTicking = true;
+        }
+      }, { passive: true });
+    }
+
     recordedInteractions.forEach(function(interaction) {
+      if (interaction.eventType === 'scroll') return;
       if (
         interaction.triggerSelector &&
         (interaction.triggerSelector.includes('swiper-button-') ||

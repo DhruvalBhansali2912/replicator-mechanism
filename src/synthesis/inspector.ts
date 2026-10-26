@@ -1443,6 +1443,6 @@ export class SectionInspector {
         mutations: finalMuts,
         reverseMutations: extractedRevMuts.length > 0 ? extractedRevMuts : undefined
       };
-    }).filter(i => (i.mutations && i.mutations.length > 0) || (i.reverseMutations && i.reverseMutations.length > 0));
+    }).filter(i => (i.mutations && i.mutations.length > 0) || (i.reverseMutations && i.reverseMutations.length > 0) || (i.eventType === 'scroll' && i.scrollTransitions && i.scrollTransitions.length > 0));
   }
 }

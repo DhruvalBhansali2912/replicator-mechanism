@@ -1141,24 +1141,15 @@
     await sleep(150);
   }
 
-  // Helper: Harvest section HTML including any dynamically mounted sibling panels or dialogs
+  // Helper: Harvest section HTML including any dynamically mounted sibling panels, portals or dialogs
   function harvestSectionHtmlWithDynamics(sectionEl, archetype) {
     if (!sectionEl) return '';
     let html = sectionEl.outerHTML;
 
-    const isNavHeader =
-      archetype === 'navbar' ||
-      ['header', 'nav'].includes(sectionEl.tagName.toLowerCase()) ||
-      sectionEl.id === 'mega-menu' ||
-      sectionEl.classList.contains('mega-menu');
-
-    // Only attach detached dialog panels for actual navigation headers.
-    // Never attach detached elements to normal content sections.
-    if (!isNavHeader) {
-      return html;
-    }
-
+    // Harvest all detached portals discovered during hover/click/scroll or present in document.body
     const detachedSelectors = [
+      '[data-interactive-portal="true"]',
+      '[data-mutation-src]',
       'dialog',
       '[role="dialog"]',
       '[role="menu"]',
@@ -1191,351 +1182,586 @@
     return html;
   }
 
-  // Helper: In-Situ Behavioral State Mutation Prober
-  // Synthetically probes interactive candidate elements, observes DOM mutations with MutationObserver,
-  // and records exact state transitions (classes, styles, aria attributes) into declarative specs.
+  // Helper: Compute clean selector for an element
+  function getCleanSelector(el, scope) {
+    if (!el || el === scope || el === document.documentElement || el === document.body) return '';
+    if (el.closest && (el.closest('#__replicator_picker_bar__') || el.closest('#__replicator_picker_overlay__'))) return '';
+
+    // 1. Stable, non-random ID
+    if (el.id && !/^\d/.test(el.id) && !el.id.includes(':') && !el.id.includes('__') && el.id.length < 50) {
+      return '#' + CSS.escape(el.id);
+    }
+
+    // 2. Semantic role or data-attributes
+    const dataAttrs = ['data-mutation-src', 'data-portal-for', 'data-role', 'data-tab', 'data-filter', 'data-target', 'data-toggle', 'data-action', 'data-color', 'data-size', 'data-value', 'aria-controls'];
+    for (const attr of dataAttrs) {
+      const val = el.getAttribute(attr);
+      if (val) {
+        const sel = `${el.tagName.toLowerCase()}[${attr}="${CSS.escape(val)}"]`;
+        try {
+          if ((scope || document).querySelectorAll(sel).length === 1) return sel;
+        } catch (e) {}
+      }
+    }
+
+    // 3. Accessibility and state attributes (name, for, value, an-la, aria-label)
+    const semanticAttrs = ['name', 'for', 'value', 'an-la', 'aria-label'];
+    for (const attr of semanticAttrs) {
+      const val = el.getAttribute(attr);
+      if (val && val.length < 50 && !val.includes('"') && !val.includes('\n')) {
+        const sel = `${el.tagName.toLowerCase()}[${attr}="${CSS.escape(val)}"]`;
+        try {
+          if ((scope || document).querySelectorAll(sel).length === 1) return sel;
+        } catch (e) {}
+      }
+    }
+
+    // 4. Stable class name based selector
+    if (el.classList && el.classList.length > 0) {
+      const validClasses = Array.from(el.classList).filter(c =>
+        !c.startsWith('is-') &&
+        !c.startsWith('has-') &&
+        !c.includes('open') &&
+        !c.includes('active') &&
+        !c.includes('focus') &&
+        !c.includes('hover') &&
+        !c.includes('selected') &&
+        !c.includes('__replicator')
+      );
+      if (validClasses.length > 0) {
+        const primaryCls = '.' + CSS.escape(validClasses[0]);
+        try {
+          const matches = Array.from((scope || document).querySelectorAll(primaryCls));
+          if (matches.length === 1) return primaryCls;
+          if (matches.length > 1) {
+            const idx = matches.indexOf(el);
+            if (idx !== -1) {
+              const parent = el.parentElement;
+              if (parent && parent !== scope && parent.className && typeof parent.className === 'string') {
+                const parentClasses = parent.className.split(/\s+/).filter(c => c && !c.startsWith('is-') && !c.includes('__replicator'));
+                if (parentClasses.length > 0) {
+                  const parentCls = '.' + CSS.escape(parentClasses[0]);
+                  const childIdx = Array.from(parent.children).indexOf(el) + 1;
+                  const scopedSel = `${parentCls} > ${primaryCls}:nth-of-type(${childIdx})`;
+                  try {
+                    if ((scope || document).querySelectorAll(scopedSel).length === 1) return scopedSel;
+                  } catch (e) {}
+                }
+              }
+              return `${primaryCls}:nth-of-type(${idx + 1})`;
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    // 5. Semantic ancestor-anchored path
+    const path = [];
+    let curr = el;
+    while (curr && curr !== scope && curr !== document.body && curr.parentElement) {
+      let tag = curr.tagName.toLowerCase();
+      let idx = 1;
+      let sib = curr.previousElementSibling;
+      while (sib) {
+        if (sib.tagName === curr.tagName) idx++;
+        sib = sib.previousElementSibling;
+      }
+      const validCls = curr.className && typeof curr.className === 'string'
+        ? curr.className.split(/\s+/).find(c => c && !c.startsWith('is-') && !c.includes('open') && !c.includes('active') && !c.includes('__replicator'))
+        : null;
+      if (validCls) {
+        path.unshift(`.${CSS.escape(validCls)}`);
+        break;
+      } else {
+        path.unshift(`${tag}:nth-of-type(${idx})`);
+      }
+      curr = curr.parentElement;
+    }
+    return path.join(' > ');
+  }
+
+  // Helper: Granular 10px Scroll Dynamics Explorer & Noter
+  // "check every 10 px if there is change in background or canvas or anything on screen and note everything"
+  async function probeScrollDynamics(sectionEl) {
+    if (!sectionEl) return [];
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    const initialScrollY = window.scrollY || window.pageYOffset || 0;
+    const progressStepEl = document.getElementById('__replicator_progress_step__');
+
+    // 1. Snapshot initial state of sectionEl, its header/sticky ancestors, and child elements at scroll 0
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    await sleep(60);
+
+    const monitoredElements = [sectionEl];
+    const candidateEls = Array.from(sectionEl.querySelectorAll('*')).filter(el => {
+      if (el.closest('#__replicator_picker_bar__') || el.closest('#__replicator_picker_overlay__')) return false;
+      const tag = el.tagName.toLowerCase();
+      if (['script', 'style', 'meta', 'link', 'br', 'wbr', 'noscript'].includes(tag)) return false;
+      return true;
+    });
+
+    candidateEls.forEach(el => {
+      const tag = el.tagName.toLowerCase();
+      if (tag === 'canvas' || tag === 'header' || tag === 'nav') {
+        monitoredElements.push(el);
+      } else {
+        const style = window.getComputedStyle(el);
+        if (
+          style.position === 'sticky' ||
+          style.position === 'fixed' ||
+          style.backgroundColor !== 'rgba(0, 0, 0, 0)' ||
+          style.backgroundImage !== 'none' ||
+          style.boxShadow !== 'none' ||
+          style.backdropFilter !== 'none'
+        ) {
+          monitoredElements.push(el);
+        }
+      }
+    });
+
+    function captureElementState(el) {
+      const style = window.getComputedStyle(el);
+      let canvasHash = null;
+      if (el.tagName.toLowerCase() === 'canvas') {
+        try {
+          canvasHash = el.toDataURL('image/png').slice(0, 80);
+        } catch {}
+      }
+      return {
+        classes: Array.from(el.classList).sort().join(' '),
+        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        boxShadow: style.boxShadow,
+        backdropFilter: style.backdropFilter,
+        opacity: style.opacity,
+        transform: style.transform,
+        canvasHash
+      };
+    }
+
+    const baseline = new Map();
+    monitoredElements.forEach(el => {
+      baseline.set(el, captureElementState(el));
+    });
+
+    // 2. Step every 10px through scroll range
+    const maxScroll = Math.min(
+      1500,
+      Math.max(600, (document.documentElement.scrollHeight || document.body.scrollHeight) - window.innerHeight)
+    );
+
+    const recordedScrollTransitions = [];
+    let previousState = new Map(baseline);
+
+    const scrollSteps = Math.floor(maxScroll / 10);
+    for (let step = 1; step <= scrollSteps; step++) {
+      const y = step * 10;
+      window.scrollTo({ top: y, behavior: 'instant' });
+      window.dispatchEvent(new Event('scroll', { bubbles: true }));
+
+      // Microtick to trigger scroll listeners / animations
+      await sleep(18);
+
+      if (progressStepEl && step % 10 === 0) {
+        progressStepEl.textContent = `Analyzing scroll dynamics: ${y}px / ${maxScroll}px (10px increments)...`;
+      }
+
+      monitoredElements.forEach(el => {
+        const current = captureElementState(el);
+        const prev = previousState.get(el);
+        const base = baseline.get(el);
+
+        const classChanged = current.classes !== prev.classes;
+        const bgChanged = current.backgroundColor !== prev.backgroundColor || current.backgroundImage !== prev.backgroundImage;
+        const shadowChanged = current.boxShadow !== prev.boxShadow || current.backdropFilter !== prev.backdropFilter;
+        const transformChanged = current.transform !== prev.transform || current.opacity !== prev.opacity;
+        const canvasChanged = current.canvasHash && current.canvasHash !== prev.canvasHash;
+
+        if (classChanged || bgChanged || shadowChanged || transformChanged || canvasChanged) {
+          const elSel = getCleanSelector(el, sectionEl);
+          if (elSel) {
+            const oldClasses = prev.classes ? prev.classes.split(' ').filter(Boolean) : [];
+            const newClasses = current.classes ? current.classes.split(' ').filter(Boolean) : [];
+            const addedClasses = newClasses.filter(c => !oldClasses.includes(c));
+            const removedClasses = oldClasses.filter(c => !newClasses.includes(c));
+
+            const styles = {};
+            const initialStyles = {};
+
+            if (current.backgroundColor !== base.backgroundColor) {
+              styles.backgroundColor = current.backgroundColor;
+              initialStyles.backgroundColor = base.backgroundColor;
+            }
+            if (current.backgroundImage !== base.backgroundImage) {
+              styles.backgroundImage = current.backgroundImage;
+              initialStyles.backgroundImage = base.backgroundImage;
+            }
+            if (current.boxShadow !== base.boxShadow) {
+              styles.boxShadow = current.boxShadow;
+              initialStyles.boxShadow = base.boxShadow;
+            }
+            if (current.backdropFilter !== base.backdropFilter) {
+              styles.backdropFilter = current.backdropFilter;
+              initialStyles.backdropFilter = base.backdropFilter;
+            }
+            if (current.transform !== base.transform && current.transform !== 'none') {
+              styles.transform = current.transform;
+              initialStyles.transform = base.transform;
+            }
+            if (current.opacity !== base.opacity) {
+              styles.opacity = current.opacity;
+              initialStyles.opacity = base.opacity;
+            }
+
+            recordedScrollTransitions.push({
+              threshold: y,
+              targetSelector: elSel,
+              addedClasses: addedClasses.length ? addedClasses : undefined,
+              removedClasses: removedClasses.length ? removedClasses : undefined,
+              styles: Object.keys(styles).length ? styles : undefined,
+              initialStyles: Object.keys(initialStyles).length ? initialStyles : undefined,
+              canvasChanged: !!canvasChanged
+            });
+          }
+          previousState.set(el, current);
+        }
+      });
+    }
+
+    // 3. Restore initial scroll position
+    window.scrollTo({ top: initialScrollY, behavior: 'instant' });
+    window.dispatchEvent(new Event('scroll', { bubbles: true }));
+    await sleep(60);
+
+    return recordedScrollTransitions;
+  }
+
+  // Universal In-Situ Behavioral State Mutation Prober
+  // Probes every element in section (hover, click, scroll at 10px), intercepts redirects immediately,
+  // and records full state transitions into declarative specs.
   async function recordDynamicInteractions(sectionEl) {
     if (!sectionEl) return [];
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
     const recorded = [];
+    const progressStepEl = document.getElementById('__replicator_progress_step__');
 
-    // Helper: Compute clean relative selector within sectionEl
-    function getCleanSelector(el) {
-      if (!el || el === sectionEl) return '';
-      if (el.closest('#__replicator_picker_bar__') || el.closest('#__replicator_picker_overlay__')) return '';
-
-      // 1. Stable, non-random ID
-      if (el.id && !/^\d/.test(el.id) && !el.id.includes(':') && !el.id.includes('__') && el.id.length < 40) {
-        return '#' + CSS.escape(el.id);
+    // 1. Granular 10px Scroll Dynamics Exploration Pass
+    try {
+      if (progressStepEl) progressStepEl.textContent = 'Probing scroll dynamics (every 10px)...';
+      const scrollTransitions = await probeScrollDynamics(sectionEl);
+      if (scrollTransitions.length > 0) {
+        recorded.push({
+          triggerSelector: 'window',
+          eventType: 'scroll',
+          scrollTransitions: scrollTransitions,
+          mutations: []
+        });
       }
-
-      // 2. Semantic role or data-attributes
-      const dataAttrs = ['data-role', 'data-tab', 'data-filter', 'data-target', 'data-toggle', 'data-action', 'data-color', 'data-size', 'data-value', 'aria-controls'];
-      for (const attr of dataAttrs) {
-        const val = el.getAttribute(attr);
-        if (val) {
-          const sel = `${el.tagName.toLowerCase()}[${attr}="${CSS.escape(val)}"]`;
-          try {
-            if (sectionEl.querySelectorAll(sel).length === 1) return sel;
-          } catch (e) {}
-        }
-      }
-
-      // 3. Accessibility and state attributes (name, for, value, an-la, aria-label, href)
-      const semanticAttrs = ['name', 'for', 'value', 'an-la', 'aria-label', 'href'];
-      for (const attr of semanticAttrs) {
-        const val = el.getAttribute(attr);
-        if (val && val.length < 50 && !val.includes('"') && !val.includes('\n')) {
-          const sel = `${el.tagName.toLowerCase()}[${attr}="${CSS.escape(val)}"]`;
-          try {
-            if (sectionEl.querySelectorAll(sel).length === 1) return sel;
-          } catch (e) {}
-        }
-      }
-
-      // 4. Stable class name based selector
-      if (el.classList && el.classList.length > 0) {
-        const validClasses = Array.from(el.classList).filter(c =>
-          !c.startsWith('is-') &&
-          !c.startsWith('has-') &&
-          !c.includes('open') &&
-          !c.includes('active') &&
-          !c.includes('focus') &&
-          !c.includes('hover') &&
-          !c.includes('selected') &&
-          !c.includes('__replicator')
-        );
-        if (validClasses.length > 0) {
-          const primaryCls = '.' + CSS.escape(validClasses[0]);
-          try {
-            const matches = Array.from(sectionEl.querySelectorAll(primaryCls));
-            if (matches.length === 1) return primaryCls;
-            if (matches.length > 1) {
-              const idx = matches.indexOf(el);
-              if (idx !== -1) {
-                const parent = el.parentElement;
-                if (parent && parent !== sectionEl && parent.className && typeof parent.className === 'string') {
-                  const parentClasses = parent.className.split(/\s+/).filter(c => c && !c.startsWith('is-') && !c.includes('__replicator'));
-                  if (parentClasses.length > 0) {
-                    const parentCls = '.' + CSS.escape(parentClasses[0]);
-                    const childIdx = Array.from(parent.children).indexOf(el) + 1;
-                    const scopedSel = `${parentCls} > ${primaryCls}:nth-of-type(${childIdx})`;
-                    try {
-                      if (sectionEl.querySelectorAll(scopedSel).length === 1) return scopedSel;
-                    } catch (e) {}
-                  }
-                }
-                return `${primaryCls}:nth-of-type(${idx + 1})`;
-              }
-            }
-          } catch (e) {}
-        }
-      }
-
-      // 5. Semantic ancestor-anchored path
-      const path = [];
-      let curr = el;
-      while (curr && curr !== sectionEl && curr.parentElement) {
-        let tag = curr.tagName.toLowerCase();
-        let idx = 1;
-        let sib = curr.previousElementSibling;
-        while (sib) {
-          if (sib.tagName === curr.tagName) idx++;
-          sib = sib.previousElementSibling;
-        }
-        const validCls = curr.className && typeof curr.className === 'string'
-          ? curr.className.split(/\s+/).find(c => c && !c.startsWith('is-') && !c.includes('open') && !c.includes('active') && !c.includes('__replicator'))
-          : null;
-        if (validCls) {
-          path.unshift(`.${CSS.escape(validCls)}`);
-          break; // Stop at first identifiable ancestor class
-        } else {
-          path.unshift(`${tag}:nth-of-type(${idx})`);
-        }
-        curr = curr.parentElement;
-      }
-      return path.join(' > ');
+    } catch (scrollErr) {
+      console.warn('[replicator] Scroll probe warning:', scrollErr);
     }
 
-    // Helper: Identify tabs so they are managed by the universal tab controller instead of mutation toggles
-    const isTabTrigger = (el) => {
-      if (!el) return false;
-      const role = (el.getAttribute('role') || '').toLowerCase();
-      const cls = getElementClassString(el).toLowerCase();
-      const ariaControls = (el.getAttribute('aria-controls') || '').toLowerCase();
-      return role === 'tab' || cls.includes('tab__item') || cls.includes('tab-item') ||
-             el.closest('.tab__list, .tab-list, [role="tablist"]') !== null ||
-             ariaControls.includes('category') || ariaControls.includes('tab');
-    };
-
-    // Helper: Identify carousel arrows/bullets so they are managed by the universal carousel controller
-    const isCarouselTrigger = (el) => {
-      if (!el) return false;
-      const cls = getElementClassString(el).toLowerCase();
-      const aria = (el.getAttribute('aria-label') || '').toLowerCase();
-      const tr = (el.getAttribute('an-tr') || '').toLowerCase();
-      const ac = (el.getAttribute('an-ac') || '').toLowerCase();
-      return cls.includes('swiper-button') ||
-             cls.includes('indicator__arrow') ||
-             cls.includes('carousel-arrow') ||
-             cls.includes('slider-arrow') ||
-             cls.includes('progressbar-indicator') ||
-             ac === 'carousel' ||
-             aria.includes('next slide') ||
-             aria.includes('previous slide') ||
-             el.closest('.progressbar-indicator, .swiper-container, [role="region"][aria-roledescription*="carousel"]') !== null;
-    };
-
-    // Hierarchical interactive trigger prioritization with full multi-category coverage
-    // 1. Collect all filter category dropdown toggles (openers) across the whole filter tree (excluding tabs & carousels)
-    const categoryOpeners = Array.from(sectionEl.querySelectorAll(
-      'button[aria-expanded], [role="button"][aria-expanded], [aria-haspopup], [class*="opener"], [class*="toggle"], [class*="dropdown-toggle"], [class*="accordion-toggle"], [class*="filter-trigger"], [class*="facet-trigger"], summary'
-    )).filter(el => {
-      const cls = getElementClassString(el).toLowerCase();
-      return !el.closest('#__replicator_picker_bar__') &&
-             !el.closest('#__replicator_picker_overlay__') &&
-             !isTabTrigger(el) &&
-             !isCarouselTrigger(el) &&
-             !cls.includes('view-more') && !cls.includes('load-more') &&
-             !cls.includes('close') && !cls.includes('cancel');
-    });
-
-    // 2. Expand category internal options if they have internal "View more" buttons
-    const categoryWrappers = Array.from(sectionEl.querySelectorAll(
-      '[class*="selector-item"], [class*="filter-group"], [class*="filter-section"], [class*="accordion-item"], fieldset'
-    )).filter(el => !el.closest('#__replicator_picker_bar__') && !isCarouselTrigger(el));
-
-    for (const catWrap of categoryWrappers) {
-      const internalViewMore = catWrap.querySelector('[class*="selector-view-more"], [class*="filter-view-more"], [class*="options-view-more"]');
-      if (internalViewMore && internalViewMore.offsetParent !== null) {
-        try {
-          internalViewMore.click();
-        } catch (e) {}
+    // 2. Global Redirect Shield: Immediately intercept any navigation attempt
+    let redirectInitiated = false;
+    const redirectShieldListener = (e) => {
+      const target = e.target;
+      const link = target?.closest ? target.closest('a[href], form') : null;
+      if (link) {
+        const href = link.getAttribute('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          redirectInitiated = true;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return false;
+        }
+        if (link.tagName === 'FORM') {
+          redirectInitiated = true;
+          e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return false;
+        }
       }
-    }
+    };
 
-    // 3. Collect options per category (sample 2-3 options from EVERY category)
-    const sampledOptions = [];
-    const seenInputs = new Set();
+    window.addEventListener('click', redirectShieldListener, true);
+    window.addEventListener('submit', redirectShieldListener, true);
 
-    if (categoryWrappers.length > 0) {
-      categoryWrappers.forEach(cat => {
-        const catOptions = Array.from(cat.querySelectorAll('input[type="checkbox"], input[type="radio"], [role="checkbox"], [role="radio"]')).filter(i => {
-          return !seenInputs.has(i) && !i.closest('#__replicator_picker_bar__') && !isTabTrigger(i) && !isCarouselTrigger(i);
-        });
-        catOptions.slice(0, 3).forEach(opt => {
-          seenInputs.add(opt);
-          sampledOptions.push(opt);
-        });
+    const originalLocationAssign = window.location.assign;
+    const originalLocationReplace = window.location.replace;
+    const originalWindowOpen = window.open;
+
+    try {
+      window.location.assign = function() { redirectInitiated = true; };
+      window.location.replace = function() { redirectInitiated = true; };
+      window.open = function() { redirectInitiated = true; return null; };
+    } catch {}
+
+    try {
+      // 3. Collect ALL visible elements inside sectionEl
+      const rawElements = Array.from(sectionEl.querySelectorAll('*')).filter(el => {
+        if (el.closest('#__replicator_picker_bar__') || el.closest('#__replicator_picker_overlay__')) return false;
+        const tag = el.tagName.toLowerCase();
+        if (['script', 'style', 'meta', 'link', 'br', 'wbr', 'noscript'].includes(tag)) return false;
+        return true;
       });
-    }
 
-    // Also pick any remaining checkboxes or swatches not in wrappers (excluding tabs & carousels)
-    const remainingOptions = Array.from(sectionEl.querySelectorAll(
-      'input[type="checkbox"], input[type="radio"], [class*="swatch"] button, [class*="option-selector"] button, [class*="size"] button, [class*="color"] button'
-    )).filter(el => !seenInputs.has(el) && !isTabTrigger(el) && !isCarouselTrigger(el) && !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__'));
-
-    const triggers = [
-      ...categoryOpeners.slice(0, 25),
-      ...sampledOptions,
-      ...remainingOptions.slice(0, 10)
-    ];
-
-    for (const trigger of triggers) {
-      const triggerSel = getCleanSelector(trigger);
-      if (!triggerSel) continue;
-
-      let observedMutations = [];
-      const observer = new MutationObserver((mutations) => {
-        for (const m of mutations) {
-          if (m.type === 'childList') {
-            const target = m.target;
-            if (target.closest && (target.closest('#__replicator_picker_bar__') || target.closest('#__replicator_picker_overlay__'))) {
-              continue;
-            }
-            const targetSel = getCleanSelector(target);
-            if (!targetSel) continue;
-
-            if (m.addedNodes && m.addedNodes.length > 0) {
-              Array.from(m.addedNodes).forEach(node => {
-                if (node.nodeType === 1 && !node.id?.includes('__replicator_')) {
-                  const nodeCls = typeof node.className === 'string' ? node.className : '';
-                  const isCatalog = targetSel.includes('product-card') || targetSel.includes('product-list') || targetSel.includes('catalog') ||
-                                    nodeCls.includes('product-card') || nodeCls.includes('card-item');
-                  if (isCatalog) return;
-                  if (node.tagName.toLowerCase() === 'svg') return;
-                  observedMutations.push({
-                    targetSelector: targetSel,
-                    mutationType: 'childList',
-                    action: 'added',
-                    html: node.outerHTML,
-                    tagName: node.tagName.toLowerCase(),
-                    className: nodeCls
-                  });
-                }
-              });
-            }
-            if (m.removedNodes && m.removedNodes.length > 0) {
-              Array.from(m.removedNodes).forEach(node => {
-                if (node.nodeType === 1 && !node.id?.includes('__replicator_')) {
-                  const nodeCls = typeof node.className === 'string' ? node.className : '';
-                  const isCatalog = targetSel.includes('product-card') || targetSel.includes('product-list') || targetSel.includes('catalog') ||
-                                    nodeCls.includes('product-card') || nodeCls.includes('card-item');
-                  if (isCatalog) return;
-                  if (node.tagName.toLowerCase() === 'svg') return;
-                  observedMutations.push({
-                    targetSelector: targetSel,
-                    mutationType: 'childList',
-                    action: 'removed',
-                    html: node.outerHTML,
-                    tagName: node.tagName.toLowerCase(),
-                    className: nodeCls
-                  });
-                }
-              });
-            }
-          } else if (m.type === 'attributes') {
-            const target = m.target;
-            if (target.closest && (target.closest('#__replicator_picker_bar__') || target.closest('#__replicator_picker_overlay__'))) {
-              continue;
-            }
-            const attr = m.attributeName;
-            const oldVal = m.oldValue;
-            const newVal = target.getAttribute(attr);
-            if (oldVal !== newVal) {
-              const targetSel = getCleanSelector(target);
-              if (!targetSel) continue;
-
-              let addedClasses = undefined;
-              let removedClasses = undefined;
-              if (attr === 'class') {
-                const oldCls = (oldVal || '').split(/\s+/).filter(Boolean);
-                const newCls = (newVal || '').split(/\s+/).filter(Boolean);
-                const added = newCls.filter(c => !oldCls.includes(c));
-                const removed = oldCls.filter(c => !newCls.includes(c));
-                if (added.length === 0 && removed.length === 0) continue;
-                addedClasses = added.length ? added : undefined;
-                removedClasses = removed.length ? removed : undefined;
-              }
-
-              observedMutations.push({
-                targetSelector: targetSel,
-                mutationType: 'attributes',
-                attributeName: attr,
-                oldValue: oldVal,
-                newValue: newVal,
-                addedClasses,
-                removedClasses
-              });
-            }
+      // Deduplicate by clean selector
+      const candidateMap = new Map();
+      rawElements.forEach(el => {
+        const sel = getCleanSelector(el, sectionEl);
+        if (sel && !candidateMap.has(sel)) {
+          const rect = el.getBoundingClientRect();
+          const hasSize = rect.width > 0 && rect.height > 0;
+          const style = window.getComputedStyle(el);
+          const isVisible = style.display !== 'none' && style.visibility !== 'hidden';
+          if (isVisible && (hasSize || el.children.length > 0)) {
+            candidateMap.set(sel, el);
           }
         }
       });
 
-      observer.observe(sectionEl, {
-        attributes: true,
-        childList: true,
-        subtree: true,
-        attributeOldValue: true,
-        attributeFilter: ['class', 'style', 'aria-expanded', 'aria-hidden', 'aria-selected', 'hidden', 'open']
-      });
+      const candidates = Array.from(candidateMap.values());
 
-      const progressStepEl = document.getElementById('__replicator_progress_step__');
-      if (progressStepEl) {
-        const txt = (trigger.textContent || trigger.getAttribute('an-la') || trigger.getAttribute('aria-label') || trigger.id || '').replace(/\s+/g, ' ').trim().slice(0, 22) || 'filter';
-        progressStepEl.textContent = `Probing filters (${triggers.indexOf(trigger) + 1}/${triggers.length}): ${txt}...`;
-      }
+      for (let i = 0; i < candidates.length; i++) {
+        const el = candidates[i];
+        const sel = getCleanSelector(el, sectionEl);
+        if (!sel) continue;
 
-      // Synthetic click
-      const href = trigger.getAttribute('href');
-      const isNavHref = href && href.trim() && !href.startsWith('#') && !href.startsWith('javascript:');
-      try {
-        trigger.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
-        trigger.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-        trigger.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
-        trigger.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-        trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-        if (!isNavHref && typeof trigger.click === 'function') trigger.click();
-      } catch (e) {}
+        redirectInitiated = false;
 
-      await sleep(350);
+        if (progressStepEl) {
+          const txt = (el.textContent || el.getAttribute('aria-label') || el.id || el.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 24);
+          progressStepEl.textContent = `Probing (${i + 1}/${candidates.length}): <${el.tagName.toLowerCase()}> "${txt}"...`;
+        }
 
-      const firstClickMutations = [...observedMutations];
-      observedMutations = [];
+        // Check if element is a navigation link
+        const href = el.getAttribute('href') || (el.tagName.toLowerCase() === 'a' ? el.href : null);
+        const isNavHref = href && href.trim() && !href.startsWith('#') && !href.startsWith('javascript:');
+        if (isNavHref) {
+          // Immediately skip clicking navigation links to prevent leaving the page
+          continue;
+        }
 
-      if (firstClickMutations.length > 0) {
-        // Probe second click to test toggle behavior
-        try {
-          trigger.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          if (!isNavHref && typeof trigger.click === 'function') trigger.click();
-        } catch (e) {}
+        let observedMutations = [];
+        const mutationCallback = (mutations) => {
+          for (const m of mutations) {
+            if (m.type === 'childList') {
+              const target = m.target;
+              if (target.closest && (target.closest('#__replicator_picker_bar__') || target.closest('#__replicator_picker_overlay__'))) {
+                continue;
+              }
+              const targetSel = getCleanSelector(target, document);
+              if (!targetSel) continue;
 
-        await sleep(350);
-        const secondClickMutations = [...observedMutations];
-        observer.disconnect();
+              if (m.addedNodes && m.addedNodes.length > 0) {
+                Array.from(m.addedNodes).forEach(node => {
+                  if (node.nodeType === 1 && !node.id?.includes('__replicator_')) {
+                    const nodeCls = typeof node.className === 'string' ? node.className : '';
+                    const isCatalog = targetSel.includes('product-card') || targetSel.includes('product-list') || targetSel.includes('catalog') ||
+                                      nodeCls.includes('product-card') || nodeCls.includes('card-item');
+                    if (isCatalog) return;
+                    if (node.tagName.toLowerCase() === 'svg') return;
 
-        const isToggle = secondClickMutations.length > 0;
-        recorded.push({
-          triggerSelector: triggerSel,
-          eventType: 'click',
-          isToggle,
-          mutations: firstClickMutations,
-          reverseMutations: isToggle ? secondClickMutations : undefined
+                    node.setAttribute('data-interactive-portal', 'true');
+                    node.setAttribute('data-mutation-src', sel);
+
+                    observedMutations.push({
+                      targetSelector: targetSel,
+                      mutationType: 'childList',
+                      action: 'added',
+                      html: node.outerHTML,
+                      tagName: node.tagName.toLowerCase(),
+                      className: nodeCls
+                    });
+                  }
+                });
+              }
+              if (m.removedNodes && m.removedNodes.length > 0) {
+                Array.from(m.removedNodes).forEach(node => {
+                  if (node.nodeType === 1 && !node.id?.includes('__replicator_')) {
+                    const nodeCls = typeof node.className === 'string' ? node.className : '';
+                    const isCatalog = targetSel.includes('product-card') || targetSel.includes('product-list') || targetSel.includes('catalog') ||
+                                      nodeCls.includes('product-card') || nodeCls.includes('card-item');
+                    if (isCatalog) return;
+                    if (node.tagName.toLowerCase() === 'svg') return;
+                    observedMutations.push({
+                      targetSelector: targetSel,
+                      mutationType: 'childList',
+                      action: 'removed',
+                      html: node.outerHTML,
+                      tagName: node.tagName.toLowerCase(),
+                      className: nodeCls
+                    });
+                  }
+                });
+              }
+            } else if (m.type === 'attributes') {
+              const target = m.target;
+              if (target.closest && (target.closest('#__replicator_picker_bar__') || target.closest('#__replicator_picker_overlay__'))) {
+                continue;
+              }
+              const attr = m.attributeName;
+              const oldVal = m.oldValue;
+              const newVal = target.getAttribute(attr);
+              if (oldVal !== newVal) {
+                const targetSel = getCleanSelector(target, document);
+                if (!targetSel) continue;
+
+                let addedClasses = undefined;
+                let removedClasses = undefined;
+                if (attr === 'class') {
+                  const oldCls = (oldVal || '').split(/\s+/).filter(Boolean);
+                  const newCls = (newVal || '').split(/\s+/).filter(Boolean);
+                  const added = newCls.filter(c => !oldCls.includes(c));
+                  const removed = oldCls.filter(c => !newCls.includes(c));
+                  if (added.length === 0 && removed.length === 0) continue;
+                  addedClasses = added.length ? added : undefined;
+                  removedClasses = removed.length ? removed : undefined;
+                }
+
+                observedMutations.push({
+                  targetSelector: targetSel,
+                  mutationType: 'attributes',
+                  attributeName: attr,
+                  oldValue: oldVal,
+                  newValue: newVal,
+                  addedClasses,
+                  removedClasses
+                });
+              }
+            }
+          }
+        };
+
+        // --- A. HOVER PROBE ---
+        observedMutations = [];
+        const hoverObserver = new MutationObserver(mutationCallback);
+        hoverObserver.observe(document.documentElement, {
+          attributes: true,
+          childList: true,
+          subtree: true,
+          attributeOldValue: true,
+          attributeFilter: ['class', 'style', 'aria-expanded', 'aria-hidden', 'aria-selected', 'hidden', 'open']
         });
 
-        // Restore clean resting state if it was left dirty
-        if (!isToggle && firstClickMutations.length > 0) {
-          firstClickMutations.forEach(m => {
-            const el = sectionEl.querySelector(m.targetSelector);
-            if (el) {
-              if (m.oldValue !== null) el.setAttribute(m.attributeName, m.oldValue);
-              else el.removeAttribute(m.attributeName);
-            }
+        try {
+          el.dispatchEvent(new PointerEvent('pointerenter', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, cancelable: true, view: window }));
+        } catch {}
+
+        await sleep(120);
+
+        if (redirectInitiated) {
+          hoverObserver.disconnect();
+          try {
+            el.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true, view: window }));
+            el.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true, view: window }));
+          } catch {}
+          continue;
+        }
+
+        const hoverMutations = [...observedMutations];
+        observedMutations = [];
+
+        // Restore hover state
+        try {
+          el.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new PointerEvent('pointerleave', { bubbles: true, cancelable: true, view: window }));
+        } catch {}
+
+        await sleep(60);
+        const hoverReverseMutations = [...observedMutations];
+        hoverObserver.disconnect();
+
+        if (hoverMutations.length > 0) {
+          recorded.push({
+            triggerSelector: sel,
+            eventType: 'mouseenter',
+            mutations: hoverMutations,
+            reverseMutations: hoverReverseMutations.length > 0 ? hoverReverseMutations : undefined
           });
         }
-      } else {
-        observer.disconnect();
+
+        // --- B. CLICK PROBE ---
+        redirectInitiated = false;
+        observedMutations = [];
+        const clickObserver = new MutationObserver(mutationCallback);
+        clickObserver.observe(document.documentElement, {
+          attributes: true,
+          childList: true,
+          subtree: true,
+          attributeOldValue: true,
+          attributeFilter: ['class', 'style', 'aria-expanded', 'aria-hidden', 'aria-selected', 'hidden', 'open']
+        });
+
+        try {
+          el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          if (typeof el.click === 'function' && el.tagName.toLowerCase() !== 'a') {
+            el.click();
+          }
+        } catch {}
+
+        await sleep(240);
+
+        if (redirectInitiated) {
+          clickObserver.disconnect();
+          continue;
+        }
+
+        const firstClickMutations = [...observedMutations];
+        observedMutations = [];
+
+        if (firstClickMutations.length > 0) {
+          // Probe second click to test toggle behavior
+          try {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            if (typeof el.click === 'function' && el.tagName.toLowerCase() !== 'a') {
+              el.click();
+            }
+          } catch {}
+
+          await sleep(220);
+          const secondClickMutations = [...observedMutations];
+          clickObserver.disconnect();
+
+          const isToggle = secondClickMutations.length > 0;
+          recorded.push({
+            triggerSelector: sel,
+            eventType: 'click',
+            isToggle,
+            mutations: firstClickMutations,
+            reverseMutations: isToggle ? secondClickMutations : undefined
+          });
+
+          // If not toggled off, dismiss with Escape or click outside to restore clean state for the next element
+          if (!isToggle) {
+            try {
+              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+              document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            } catch {}
+            await sleep(100);
+          }
+        } else {
+          clickObserver.disconnect();
+        }
       }
+    } finally {
+      window.removeEventListener('click', redirectShieldListener, true);
+      window.removeEventListener('submit', redirectShieldListener, true);
+      try {
+        window.location.assign = originalLocationAssign;
+        window.location.replace = originalLocationReplace;
+        window.open = originalWindowOpen;
+      } catch {}
     }
 
     return recorded;

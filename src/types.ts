@@ -82,12 +82,25 @@ export interface StateMutation {
   className?: string;
 }
 
+export interface ScrollStateTransition {
+  threshold: number; // scrollY in px
+  targetSelector: string;
+  addedClasses?: string[];
+  removedClasses?: string[];
+  styles?: Record<string, string>;
+  initialStyles?: Record<string, string>;
+  canvasChanged?: boolean;
+}
+
 export interface RecordedInteraction {
   triggerSelector: string;
-  eventType: 'click' | 'mouseenter' | 'change';
+  eventType: 'click' | 'mouseenter' | 'change' | 'scroll';
   isToggle?: boolean;
   mutations: StateMutation[];
   reverseMutations?: StateMutation[];
+  scrollThreshold?: number;
+  scrollStyles?: Record<string, string>;
+  scrollTransitions?: ScrollStateTransition[];
 }
 
 export interface VisualQAResult {

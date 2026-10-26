@@ -1167,80 +1167,133 @@ export class PageExtractor {
    */
   private async revealDynamicSections(page: any): Promise<void> {
     try {
-      // 1. Universal Hover Pass for pure CSS transitions and hover-based mega-menus
-      const hoverHandles = await page.$$(
-        'header button, header a, nav button, nav a, [role="navigation"] button, [role="navigation"] a, [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [class*="nav-item"] button, [class*="nav-item"] a, [class*="filter"] button, [role="tab"]'
-      );
-      for (const h of hoverHandles.slice(0, 16)) {
-        try {
-          if (await h.isVisible().catch(() => false)) {
-            const box = await h.boundingBox().catch(() => null);
-            if (box && box.width > 0 && box.height > 0) {
-              await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-              await page.waitForTimeout(150);
+      // 1. Granular 10px Scroll Dynamics Pass: checks background, canvas, and layout changes at every 10px
+      await page.evaluate(async () => {
+        const initialY = window.scrollY;
+        const maxScroll = Math.min(1200, Math.max(500, (document.documentElement.scrollHeight || document.body.scrollHeight) - window.innerHeight));
+        const steps = Math.floor(maxScroll / 10);
+        for (let i = 1; i <= steps; i++) {
+          window.scrollTo(0, i * 10);
+          window.dispatchEvent(new Event('scroll', { bubbles: true }));
+          await new Promise(r => setTimeout(r, 12));
+        }
+        window.scrollTo(0, initialY);
+        window.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await new Promise(r => setTimeout(r, 50));
+      });
+
+      // 2. Comprehensive Hover & Click Pass with in-situ Redirect Shield
+      await page.evaluate(async () => {
+        let redirectInitiated = false;
+        const navShield = (e: Event) => {
+          const target = e.target as HTMLElement | null;
+          const link = target?.closest ? target.closest('a[href], form') : null;
+          if (link) {
+            const href = link.getAttribute('href');
+            if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+              redirectInitiated = true;
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              return false;
             }
           }
+        };
+
+        window.addEventListener('click', navShield, true);
+        window.addEventListener('submit', navShield, true);
+
+        const origAssign = window.location.assign;
+        const origReplace = window.location.replace;
+        const origOpen = window.open;
+        try {
+          window.location.assign = () => { redirectInitiated = true; };
+          window.location.replace = () => { redirectInitiated = true; };
+          window.open = () => { redirectInitiated = true; return null; };
         } catch {}
-      }
-      await page.mouse.move(0, 0);
-      await page.waitForTimeout(100);
 
-      // 2. Universal Click Pass with live MutationObserver to capture conditionally mounted portals
-      await page.evaluate(async () => {
-        const triggers = Array.from(document.querySelectorAll(
-          'header button, header [role="button"], nav button, nav [role="button"], [role="navigation"] button, summary, [aria-haspopup], [aria-expanded], [data-toggle], [data-dropdown], [role="tab"], [role="combobox"]'
-        )).filter(el => {
-          const r = el.getBoundingClientRect();
-          return r.width > 0 && r.height > 0 && window.getComputedStyle(el).display !== 'none' && window.getComputedStyle(el).visibility !== 'hidden';
-        });
-
-        for (const trg of triggers.slice(0, 16)) {
-          const addedNodes: HTMLElement[] = [];
-          const observer = new MutationObserver((mutations) => {
-            for (const m of mutations) {
-              if (m.type === 'childList') {
-                m.addedNodes.forEach(node => {
-                  if (node.nodeType === 1) {
-                    const el = node as HTMLElement;
-                    addedNodes.push(el);
-                    el.setAttribute('data-interactive-portal', 'true');
-                  }
-                });
-              }
-            }
+        try {
+          // Query all interactive elements and buttons/navs
+          const elements = Array.from(document.querySelectorAll(
+            'header, nav, [role="navigation"], button, a, [role="button"], [role="tab"], [role="combobox"], [aria-haspopup], [aria-expanded], [data-toggle], [data-dropdown], summary, [class*="nav"], [class*="menu"], [class*="search"], [class*="filter"]'
+          )).filter(el => {
+            const r = el.getBoundingClientRect();
+            const s = window.getComputedStyle(el);
+            return r.width > 0 && r.height > 0 && s.display !== 'none' && s.visibility !== 'hidden';
           });
 
-          observer.observe(document.body, { childList: true, subtree: true });
+          for (const el of elements.slice(0, 48)) {
+            redirectInitiated = false;
+            const href = el.getAttribute('href');
+            if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+              continue;
+            }
 
-          try {
-            trg.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          } catch {}
+            // Hover
+            try {
+              el.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, cancelable: true, view: window }));
+              el.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, cancelable: true, view: window }));
+            } catch {}
 
-          await new Promise(r => setTimeout(r, 350));
-          observer.disconnect();
+            await new Promise(r => setTimeout(r, 80));
+            if (redirectInitiated) continue;
 
-          if (addedNodes.length > 0) {
-            const trgId = trg.id || ('rep-trg-' + Math.random().toString(36).slice(2, 9));
-            if (!trg.id) trg.id = trgId;
-            addedNodes.forEach((node: HTMLElement) => {
-              if (!node.getAttribute('data-portal-for')) {
-                node.setAttribute('data-portal-for', trgId);
+            // Click with MutationObserver to capture conditionally mounted portals
+            const addedNodes: HTMLElement[] = [];
+            const observer = new MutationObserver((mutations) => {
+              for (const m of mutations) {
+                if (m.type === 'childList') {
+                  m.addedNodes.forEach(node => {
+                    if (node.nodeType === 1) {
+                      const portalEl = node as HTMLElement;
+                      addedNodes.push(portalEl);
+                      portalEl.setAttribute('data-interactive-portal', 'true');
+                    }
+                  });
+                }
               }
-              // Mark as closed and hide at rest so it does not obscure visual baseline screenshots,
-              // while ensuring the full authentic DOM subtree is captured in page.content()!
-              node.setAttribute('data-state', 'closed');
-              node.style.display = 'none';
             });
-          }
 
-          // Reset trigger state with Escape
-          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-          await new Promise(r => setTimeout(r, 100));
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            try {
+              el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            } catch {}
+
+            await new Promise(r => setTimeout(r, 220));
+            observer.disconnect();
+
+            if (redirectInitiated) continue;
+
+            if (addedNodes.length > 0) {
+              const trgId = el.id || ('rep-trg-' + Math.random().toString(36).slice(2, 9));
+              if (!el.id) el.id = trgId;
+              addedNodes.forEach((node: HTMLElement) => {
+                if (!node.getAttribute('data-portal-for')) {
+                  node.setAttribute('data-portal-for', trgId);
+                }
+                node.setAttribute('data-state', 'closed');
+                node.style.display = 'none';
+              });
+            }
+
+            // Reset with Escape
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+            await new Promise(r => setTimeout(r, 60));
+          }
+        } finally {
+          window.removeEventListener('click', navShield, true);
+          window.removeEventListener('submit', navShield, true);
+          try {
+            window.location.assign = origAssign;
+            window.location.replace = origReplace;
+            window.open = origOpen;
+          } catch {}
         }
       });
 
       await page.mouse.move(0, 0);
-      await page.waitForTimeout(150);
+      await page.waitForTimeout(100);
     } catch (e) {
       console.warn('[PageExtractor] Dynamic section reveal pass skipped:', e);
     }
