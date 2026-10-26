@@ -1366,7 +1366,10 @@
     for (let step = 1; step <= scrollSteps; step++) {
       const y = step * 10;
       window.scrollTo({ top: y, behavior: 'instant' });
+      document.documentElement.scrollTop = y;
+      document.body.scrollTop = y;
       window.dispatchEvent(new Event('scroll', { bubbles: true }));
+      document.dispatchEvent(new Event('scroll', { bubbles: true }));
 
       // Microtick to trigger scroll listeners / animations
       await sleep(18);
@@ -1439,7 +1442,10 @@
 
     // 3. Restore initial scroll position
     window.scrollTo({ top: initialScrollY, behavior: 'instant' });
+    document.documentElement.scrollTop = initialScrollY;
+    document.body.scrollTop = initialScrollY;
     window.dispatchEvent(new Event('scroll', { bubbles: true }));
+    document.dispatchEvent(new Event('scroll', { bubbles: true }));
     await sleep(60);
 
     return recordedScrollTransitions;
@@ -1548,10 +1554,6 @@
         // Check if element is a navigation link
         const href = el.getAttribute('href') || (el.tagName.toLowerCase() === 'a' ? el.href : null);
         const isNavHref = href && href.trim() && !href.startsWith('#') && !href.startsWith('javascript:');
-        if (isNavHref) {
-          // Immediately skip clicking navigation links to prevent leaving the page
-          continue;
-        }
 
         let observedMutations = [];
         const mutationCallback = (mutations) => {
@@ -1722,7 +1724,17 @@
         await sleep(240);
 
         if (redirectInitiated) {
+          // If mutations occurred before redirect was intercepted, record them and immediately stop interacting with this element
+          const navMutations = [...observedMutations];
           clickObserver.disconnect();
+          if (navMutations.length > 0) {
+            recorded.push({
+              triggerSelector: sel,
+              eventType: 'click',
+              isToggle: false,
+              mutations: navMutations
+            });
+          }
           continue;
         }
 
