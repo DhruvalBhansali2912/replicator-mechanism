@@ -29,8 +29,21 @@
       if (e.target && e.target.closest && e.target.closest('#__replicator_picker_bar__')) {
         return;
       }
-      if (e.cancelable) {
-        e.preventDefault();
+      const link = e.target?.closest ? e.target.closest('a[href], form') : null;
+      if (link) {
+        const href = link.getAttribute('href');
+        if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
+          if (e.cancelable) e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return;
+        }
+        if (link.tagName === 'FORM') {
+          if (e.cancelable) e.preventDefault();
+          e.stopPropagation();
+          e.stopImmediatePropagation();
+          return;
+        }
       }
     };
     window.addEventListener('click', navBlocker, true);
@@ -1479,20 +1492,20 @@
     // 2. Global Redirect Shield: Immediately intercept any navigation attempt
     let redirectInitiated = false;
     const redirectShieldListener = (e) => {
+      if (e.type === 'submit') {
+        redirectInitiated = true;
+        if (e.cancelable) e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        return false;
+      }
       const target = e.target;
-      const link = target?.closest ? target.closest('a[href], form, button[type="submit"]') : null;
+      const link = target?.closest ? target.closest('a[href]') : null;
       if (link) {
         const href = link.getAttribute('href');
         if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
           redirectInitiated = true;
-          e.preventDefault();
-          e.stopPropagation();
-          e.stopImmediatePropagation();
-          return false;
-        }
-        if (link.tagName === 'FORM' || link.tagName === 'BUTTON') {
-          redirectInitiated = true;
-          e.preventDefault();
+          if (e.cancelable) e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
           return false;
@@ -1561,17 +1574,29 @@
           const role = el.getAttribute('role') || '';
           const aria = (el.getAttribute('aria-label') || '').toLowerCase();
           const txt = (el.textContent || '').toLowerCase();
-          if (tag === 'input' || tag === 'button' || role === 'button' || role === 'tab') return 10;
-          if (aria.includes('search') || aria.includes('menu') || aria.includes('filter') || aria.includes('login') || aria.includes('profile')) return 9;
-          if (txt.includes('where') || txt.includes('when') || txt.includes('who') || txt.includes('date') || txt.includes('guest')) return 9;
-          if (el.hasAttribute('aria-haspopup') || el.hasAttribute('aria-expanded')) return 8;
+          const isControl = tag === 'input' || tag === 'button' || role === 'button' || role === 'tab' || role === 'combobox' || role === 'searchbox';
+          if (tag === 'input' || role === 'combobox' || role === 'searchbox') return 20;
+          if (isControl && (txt.includes('where') || txt.includes('when') || txt.includes('who') || txt.includes('date') || txt.includes('guest'))) return 18;
+          if (isControl && (aria.includes('search') || aria.includes('menu') || aria.includes('navigation') || aria.includes('profile'))) return 16;
+          if (role === 'button' || tag === 'button') return 14;
+          if (el.hasAttribute('aria-haspopup') || el.hasAttribute('aria-expanded')) return 12;
+          if (role === 'tab') return 5;
           return 1;
         };
         return getScore(b) - getScore(a);
       });
 
       for (let i = 0; i < candidates.length; i++) {
-        const el = candidates[i];
+        let el = candidates[i];
+        if (!el.isConnected) {
+          const prevSel = candidateMap ? Array.from(candidateMap.keys())[i] : null;
+          if (prevSel) {
+            const fresh = sectionEl.querySelector(prevSel);
+            if (fresh) el = fresh;
+          }
+        }
+        if (!el.isConnected) continue;
+
         const sel = getCleanSelector(el, sectionEl);
         if (!sel) continue;
 
@@ -1594,7 +1619,14 @@
               if (target.closest && (target.closest('#__replicator_picker_bar__') || target.closest('#__replicator_picker_overlay__'))) {
                 continue;
               }
-              const targetSel = getCleanSelector(target, document);
+              let targetSel = getCleanSelector(target, document);
+              if (!targetSel && target.parentElement) {
+                let curAnc = target.parentElement;
+                while (curAnc && curAnc !== document.body && !targetSel) {
+                  targetSel = getCleanSelector(curAnc, document);
+                  curAnc = curAnc.parentElement;
+                }
+              }
               if (!targetSel) continue;
 
               if (m.addedNodes && m.addedNodes.length > 0) {
@@ -1605,6 +1637,17 @@
                                       nodeCls.includes('product-card') || nodeCls.includes('card-item');
                     if (isCatalog) return;
                     if (node.tagName.toLowerCase() === 'svg') return;
+
+                    // Exclude full-page modal overlays / dialogs from section portal recording
+                    const isModal = node.getAttribute('role') === 'dialog' || node.getAttribute('aria-modal') === 'true' ||
+                                    node.id?.includes('modal') || node.id?.includes('auth') ||
+                                    nodeCls.includes('modal') || nodeCls.includes('backdrop') || nodeCls.includes('overlay') ||
+                                    targetSel.includes('modal') || targetSel.includes('auth');
+                    if (isModal) {
+                      const closeBtn = node.querySelector('button[aria-label*="close" i], button');
+                      if (closeBtn) closeBtn.click();
+                      return;
+                    }
 
                     node.setAttribute('data-interactive-portal', 'true');
                     node.setAttribute('data-mutation-src', sel);
@@ -1742,7 +1785,14 @@
             return h && !h.startsWith('#') && !h.startsWith('javascript:');
           })();
 
-        if (isPureNavLink) {
+        const ariaLabel = (el.getAttribute('aria-label') || '').toLowerCase();
+        const btnTxt = ((el.textContent || '') + ' ' + ariaLabel).trim().toLowerCase();
+        const isNavAction = btnTxt.includes('become a host') || btnTxt.includes('sign up') || btnTxt.includes('log in') ||
+                            btnTxt.includes('register') || btnTxt.includes('privacy') || btnTxt.includes('terms') ||
+                            btnTxt.includes('sitemap') || btnTxt.includes('careers') || btnTxt.includes('investors');
+        const isSubmitBtn = el.getAttribute('type') === 'submit' || el.type === 'submit' || (el.tagName.toLowerCase() === 'button' && (ariaLabel === 'search' || btnTxt === 'search'));
+
+        if (isPureNavLink || isNavAction || isSubmitBtn) {
           continue;
         }
 
@@ -1765,18 +1815,14 @@
               el.dispatchEvent(new FocusEvent('focus', { bubbles: true, view: window }));
             } catch {}
           }
-          el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
-          el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-          el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
-          el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-          el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          const parentLink = el.closest('a[href]');
-          if (typeof el.click === 'function' && !parentLink && el.tagName.toLowerCase() !== 'a') {
+          if (typeof el.click === 'function') {
             el.click();
+          } else {
+            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
           }
         } catch {}
 
-        await sleep(240);
+        await sleep(300);
 
         if (redirectInitiated) {
           // If mutations occurred before redirect was intercepted, record them and immediately stop interacting with this element
@@ -1797,17 +1843,19 @@
         observedMutations = [];
 
         if (firstClickMutations.length > 0) {
-          // Probe second click to test toggle behavior
-          try {
-            el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            const parentLink = el.closest('a[href]');
-            if (typeof el.click === 'function' && !parentLink && el.tagName.toLowerCase() !== 'a') {
-              el.click();
-            }
-          } catch {}
-
-          await sleep(220);
-          const secondClickMutations = [...observedMutations];
+          // Probe second click to test toggle behavior (skip for inputs which do not toggle closed on click)
+          let secondClickMutations = [];
+          if (el.tagName.toLowerCase() !== 'input') {
+            try {
+              if (typeof el.click === 'function') {
+                el.click();
+              } else {
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+              }
+            } catch {}
+            await sleep(220);
+            secondClickMutations = [...observedMutations];
+          }
           clickObserver.disconnect();
 
           const isToggle = secondClickMutations.length > 0;
@@ -1818,21 +1866,41 @@
             mutations: firstClickMutations,
             reverseMutations: isToggle ? secondClickMutations : undefined
           });
-
-          // Dismiss with Escape or click outside or close modal to restore clean state for the next element
-          try {
-            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-            document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            const closeBtn = document.querySelector('dialog [aria-label*="Close" i], [role="dialog"] [aria-label*="Close" i], [data-testid*="modal"] button');
-            if (closeBtn) closeBtn.click();
-          } catch {}
-          await sleep(100);
-        } else {
-          clickObserver.disconnect();
         }
+        clickObserver.disconnect();
+
+        // Always perform universal clean reset between probed candidates to restore pristine state
+        try {
+          if (document.activeElement && typeof document.activeElement.blur === 'function') {
+            document.activeElement.blur();
+          }
+          if (typeof el.blur === 'function') el.blur();
+          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+          const outsideTarget = document.querySelector('main') || document.body;
+          outsideTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          outsideTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+          outsideTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          const closeBtn = document.querySelector('dialog [aria-label*="Close" i], [role="dialog"] [aria-label*="Close" i], [data-testid*="modal"] button');
+          if (closeBtn) closeBtn.click();
+        } catch {}
+        await sleep(250);
       }
     } finally {
+      // Universal final reset to guarantee the section returns to pristine resting state
+      try {
+        if (document.activeElement && typeof document.activeElement.blur === 'function') {
+          document.activeElement.blur();
+        }
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+        const outsideTarget = document.querySelector('main') || document.body;
+        outsideTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+        outsideTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+        outsideTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+      } catch {}
+      await sleep(200);
+
       window.removeEventListener('click', redirectShieldListener, true);
       window.removeEventListener('submit', redirectShieldListener, true);
       window.removeEventListener('beforeunload', beforeUnloadListener, true);
@@ -1900,48 +1968,7 @@
       console.warn('[replicator] Interactive behavior recording warning:', recordErr);
     }
 
-    let finalSectionHtml = dynamicSectionHtml || data.sectionHtml;
-    if (recordedInteractions && recordedInteractions.length > 0) {
-      try {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(finalSectionHtml, 'text/html');
-        recordedInteractions.forEach((inter) => {
-          if (inter.mutations) {
-            inter.mutations.forEach((m) => {
-              if (m.action === 'added' && m.html && m.html.trim().length > 10) {
-                const temp = document.createElement('div');
-                temp.innerHTML = m.html.trim();
-                const node = temp.firstElementChild;
-                if (node) {
-                  const nodeId = node.id;
-                  if (!nodeId || !doc.getElementById(nodeId)) {
-                    node.setAttribute('data-mutation-src', inter.triggerSelector || '');
-                    node.setAttribute('data-interactive-portal', 'true');
-                    node.setAttribute('data-state', 'closed');
-                    node.style.display = 'none';
-                    let target = m.targetSelector ? doc.querySelector(m.targetSelector) : null;
-                    if (!target && inter.triggerSelector) {
-                      const trig = doc.querySelector(inter.triggerSelector);
-                      if (trig && trig.parentElement) target = trig.parentElement;
-                    }
-                    if (target) {
-                      target.appendChild(node);
-                    } else if (doc.body.firstElementChild) {
-                      doc.body.firstElementChild.appendChild(node);
-                    }
-                  }
-                }
-              }
-            });
-          }
-        });
-        if (doc.body.innerHTML) {
-          finalSectionHtml = doc.body.innerHTML;
-        }
-      } catch (e) {
-        console.warn('[replicator] Failed to inject recorded nodes into sectionHtml:', e);
-      }
-    }
+    const finalSectionHtml = dynamicSectionHtml || data.sectionHtml;
 
     if (progressStepEl) progressStepEl.textContent = 'Extracting styles & synthesizing code...';
 

@@ -233,10 +233,10 @@ export class JsSynthesizer {
                     existing = target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId);
                   }
                   if (!existing && newEl) {
-                    const matchCls = Array.from(newEl.classList || []).filter(function(c) { return c && !c.startsWith('is-') && !c.includes('__replicator'); });
+                    const matchCls = Array.from(newEl.classList || []).filter(function(c) { return c && !c.startsWith('is-') && !c.startsWith('atm_') && !c.includes('__replicator'); });
                     if (matchCls.length > 0) {
                       const firstCls = matchCls[0];
-                      existing = target.querySelector('.' + CSS.escape(firstCls)) || root.querySelector('.' + CSS.escape(firstCls)) || document.querySelector('.' + CSS.escape(firstCls));
+                      existing = target.querySelector('.' + CSS.escape(firstCls)) || root.querySelector('.' + CSS.escape(firstCls));
                     }
                   }
                   if (!existing) {
@@ -244,7 +244,7 @@ export class JsSynthesizer {
                     existing = allPortals.find(function(p) { return p.getAttribute('data-mutation-src') === interaction.triggerSelector; });
                   }
                   if (existing) {
-                    const origDisplay = existing.getAttribute('data-original-display') || 'block';
+                    const origDisplay = (existing.getAttribute('data-original-display') && existing.getAttribute('data-original-display') !== 'none') ? existing.getAttribute('data-original-display') : 'block';
                     existing.style.setProperty('display', origDisplay, 'important');
                     existing.setAttribute('data-state', 'open');
                     existing.classList.add('is-open', 'open', 'show', 'active');
@@ -297,7 +297,12 @@ export class JsSynthesizer {
                 }
               } else if (m.attributeName === 'style') {
                 if (m.newValue !== null) {
-                  target.setAttribute('style', m.newValue);
+                  if (target.hasAttribute('data-interactive-portal') && target.getAttribute('data-state') === 'closed') {
+                    const cleaned = m.newValue.replace(/display:\s*[^;!]+(!important)?/gi, '').trim();
+                    target.setAttribute('style', (cleaned ? cleaned + '; ' : '') + 'display: none !important;');
+                  } else {
+                    target.setAttribute('style', m.newValue);
+                  }
                 }
               } else if (m.attributeName) {
                 if (m.newValue !== null && m.newValue !== undefined) {
@@ -335,10 +340,10 @@ export class JsSynthesizer {
                     existing = target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId);
                   }
                   if (!existing && remEl) {
-                    const matchCls = Array.from(remEl.classList || []).filter(function(c) { return c && !c.startsWith('is-') && !c.includes('__replicator'); });
+                    const matchCls = Array.from(remEl.classList || []).filter(function(c) { return c && !c.startsWith('is-') && !c.startsWith('atm_') && !c.includes('__replicator'); });
                     if (matchCls.length > 0) {
                       const firstCls = matchCls[0];
-                      existing = target.querySelector('.' + CSS.escape(firstCls)) || root.querySelector('.' + CSS.escape(firstCls)) || document.querySelector('.' + CSS.escape(firstCls));
+                      existing = target.querySelector('.' + CSS.escape(firstCls)) || root.querySelector('.' + CSS.escape(firstCls));
                     }
                   }
                   if (!existing) {
@@ -369,7 +374,12 @@ export class JsSynthesizer {
                 }
               } else if (m.attributeName === 'style') {
                 if (m.oldValue !== null) {
-                  target.setAttribute('style', m.oldValue);
+                  if (target.hasAttribute('data-interactive-portal') && target.getAttribute('data-state') === 'closed') {
+                    const cleaned = m.oldValue.replace(/display:\s*[^;!]+(!important)?/gi, '').trim();
+                    target.setAttribute('style', (cleaned ? cleaned + '; ' : '') + 'display: none !important;');
+                  } else {
+                    target.setAttribute('style', m.oldValue);
+                  }
                 } else {
                   target.removeAttribute('style');
                 }
@@ -389,7 +399,26 @@ export class JsSynthesizer {
 
         function handleToggleState(shouldBeActive) {
           if (shouldBeActive) {
+            // Close all other interactive portals in section for clean mutual exclusivity
+            const otherPortals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
+              return p.getAttribute('data-mutation-src') !== interaction.triggerSelector;
+            });
+            otherPortals.forEach(function(p) {
+              p.style.setProperty('display', 'none', 'important');
+              p.setAttribute('data-state', 'closed');
+              p.classList.remove('is-open', 'open', 'show', 'active');
+            });
+
             applyMutations(interaction.mutations);
+            const associatedPortals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
+              return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
+            });
+            associatedPortals.forEach(function(p) {
+              const origDisplay = (p.getAttribute('data-original-display') && p.getAttribute('data-original-display') !== 'none') ? p.getAttribute('data-original-display') : 'block';
+              p.style.setProperty('display', origDisplay, 'important');
+              p.setAttribute('data-state', 'open');
+              p.classList.add('is-open', 'open', 'show', 'active');
+            });
             isToggled = true;
           } else {
             reverseMutations(interaction.mutations, interaction.reverseMutations);
@@ -430,6 +459,12 @@ export class JsSynthesizer {
             }
           }
 
+          if (trigger.tagName === 'INPUT' || trigger.getAttribute('role') === 'combobox' || trigger.getAttribute('role') === 'searchbox') {
+            trigger.addEventListener('focus', function() {
+              if (!isToggled) handleToggleState(true);
+            });
+          }
+
           trigger.addEventListener(interaction.eventType || 'click', function(e) {
             if (e && e.target && e.target !== trigger && trigger.contains(e.target)) {
               const innerInteractive = e.target.closest('button, a, input, select, [role="button"], [role="tab"]');
@@ -444,7 +479,7 @@ export class JsSynthesizer {
             // Mutual exclusivity for tab/dropdown triggers: close other open triggers before opening this one
             if (!isToggled) {
               const otherActiveTriggers = Array.from(document.querySelectorAll('[data-has-recorded-interaction="true"]')).filter(function(t) {
-                return t !== trigger && t.__replicator_is_toggled;
+                return t !== trigger && t.__replicator_is_toggled && !t.contains(trigger) && !trigger.contains(t);
               });
               otherActiveTriggers.forEach(function(ot) {
                 if (typeof ot.__replicator_close === 'function') {

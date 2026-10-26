@@ -1396,6 +1396,11 @@ export class SectionInspector {
 
         // 4. Filter out repeated text span re-renders inside color-name or result counters
         if (m.targetSelector && (m.targetSelector.includes('color-name') || m.targetSelector.includes('result'))) return false;
+
+        // 5. Filter out full-page modals, dialog overlays, smart banners, and auth containers
+        const isModalOrLandmark = (m.targetSelector && (m.targetSelector.includes('modal') || m.targetSelector.includes('auth') || m.targetSelector.includes('banner') || m.targetSelector.includes('skip-link') || m.targetSelector.includes('education-overlay'))) ||
+          (m.html && (m.html.includes('role="dialog"') || m.html.includes('aria-modal="true"') || m.html.includes('auth-modal') || m.html.includes('modal-container') || m.html.trim().startsWith('<header') || m.html.trim().startsWith('<footer') || m.html.trim().startsWith('<main')));
+        if (isModalOrLandmark) return false;
       }
 
       // Filter out pure analytics attribute noise
@@ -1443,6 +1448,32 @@ export class SectionInspector {
         mutations: finalMuts,
         reverseMutations: extractedRevMuts.length > 0 ? extractedRevMuts : undefined
       };
-    }).filter(i => (i.mutations && i.mutations.length > 0) || (i.reverseMutations && i.reverseMutations.length > 0) || (i.eventType === 'scroll' && i.scrollTransitions && i.scrollTransitions.length > 0));
+    }).filter(i => (i.mutations && i.mutations.length > 0) || (i.reverseMutations && i.reverseMutations.length > 0) || (i.eventType === 'scroll' && i.scrollTransitions && i.scrollTransitions.length > 0))
+    .filter((interaction, idx, arr) => {
+      // Deduplicate redundant interactions:
+      // If two interactions share identical portal childList additions, keep only the first/most-specific
+      const portalSig = (interaction.mutations || [])
+        .filter(m => m.mutationType === 'childList' && m.action === 'added')
+        .map(m => m.targetSelector + '::' + (m.html ? m.html.slice(0, 80) : ''))
+        .join('|');
+      if (!portalSig) return true;
+      const firstIdx = arr.findIndex(other => {
+        const otherSig = (other.mutations || [])
+          .filter(m => m.mutationType === 'childList' && m.action === 'added')
+          .map(m => m.targetSelector + '::' + (m.html ? m.html.slice(0, 80) : ''))
+          .join('|');
+        return otherSig === portalSig;
+      });
+      return firstIdx === idx;
+    }).map((interaction, itIdx) => {
+      // Assign deterministic mutation IDs so both HTML and JS synthesizers bind seamlessly
+      (interaction.mutations || []).forEach((m, mIdx) => {
+        m.id = `mut_${itIdx}_${mIdx}`;
+      });
+      (interaction.reverseMutations || []).forEach((m, mIdx) => {
+        m.id = `rev_${itIdx}_${mIdx}`;
+      });
+      return interaction;
+    });
   }
 }
