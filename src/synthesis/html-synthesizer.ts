@@ -1144,14 +1144,13 @@ export class HtmlSynthesizer {
             if (m.action === 'added' && m.html && m.html.trim().length > 10) {
               const cleanHtml = m.html.trim();
 
-              // Universal Modal & Landmark Shield:
-              // Exclude full-page modal dialogs, backdrops, auth overlays, and separate section landmarks
+              // Universal Auth & Landmark Shield:
+              // Exclude full-page auth dialogs, backdrops, and separate section landmarks
               const lowerHtml = cleanHtml.toLowerCase();
-              const isModalOrLandmark = lowerHtml.includes('role="dialog"') || lowerHtml.includes('aria-modal="true"') ||
-                lowerHtml.includes('auth-modal') || lowerHtml.includes('modal-container') || lowerHtml.includes('authmodals') ||
-                lowerHtml.startsWith('<header') || lowerHtml.startsWith('<footer') || lowerHtml.startsWith('<main') ||
-                (m.targetSelector && (m.targetSelector.includes('modal') || m.targetSelector.includes('auth') || m.targetSelector.includes('banner') || m.targetSelector.includes('skip-link')));
-              if (isModalOrLandmark) {
+              const isAuthOrBanner = lowerHtml.includes('auth-modal') || lowerHtml.includes('modal-container') || lowerHtml.includes('authmodals') ||
+                lowerHtml.includes('cookie-banner') || lowerHtml.startsWith('<header') || lowerHtml.startsWith('<footer') || lowerHtml.startsWith('<main') ||
+                (m.targetSelector && (m.targetSelector.includes('auth') || m.targetSelector.includes('banner') || m.targetSelector.includes('skip-link') || m.targetSelector.includes('cookie')));
+              if (isAuthOrBanner) {
                 return;
               }
 
@@ -1170,10 +1169,27 @@ export class HtmlSynthesizer {
               }
 
               const $mut = cheerio.load(cleanHtml, { xmlMode: false }, false);
-              const mutId = $mut.root().children().first().attr('id');
+              const $rootNode = $mut.root().children().first();
+              const mutId = $rootNode.attr('id');
               const alreadyPresent = mutId ? $(`[id="${mutId}"]`).length > 0 : false;
-              if (!alreadyPresent) {
-                const $rootNode = $mut.root().children().first();
+              if (alreadyPresent) {
+                return;
+              }
+
+              // Prevent appending a duplicate layout/search container if an element with the primary class already exists in target
+              if (m.targetSelector) {
+                const $target = $(m.targetSelector).first();
+                if ($target.length > 0) {
+                  const rootTag = $rootNode.prop('tagName')?.toLowerCase();
+                  const rootClasses = ($rootNode.attr('class') || '').split(/\s+/).filter(c => c && !c.startsWith('atm_') && !c.startsWith('dir'));
+                  const primaryClass = rootClasses[0];
+                  if (primaryClass && $target.find(`${rootTag}.${primaryClass}`).length > 0) {
+                    return; // Container already exists in target, do not append duplicate!
+                  }
+                }
+              }
+
+              if (true) {
                 $rootNode.attr('data-mutation-id', mutKey);
                 $rootNode.attr('data-mutation-src', interaction.triggerSelector);
                 $rootNode.attr('data-interactive-portal', 'true');

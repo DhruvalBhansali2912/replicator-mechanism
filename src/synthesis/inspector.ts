@@ -1397,10 +1397,10 @@ export class SectionInspector {
         // 4. Filter out repeated text span re-renders inside color-name or result counters
         if (m.targetSelector && (m.targetSelector.includes('color-name') || m.targetSelector.includes('result'))) return false;
 
-        // 5. Filter out full-page modals, dialog overlays, smart banners, and auth containers
-        const isModalOrLandmark = (m.targetSelector && (m.targetSelector.includes('modal') || m.targetSelector.includes('auth') || m.targetSelector.includes('banner') || m.targetSelector.includes('skip-link') || m.targetSelector.includes('education-overlay'))) ||
-          (m.html && (m.html.includes('role="dialog"') || m.html.includes('aria-modal="true"') || m.html.includes('auth-modal') || m.html.includes('modal-container') || m.html.trim().startsWith('<header') || m.html.trim().startsWith('<footer') || m.html.trim().startsWith('<main')));
-        if (isModalOrLandmark) return false;
+        // 5. Filter out full-page auth dialogs, cookie banners, and separate section landmarks
+        const isAuthOrBanner = (m.targetSelector && (m.targetSelector.includes('auth') || m.targetSelector.includes('banner') || m.targetSelector.includes('skip-link') || m.targetSelector.includes('cookie') || m.targetSelector.includes('consent'))) ||
+          (m.html && (m.html.includes('auth-modal') || m.html.includes('modal-container') || m.html.includes('authmodals') || m.html.includes('cookie-banner') || m.html.trim().startsWith('<header') || m.html.trim().startsWith('<footer') || m.html.trim().startsWith('<main')));
+        if (isAuthOrBanner) return false;
 
         // 6. Filter out micro-additions inside buttons/inputs and empty leaf decorative overlay nodes (e.g. focus rings, ripples, shadow divs)
         if (m.action === 'added' && m.html) {

@@ -1644,13 +1644,15 @@
                       return;
                     }
 
-                    // Exclude full-page modal overlays / dialogs from section portal recording
-                    const isModal = node.getAttribute('role') === 'dialog' || node.getAttribute('aria-modal') === 'true' ||
-                                    node.id?.includes('modal') || node.id?.includes('auth') ||
-                                    nodeCls.includes('modal') || nodeCls.includes('backdrop') || nodeCls.includes('overlay') ||
-                                    targetSel.includes('modal') || targetSel.includes('auth');
-                    if (isModal) {
-                      const closeBtn = node.querySelector('button[aria-label*="close" i], button');
+                    // Exclude full-page modal overlays / backdrops / auth dialogs from section portal recording
+                    // Popovers, datepickers, and dropdown dialogs anchored to the section are preserved
+                    const rect = node.getBoundingClientRect ? node.getBoundingClientRect() : { width: 0, height: 0 };
+                    const isFullScreen = rect.width >= (window.innerWidth || 1000) * 0.85 && rect.height >= (window.innerHeight || 800) * 0.85;
+                    const isAuthOrConsent = /auth|login|signup|cookie|consent/i.test((node.id || '') + ' ' + nodeCls + ' ' + targetSel);
+                    const isBackdrop = /backdrop|scrim|dimmer/i.test(nodeCls);
+                    const isFullPageModal = isBackdrop || isAuthOrConsent || (isFullScreen && (node.getAttribute('role') === 'dialog' || node.getAttribute('aria-modal') === 'true'));
+                    if (isFullPageModal) {
+                      const closeBtn = node.querySelector('button[aria-label*="close" i], [aria-label*="dismiss" i]');
                       if (closeBtn) closeBtn.click();
                       return;
                     }
