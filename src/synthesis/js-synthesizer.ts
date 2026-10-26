@@ -416,6 +416,7 @@ export class JsSynthesizer {
             associatedPortals.forEach(function(p) {
               const origDisplay = (p.getAttribute('data-original-display') && p.getAttribute('data-original-display') !== 'none') ? p.getAttribute('data-original-display') : 'block';
               p.style.setProperty('display', origDisplay, 'important');
+              p.style.setProperty('z-index', '99999', 'important');
               p.setAttribute('data-state', 'open');
               p.classList.add('is-open', 'open', 'show', 'active');
             });
@@ -466,6 +467,9 @@ export class JsSynthesizer {
           }
 
           trigger.addEventListener(interaction.eventType || 'click', function(e) {
+            if (e && typeof e.stopPropagation === 'function') {
+              e.stopPropagation();
+            }
             if (e && e.target && e.target !== trigger && trigger.contains(e.target)) {
               const innerInteractive = e.target.closest('button, a, input, select, [role="button"], [role="tab"]');
               if (innerInteractive && innerInteractive !== trigger) {

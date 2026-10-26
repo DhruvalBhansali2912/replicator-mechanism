@@ -1401,11 +1401,38 @@ export class SectionInspector {
         const isModalOrLandmark = (m.targetSelector && (m.targetSelector.includes('modal') || m.targetSelector.includes('auth') || m.targetSelector.includes('banner') || m.targetSelector.includes('skip-link') || m.targetSelector.includes('education-overlay'))) ||
           (m.html && (m.html.includes('role="dialog"') || m.html.includes('aria-modal="true"') || m.html.includes('auth-modal') || m.html.includes('modal-container') || m.html.trim().startsWith('<header') || m.html.trim().startsWith('<footer') || m.html.trim().startsWith('<main')));
         if (isModalOrLandmark) return false;
+
+        // 6. Filter out micro-additions inside buttons/inputs and empty leaf decorative overlay nodes (e.g. focus rings, ripples, shadow divs)
+        if (m.action === 'added' && m.html) {
+          if (m.targetSelector && (m.targetSelector.includes('button') || m.targetSelector.includes('input'))) {
+            return false;
+          }
+          const lower = m.html.toLowerCase();
+          const hasSemanticTag = lower.includes('<input') || lower.includes('<button') || lower.includes('<a ') ||
+            lower.includes('role=') || lower.includes('<ul') || lower.includes('<ol') || lower.includes('<table') ||
+            lower.includes('<form') || lower.includes('<select') || lower.includes('<p') || lower.includes('<h1') ||
+            lower.includes('<h2') || lower.includes('<h3') || lower.includes('<h4') || lower.includes('<span');
+          const stripped = m.html.replace(/<[^>]*>/g, '').trim();
+          if (stripped.length === 0 && !hasSemanticTag && m.html.length < 500) {
+            return false;
+          }
+        }
       }
 
       // Filter out pure analytics attribute noise
       if (m.attributeName && (m.attributeName.startsWith('data-di-') || m.attributeName.startsWith('data-an-') || m.attributeName === 'data-di-rand' || m.attributeName === 'data-di-res-id')) {
         return false;
+      }
+
+      // Filter out in-flight physics animation frame oscillations on style attributes
+      if (m.attributeName === 'style' && m.newValue) {
+        if (/transform:\s*(scale\(|matrix\(|translate3d\()/i.test(m.newValue) || /border-radius:\s*[\d.]+% \/ [\d.]+/i.test(m.newValue)) {
+          return false;
+        }
+        // Intermediate fade-out frames during animations should not freeze persistent UI hidden
+        if (/opacity:\s*0(\.0+)?(;|$)/i.test(m.newValue) && m.targetSelector && !m.targetSelector.includes('modal') && !m.targetSelector.includes('overlay')) {
+          return false;
+        }
       }
 
       return true;
@@ -1454,13 +1481,13 @@ export class SectionInspector {
       // If two interactions share identical portal childList additions, keep only the first/most-specific
       const portalSig = (interaction.mutations || [])
         .filter(m => m.mutationType === 'childList' && m.action === 'added')
-        .map(m => m.targetSelector + '::' + (m.html ? m.html.slice(0, 80) : ''))
+        .map(m => m.targetSelector + '::' + (m.html ? `${m.html.length}::${m.html.slice(0, 40)}::${m.html.slice(-40)}` : ''))
         .join('|');
       if (!portalSig) return true;
       const firstIdx = arr.findIndex(other => {
         const otherSig = (other.mutations || [])
           .filter(m => m.mutationType === 'childList' && m.action === 'added')
-          .map(m => m.targetSelector + '::' + (m.html ? m.html.slice(0, 80) : ''))
+          .map(m => m.targetSelector + '::' + (m.html ? `${m.html.length}::${m.html.slice(0, 40)}::${m.html.slice(-40)}` : ''))
           .join('|');
         return otherSig === portalSig;
       });

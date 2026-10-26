@@ -1155,6 +1155,20 @@ export class HtmlSynthesizer {
                 return;
               }
 
+              // Exclude micro-additions inside buttons, links, or inputs from being treated as interactive portals
+              if (m.targetSelector && (m.targetSelector.includes('button') || m.targetSelector.includes('input'))) {
+                return;
+              }
+
+              // Discard empty leaf decorative nodes (e.g. focus rings, ripple wrappers, empty overlays)
+              const strippedText = cleanHtml.replace(/<[^>]*>/g, '').trim();
+              const hasSemanticChildren = lowerHtml.includes('<input') || lowerHtml.includes('<button') || lowerHtml.includes('<a ') ||
+                lowerHtml.includes('role=') || lowerHtml.includes('<ul') || lowerHtml.includes('<ol') || lowerHtml.includes('<table') ||
+                lowerHtml.includes('<form') || lowerHtml.includes('<select') || lowerHtml.includes('<p') || lowerHtml.includes('<h');
+              if (strippedText.length === 0 && !hasSemanticChildren && cleanHtml.length < 500) {
+                return;
+              }
+
               const $mut = cheerio.load(cleanHtml, { xmlMode: false }, false);
               const mutId = $mut.root().children().first().attr('id');
               const alreadyPresent = mutId ? $(`[id="${mutId}"]`).length > 0 : false;

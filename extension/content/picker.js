@@ -1637,6 +1637,12 @@
                                       nodeCls.includes('product-card') || nodeCls.includes('card-item');
                     if (isCatalog) return;
                     if (node.tagName.toLowerCase() === 'svg') return;
+                    if (targetSel.includes('button') || targetSel.includes('input')) return;
+
+                    // Filter out empty leaf decorative overlay nodes (e.g. focus rings, ripples, backgrounds)
+                    if (node.children.length === 0 && !node.textContent?.trim() && !['input', 'button', 'a', 'img', 'video', 'canvas'].includes(node.tagName.toLowerCase())) {
+                      return;
+                    }
 
                     // Exclude full-page modal overlays / dialogs from section portal recording
                     const isModal = node.getAttribute('role') === 'dialog' || node.getAttribute('aria-modal') === 'true' ||
