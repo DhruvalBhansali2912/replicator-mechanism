@@ -1136,9 +1136,11 @@ export class HtmlSynthesizer {
     // If recordedTransitions captured authentic DOM nodes added during live interaction
     // (e.g. React/Next.js/Radix portals rendered on click), ensure they are present in the section HTML!
     if (ast.interactive?.recordedTransitions) {
-      ast.interactive.recordedTransitions.forEach((interaction) => {
+      ast.interactive.recordedTransitions.forEach((interaction, itIdx) => {
         if (interaction.mutations) {
-          interaction.mutations.forEach((m) => {
+          interaction.mutations.forEach((m, mIdx) => {
+            const mutKey = `mut_${itIdx}_${mIdx}`;
+            m.id = mutKey;
             if (m.action === 'added' && m.html && m.html.trim().length > 10) {
               const cleanHtml = m.html.trim();
               const $mut = cheerio.load(cleanHtml, { xmlMode: false }, false);
@@ -1146,10 +1148,15 @@ export class HtmlSynthesizer {
               const alreadyPresent = mutId ? $(`[id="${mutId}"]`).length > 0 : false;
               if (!alreadyPresent) {
                 const $rootNode = $mut.root().children().first();
+                $rootNode.attr('data-mutation-id', mutKey);
                 $rootNode.attr('data-mutation-src', interaction.triggerSelector);
                 $rootNode.attr('data-interactive-portal', 'true');
                 $rootNode.attr('data-state', 'closed');
                 const curStyle = $rootNode.attr('style') || '';
+                const origDisplayMatch = curStyle.match(/display:\s*([^;!]+)/i);
+                if (origDisplayMatch) {
+                  $rootNode.attr('data-original-display', origDisplayMatch[1].trim());
+                }
                 $rootNode.attr('style', (curStyle ? curStyle + '; ' : '') + 'display: none;');
 
                 let appended = false;

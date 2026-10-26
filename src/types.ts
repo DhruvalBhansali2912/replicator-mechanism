@@ -69,6 +69,7 @@ export interface ExtractionOptions {
 }
 
 export interface StateMutation {
+  id?: string;
   targetSelector: string;
   mutationType?: 'attributes' | 'childList';
   attributeName?: string;

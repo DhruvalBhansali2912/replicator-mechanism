@@ -67,7 +67,8 @@ export class ReconstructionWorker {
 
     const cleanRawJs = JsTransformer.sanitizeModuleSyntax(_rawJs || '');
     let safeRawJs = '';
-    if (cleanRawJs && cleanRawJs.trim()) {
+    const isMassiveSpaBundle = cleanRawJs.length > 250000 || cleanRawJs.includes('webpackChunk') || cleanRawJs.includes('__LOADABLE_LOADED_CHUNKS__');
+    if (cleanRawJs && cleanRawJs.trim() && !isMassiveSpaBundle) {
       try {
         new Function(cleanRawJs);
         safeRawJs = cleanRawJs;
@@ -338,8 +339,8 @@ html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
     if (segmentedSections.length === 1) {
       const sec = sectionsOutput[0];
       const effectiveSectionJs = [
-        wrappedRawJs,
-        sec.js ? `// [Universal Interactive Resilience Controller]\n${sec.js}` : ''
+        sec.js ? `// [Universal Interactive Resilience Controller]\n${sec.js}` : '',
+        wrappedRawJs
       ].filter(Boolean).join('\n\n');
 
       const injectedBg = globalBgCanvasHtml ? `${globalBgCanvasHtml}\n` : '';
@@ -421,8 +422,8 @@ ${injectedBg}${sec.html}${globalOverlaysHtml ? '\n' + globalOverlaysHtml : ''}
     const rawCombinedCss = `*, *::before, *::after { box-sizing: border-box; }\nhtml, body { container-type: inline-size; }\n${globalCssPreamble}\nbody { margin: 0; padding: 0; }\n${bgCanvasCss}\n${combinedRawCss}`;
     const syntheticJs = sectionsOutput.map((r) => r.js).filter(Boolean).join('\n\n');
     const effectiveFullJs = [
-      wrappedRawJs,
-      syntheticJs ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}` : ''
+      syntheticJs ? `// [Universal Interactive Resilience Controller]\n${syntheticJs}` : '',
+      wrappedRawJs
     ].filter(Boolean).join('\n\n');
 
     const fullHtml = `<!DOCTYPE html>

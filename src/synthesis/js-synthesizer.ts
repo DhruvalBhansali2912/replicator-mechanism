@@ -224,15 +224,28 @@ export class JsSynthesizer {
                   temp.innerHTML = m.html;
                   const newEl = temp.firstElementChild;
                   const elId = newEl ? newEl.id : null;
-                  if (elId) {
+                  if (m.id) {
+                    existing = target.querySelector('[data-mutation-id="' + m.id + '"]') ||
+                               root.querySelector('[data-mutation-id="' + m.id + '"]') ||
+                               document.querySelector('[data-mutation-id="' + m.id + '"]');
+                  }
+                  if (!existing && elId) {
                     existing = target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId);
                   }
+                  if (!existing && newEl) {
+                    const matchCls = Array.from(newEl.classList || []).filter(function(c) { return c && !c.startsWith('is-') && !c.includes('__replicator'); });
+                    if (matchCls.length > 0) {
+                      const firstCls = matchCls[0];
+                      existing = target.querySelector('.' + CSS.escape(firstCls)) || root.querySelector('.' + CSS.escape(firstCls)) || document.querySelector('.' + CSS.escape(firstCls));
+                    }
+                  }
                   if (!existing) {
-                    existing = target.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]') ||
-                               root.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
+                    const allPortals = Array.from(document.querySelectorAll('[data-interactive-portal]'));
+                    existing = allPortals.find(function(p) { return p.getAttribute('data-mutation-src') === interaction.triggerSelector; });
                   }
                   if (existing) {
-                    existing.style.setProperty('display', 'block', 'important');
+                    const origDisplay = existing.getAttribute('data-original-display') || 'block';
+                    existing.style.setProperty('display', origDisplay, 'important');
                     existing.setAttribute('data-state', 'open');
                     existing.classList.add('is-open', 'open', 'show', 'active');
                   } else if (newEl) {
@@ -312,13 +325,28 @@ export class JsSynthesizer {
                   temp.innerHTML = m.html;
                   const remEl = temp.firstElementChild;
                   const elId = remEl ? remEl.id : null;
-                  let existing = elId ? (target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId)) : null;
+                  let existing = null;
+                  if (m.id) {
+                    existing = target.querySelector('[data-mutation-id="' + m.id + '"]') ||
+                               root.querySelector('[data-mutation-id="' + m.id + '"]') ||
+                               document.querySelector('[data-mutation-id="' + m.id + '"]');
+                  }
+                  if (!existing && elId) {
+                    existing = target.querySelector('#' + CSS.escape(elId)) || root.querySelector('#' + CSS.escape(elId)) || document.getElementById(elId);
+                  }
+                  if (!existing && remEl) {
+                    const matchCls = Array.from(remEl.classList || []).filter(function(c) { return c && !c.startsWith('is-') && !c.includes('__replicator'); });
+                    if (matchCls.length > 0) {
+                      const firstCls = matchCls[0];
+                      existing = target.querySelector('.' + CSS.escape(firstCls)) || root.querySelector('.' + CSS.escape(firstCls)) || document.querySelector('.' + CSS.escape(firstCls));
+                    }
+                  }
                   if (!existing) {
-                    existing = target.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]') ||
-                               root.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
+                    const allPortals = Array.from(document.querySelectorAll('[data-interactive-portal]'));
+                    existing = allPortals.find(function(p) { return p.getAttribute('data-mutation-src') === interaction.triggerSelector; });
                   }
                   if (existing) {
-                    if (existing.hasAttribute('data-interactive-portal') || existing.id) {
+                    if (existing.hasAttribute('data-interactive-portal') || existing.id || existing.hasAttribute('data-mutation-id')) {
                       existing.style.setProperty('display', 'none', 'important');
                       existing.setAttribute('data-state', 'closed');
                       existing.classList.remove('is-open', 'open', 'show', 'active');
@@ -365,9 +393,20 @@ export class JsSynthesizer {
             isToggled = true;
           } else {
             reverseMutations(interaction.mutations, interaction.reverseMutations);
+            // Explicitly close all interactive portals associated with this trigger
+            const associatedPortals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
+              return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
+            });
+            associatedPortals.forEach(function(p) {
+              p.style.setProperty('display', 'none', 'important');
+              p.setAttribute('data-state', 'closed');
+              p.classList.remove('is-open', 'open', 'show', 'active');
+            });
             isToggled = false;
           }
+          trigger.__replicator_is_toggled = isToggled;
         }
+        trigger.__replicator_close = function() { handleToggleState(false); };
 
         if (interaction.eventType === 'mouseenter') {
           trigger.addEventListener('mouseenter', function() {
@@ -402,18 +441,28 @@ export class JsSynthesizer {
               handleToggleState(trigger.checked);
               return;
             }
-            if (interaction.isToggle) {
-              handleToggleState(!isToggled);
-            } else {
-              applyMutations(interaction.mutations);
+            // Mutual exclusivity for tab/dropdown triggers: close other open triggers before opening this one
+            if (!isToggled) {
+              const otherActiveTriggers = Array.from(document.querySelectorAll('[data-has-recorded-interaction="true"]')).filter(function(t) {
+                return t !== trigger && t.__replicator_is_toggled;
+              });
+              otherActiveTriggers.forEach(function(ot) {
+                if (typeof ot.__replicator_close === 'function') {
+                  ot.__replicator_close();
+                }
+              });
             }
+            handleToggleState(!isToggled);
           });
 
           // Click-outside and Escape dismisser
           document.addEventListener('click', function(e) {
             if (isToggled && !trigger.contains(e.target)) {
-              const portal = root.querySelector('[data-mutation-src="' + CSS.escape(interaction.triggerSelector) + '"]');
-              if (!portal || !portal.contains(e.target)) {
+              const portals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
+                return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
+              });
+              const clickedInsideAny = portals.some(function(p) { return p.contains(e.target); });
+              if (!clickedInsideAny) {
                 handleToggleState(false);
               }
             }

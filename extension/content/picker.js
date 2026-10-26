@@ -1480,7 +1480,7 @@
     let redirectInitiated = false;
     const redirectShieldListener = (e) => {
       const target = e.target;
-      const link = target?.closest ? target.closest('a[href], form') : null;
+      const link = target?.closest ? target.closest('a[href], form, button[type="submit"]') : null;
       if (link) {
         const href = link.getAttribute('href');
         if (href && !href.startsWith('#') && !href.startsWith('javascript:')) {
@@ -1490,7 +1490,7 @@
           e.stopImmediatePropagation();
           return false;
         }
-        if (link.tagName === 'FORM') {
+        if (link.tagName === 'FORM' || link.tagName === 'BUTTON') {
           redirectInitiated = true;
           e.preventDefault();
           e.stopPropagation();
@@ -1500,17 +1500,29 @@
       }
     };
 
+    const beforeUnloadListener = (e) => {
+      redirectInitiated = true;
+      e.preventDefault();
+      e.returnValue = '';
+      return false;
+    };
+
     window.addEventListener('click', redirectShieldListener, true);
     window.addEventListener('submit', redirectShieldListener, true);
+    window.addEventListener('beforeunload', beforeUnloadListener, true);
 
     const originalLocationAssign = window.location.assign;
     const originalLocationReplace = window.location.replace;
     const originalWindowOpen = window.open;
+    const originalPushState = window.history.pushState;
+    const originalReplaceState = window.history.replaceState;
 
     try {
       window.location.assign = function() { redirectInitiated = true; };
       window.location.replace = function() { redirectInitiated = true; };
       window.open = function() { redirectInitiated = true; return null; };
+      window.history.pushState = function() { redirectInitiated = true; };
+      window.history.replaceState = function() { redirectInitiated = true; };
     } catch {}
 
     try {
@@ -1522,9 +1534,12 @@
         return true;
       });
 
-      // Deduplicate by clean selector
+      // Deduplicate by clean selector, excluding redundant inner decorative children of interactive controls
       const candidateMap = new Map();
       rawElements.forEach(el => {
+        const parentInteractive = el.parentElement?.closest('button, [role="button"], [role="tab"], a[href], input, select');
+        if (parentInteractive) return;
+
         const sel = getCleanSelector(el, sectionEl);
         if (sel && !candidateMap.has(sel)) {
           const rect = el.getBoundingClientRect();
@@ -1538,6 +1553,22 @@
       });
 
       const candidates = Array.from(candidateMap.values());
+
+      // Sort candidates: High-value interactive elements (buttons, inputs, tabs, steppers) are probed first
+      candidates.sort((a, b) => {
+        const getScore = (el) => {
+          const tag = el.tagName.toLowerCase();
+          const role = el.getAttribute('role') || '';
+          const aria = (el.getAttribute('aria-label') || '').toLowerCase();
+          const txt = (el.textContent || '').toLowerCase();
+          if (tag === 'input' || tag === 'button' || role === 'button' || role === 'tab') return 10;
+          if (aria.includes('search') || aria.includes('menu') || aria.includes('filter') || aria.includes('login') || aria.includes('profile')) return 9;
+          if (txt.includes('where') || txt.includes('when') || txt.includes('who') || txt.includes('date') || txt.includes('guest')) return 9;
+          if (el.hasAttribute('aria-haspopup') || el.hasAttribute('aria-expanded')) return 8;
+          return 1;
+        };
+        return getScore(b) - getScore(a);
+      });
 
       for (let i = 0; i < candidates.length; i++) {
         const el = candidates[i];
@@ -1699,6 +1730,22 @@
         }
 
         // --- B. CLICK PROBE ---
+        const isPureNavLink = (el.tagName.toLowerCase() === 'a' || el.closest('a[href]')) &&
+          !el.getAttribute('role')?.includes('tab') &&
+          !el.getAttribute('role')?.includes('button') &&
+          !el.closest('[role="tab"], [role="button"]') &&
+          !el.getAttribute('data-tab') &&
+          !el.getAttribute('data-action') &&
+          (function() {
+            const a = el.closest('a[href]');
+            const h = a ? a.getAttribute('href') : null;
+            return h && !h.startsWith('#') && !h.startsWith('javascript:');
+          })();
+
+        if (isPureNavLink) {
+          continue;
+        }
+
         redirectInitiated = false;
         observedMutations = [];
         const clickObserver = new MutationObserver(mutationCallback);
@@ -1711,12 +1758,20 @@
         });
 
         try {
+          if (el.tagName.toLowerCase() === 'input' || el.getAttribute('role') === 'combobox' || el.getAttribute('role') === 'searchbox') {
+            try {
+              el.focus();
+              el.dispatchEvent(new FocusEvent('focusin', { bubbles: true, view: window }));
+              el.dispatchEvent(new FocusEvent('focus', { bubbles: true, view: window }));
+            } catch {}
+          }
           el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
           el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
           el.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
           el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
           el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-          if (typeof el.click === 'function' && el.tagName.toLowerCase() !== 'a') {
+          const parentLink = el.closest('a[href]');
+          if (typeof el.click === 'function' && !parentLink && el.tagName.toLowerCase() !== 'a') {
             el.click();
           }
         } catch {}
@@ -1745,7 +1800,8 @@
           // Probe second click to test toggle behavior
           try {
             el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            if (typeof el.click === 'function' && el.tagName.toLowerCase() !== 'a') {
+            const parentLink = el.closest('a[href]');
+            if (typeof el.click === 'function' && !parentLink && el.tagName.toLowerCase() !== 'a') {
               el.click();
             }
           } catch {}
@@ -1763,14 +1819,15 @@
             reverseMutations: isToggle ? secondClickMutations : undefined
           });
 
-          // If not toggled off, dismiss with Escape or click outside to restore clean state for the next element
-          if (!isToggle) {
-            try {
-              document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-              document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
-            } catch {}
-            await sleep(100);
-          }
+          // Dismiss with Escape or click outside or close modal to restore clean state for the next element
+          try {
+            window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+            document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
+            document.body.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            const closeBtn = document.querySelector('dialog [aria-label*="Close" i], [role="dialog"] [aria-label*="Close" i], [data-testid*="modal"] button');
+            if (closeBtn) closeBtn.click();
+          } catch {}
+          await sleep(100);
         } else {
           clickObserver.disconnect();
         }
@@ -1778,10 +1835,13 @@
     } finally {
       window.removeEventListener('click', redirectShieldListener, true);
       window.removeEventListener('submit', redirectShieldListener, true);
+      window.removeEventListener('beforeunload', beforeUnloadListener, true);
       try {
         window.location.assign = originalLocationAssign;
         window.location.replace = originalLocationReplace;
         window.open = originalWindowOpen;
+        window.history.pushState = originalPushState;
+        window.history.replaceState = originalReplaceState;
       } catch {}
     }
 
@@ -1789,6 +1849,7 @@
   }
   window.__replicator_recordDynamicInteractions = recordDynamicInteractions;
   window.__replicator_probeScrollDynamics = probeScrollDynamics;
+  window.__replicator_getCleanSelector = getCleanSelector;
 
   // Function to start live section replication & polling
   async function initiateReplication() {
