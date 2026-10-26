@@ -823,6 +823,10 @@
     `;
 
     document.getElementById('__replicator_start_btn__')?.addEventListener('click', initiateReplication);
+    document.getElementById('__replicator_cancel_btn__')?.addEventListener('click', () => {
+      cleanup();
+      chrome.runtime.sendMessage({ action: 'SECTION_PICKER_CANCELLED' });
+    });
     document.getElementById('__replicator_reselect_btn__')?.addEventListener('click', () => {
       isSectionConfirmed = false;
       overlay.style.border = '2px solid #2563eb';
@@ -839,7 +843,12 @@
         </div>
         <button id="__replicator_cancel_btn__" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-weight:600;font-size:12px;cursor:pointer;">Cancel</button>
       `;
+      document.getElementById('__replicator_cancel_btn__')?.addEventListener('click', () => {
+        cleanup();
+        chrome.runtime.sendMessage({ action: 'SECTION_PICKER_CANCELLED' });
+      });
     });
+  }
 
   // Helper: Universally hover and interact with elements in the section to reveal dynamic/lazy DOM
   async function revealDynamicSections(sectionEl) {
@@ -1388,27 +1397,27 @@
             const styles = {};
             const initialStyles = {};
 
-            if (current.backgroundColor !== base.backgroundColor) {
+            if (current.backgroundColor && current.backgroundColor !== base.backgroundColor) {
               styles.backgroundColor = current.backgroundColor;
               initialStyles.backgroundColor = base.backgroundColor;
             }
-            if (current.backgroundImage !== base.backgroundImage) {
+            if (current.backgroundImage && current.backgroundImage !== base.backgroundImage && current.backgroundImage !== 'none') {
               styles.backgroundImage = current.backgroundImage;
               initialStyles.backgroundImage = base.backgroundImage;
             }
-            if (current.boxShadow !== base.boxShadow) {
+            if (current.boxShadow && current.boxShadow !== base.boxShadow && current.boxShadow !== 'none') {
               styles.boxShadow = current.boxShadow;
               initialStyles.boxShadow = base.boxShadow;
             }
-            if (current.backdropFilter !== base.backdropFilter) {
+            if (current.backdropFilter && current.backdropFilter !== base.backdropFilter && current.backdropFilter !== 'none') {
               styles.backdropFilter = current.backdropFilter;
               initialStyles.backdropFilter = base.backdropFilter;
             }
-            if (current.transform !== base.transform && current.transform !== 'none') {
+            if (current.transform && current.transform !== base.transform && current.transform !== 'none') {
               styles.transform = current.transform;
               initialStyles.transform = base.transform;
             }
-            if (current.opacity !== base.opacity) {
+            if (current.opacity && current.opacity !== base.opacity) {
               styles.opacity = current.opacity;
               initialStyles.opacity = base.opacity;
             }
@@ -1766,6 +1775,8 @@
 
     return recorded;
   }
+  window.__replicator_recordDynamicInteractions = recordDynamicInteractions;
+  window.__replicator_probeScrollDynamics = probeScrollDynamics;
 
   // Function to start live section replication & polling
   async function initiateReplication() {
@@ -2079,31 +2090,6 @@
       document.getElementById('__replicator_retry_btn__')?.addEventListener('click', initiateReplication);
       document.getElementById('__replicator_close_err_btn__')?.addEventListener('click', cleanup);
     }
-
-    // Handle "Replicate Section Now" click
-    const startBtn = document.getElementById('__replicator_start_btn__');
-    startBtn?.addEventListener('click', initiateReplication);
-
-    // Handle Reselect
-    const reselectBtn = document.getElementById('__replicator_reselect_btn__');
-    reselectBtn?.addEventListener('click', () => {
-      isSectionConfirmed = false;
-      overlay.style.border = '2px solid #2563eb';
-      overlay.style.background = 'rgba(37, 99, 235, 0.12)';
-      overlay.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.8), 0 8px 24px rgba(37, 99, 235, 0.25)';
-      badge.style.background = '#1d4ed8';
-      window.addEventListener('mousemove', onMouseMove, true);
-
-      bar.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;">
-          <span style="font-size:18px;">🎯</span>
-          <strong>Select Section:</strong>
-          <span>Hover to highlight. Press <kbd style="background:#334155;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">↑</kbd> to expand to parent, <kbd style="background:#334155;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">↓</kbd> to shrink, <kbd style="background:#334155;color:#fff;padding:2px 6px;border-radius:4px;font-size:11px;">ESC</kbd> to cancel.</span>
-        </div>
-        <button id="__replicator_cancel_btn__" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:4px 10px;font-weight:600;font-size:12px;cursor:pointer;">Cancel</button>
-      `;
-    });
-  }
 
   // Key Down Listener (ESC to cancel, Up/Down to navigate DOM hierarchy)
   function onKeyDown(e) {
