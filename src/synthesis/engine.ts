@@ -68,7 +68,7 @@ export class GroundUpSynthesisEngine {
 
     // 2. Synthesize fresh code from scratch
     let html = this.htmlSynthesizer.synthesize(ast);
-    let css = this.cssSynthesizer.synthesize(ast);
+    let css = this.cssSynthesizer.synthesize(ast, html);
     const js = this.jsSynthesizer.synthesize(ast);
 
     // 3. Evaluate against strict scoring system (>= 90)

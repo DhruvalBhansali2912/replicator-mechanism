@@ -1169,6 +1169,20 @@ export class HtmlSynthesizer {
               }
 
               const $mut = cheerio.load(cleanHtml, { xmlMode: false }, false);
+
+              // Sanitize in-flight opening animation transforms and low opacity
+              $mut('*').each((_, el) => {
+                const s = $mut(el).attr('style');
+                if (s) {
+                  let cleaned = s
+                    .replace(/transform:\s*scale\([^)]+\);?/gi, '')
+                    .replace(/opacity:\s*0\.\d+;?/gi, 'opacity: 1;')
+                    .trim();
+                  if (cleaned) $mut(el).attr('style', cleaned);
+                  else $mut(el).removeAttr('style');
+                }
+              });
+
               const $rootNode = $mut.root().children().first();
               const mutId = $rootNode.attr('id');
               const alreadyPresent = mutId ? $(`[id="${mutId}"]`).length > 0 : false;
@@ -1176,15 +1190,29 @@ export class HtmlSynthesizer {
                 return;
               }
 
-              // Prevent appending a duplicate layout/search container if an element with the primary class already exists in target
+              // Prevent appending duplicate mutations for the same trigger or identical content
               if (m.targetSelector) {
                 const $target = $(m.targetSelector).first();
                 if ($target.length > 0) {
-                  const rootTag = $rootNode.prop('tagName')?.toLowerCase();
-                  const rootClasses = ($rootNode.attr('class') || '').split(/\s+/).filter(c => c && !c.startsWith('atm_') && !c.startsWith('dir'));
-                  const primaryClass = rootClasses[0];
-                  if (primaryClass && $target.find(`${rootTag}.${primaryClass}`).length > 0) {
-                    return; // Container already exists in target, do not append duplicate!
+                  // If a portal was already appended for this exact trigger selector, skip duplicate
+                  let existingForTrigger = false;
+                  $target.find('[data-mutation-src]').each((_, el) => {
+                    if ($(el).attr('data-mutation-src') === interaction.triggerSelector) existingForTrigger = true;
+                  });
+                  if (existingForTrigger) {
+                    return;
+                  }
+                  // If an element with identical text content already exists as a portal in target, skip duplicate
+                  const curText = cleanHtml.replace(/<[^>]*>/g, '').trim().slice(0, 100);
+                  if (curText.length > 10) {
+                    let isContentDuplicate = false;
+                    $target.find('[data-interactive-portal]').each((_, ex) => {
+                      const exText = $(ex).text().trim().slice(0, 100);
+                      if (exText === curText) isContentDuplicate = true;
+                    });
+                    if (isContentDuplicate) {
+                      return;
+                    }
                   }
                 }
               }
@@ -1192,6 +1220,7 @@ export class HtmlSynthesizer {
               if (true) {
                 $rootNode.attr('data-mutation-id', mutKey);
                 $rootNode.attr('data-mutation-src', interaction.triggerSelector);
+                $rootNode.attr('data-portal-for', interaction.triggerSelector);
                 $rootNode.attr('data-interactive-portal', 'true');
                 $rootNode.attr('data-state', 'closed');
                 const curStyle = $rootNode.attr('style') || '';

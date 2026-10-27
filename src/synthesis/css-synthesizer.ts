@@ -8,12 +8,12 @@ export class CssSynthesizer {
   /**
    * Synthesizes modern, tokenized, responsive CSS3 with interactive hover/click states.
    */
-  public synthesize(ast: SectionAST): string {
+  public synthesize(ast: SectionAST, synthesizedHtml?: string): string {
     const rawCss = this.hasAuthenticMarkup(ast)
-      ? this.synthesizeAuthenticCss(ast)
+      ? this.synthesizeAuthenticCss(ast, synthesizedHtml)
       : this.synthesizeStandardCss(ast);
 
-    const sectionHtml = ast.rawSectionHtml || '';
+    const sectionHtml = synthesizedHtml || ast.rawSectionHtml || '';
     const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
     let bodyClass = '';
     let htmlClass = '';
@@ -1655,10 +1655,10 @@ ${this.getUniversalInteractiveRules(ast)}
 `.trim();
   }
 
-  private synthesizeAuthenticCss(ast: SectionAST): string {
+  private synthesizeAuthenticCss(ast: SectionAST, synthesizedHtml?: string): string {
     const { colors, typography, spacing } = ast.tokens;
     const rawCss = ast.rawCssContext || '';
-    const sectionHtml = ast.rawSectionHtml || '';
+    const sectionHtml = synthesizedHtml || ast.rawSectionHtml || '';
     const hasExistingHeaderTag = sectionHtml.includes('<header') || sectionHtml.includes('class="site-header"');
     const wrapperTag = ast.archetype === 'footer' ? 'footer' : ast.archetype === 'navbar' ? 'header' : 'section';
     const archetypeClasses = ast.archetype === 'footer'
@@ -1719,13 +1719,13 @@ ${this.getUniversalInteractiveRules(ast)}
 
     const sectionClasses = new Set<string>();
     const sectionIds = new Set<string>();
-    $(`#${ast.id} [class], #${ast.id}`).each((_, el) => {
+    $(`body [class]`).each((_, el) => {
       const cls = $(el).attr('class') || '';
       for (const c of cls.split(/\s+/)) {
         if (c.trim()) sectionClasses.add(c.trim());
       }
     });
-    $(`#${ast.id} [id], #${ast.id}`).each((_, el) => {
+    $(`body [id]`).each((_, el) => {
       const id = $(el).attr('id');
       if (id && id.trim()) sectionIds.add(id.trim());
     });

@@ -464,6 +464,12 @@ export class JsSynthesizer {
             trigger.addEventListener('focus', function() {
               if (!isToggled) handleToggleState(true);
             });
+            const parentField = trigger.closest('label, [class*="search-input"], [class*="search-field"], [class*="query-input"], [class*="search-button"]');
+            if (parentField && parentField !== trigger) {
+              parentField.addEventListener('click', function() {
+                if (!isToggled) handleToggleState(true);
+              });
+            }
           }
 
           trigger.addEventListener(interaction.eventType || 'click', function(e) {
@@ -471,9 +477,10 @@ export class JsSynthesizer {
               e.stopPropagation();
             }
             if (e && e.target && e.target !== trigger && trigger.contains(e.target)) {
-              const innerInteractive = e.target.closest('button, a, input, select, [role="button"], [role="tab"]');
+              const innerInteractive = e.target.closest('button, a, select, [role="button"], [role="tab"]');
               if (innerInteractive && innerInteractive !== trigger) {
-                return;
+                const isDismissOrClear = innerInteractive.matches('[aria-label*="clear" i], [aria-label*="close" i], [data-action="clear"], .clear-button');
+                if (isDismissOrClear) return;
               }
             }
             if (isCheckboxOrRadio) {
@@ -6422,14 +6429,59 @@ export class JsSynthesizer {
       }
     }, false);
 
+    // Universal Section Height & Overflow Resilience (Accommodate out-of-flow / positioned children)
+    try {
+      (function() {
+        function adjustSectionHeight() {
+          const sectionRoots = Array.from(document.querySelectorAll('header, nav, section, footer, .authentic-section, [id^="sec_"]'));
+          sectionRoots.forEach(function(sec) {
+            const sRect = sec.getBoundingClientRect();
+            if (sRect.width === 0) return;
+            let maxBottom = sRect.bottom;
+            const descendants = Array.from(sec.querySelectorAll('*'));
+            for (let i = 0; i < descendants.length; i++) {
+              const d = descendants[i];
+              if (d.hasAttribute('data-interactive-portal') && d.getAttribute('data-state') === 'closed') continue;
+              const s = window.getComputedStyle(d);
+              if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0' || s.position === 'fixed') continue;
+              const r = d.getBoundingClientRect();
+              if (r.width > 0 && r.height > 0 && r.bottom > maxBottom) {
+                if (r.bottom <= window.innerHeight * 1.5) {
+                  maxBottom = r.bottom;
+                }
+              }
+            }
+            if (maxBottom > sRect.bottom + 5) {
+              const neededHeight = Math.ceil(maxBottom - sRect.top);
+              sec.style.minHeight = neededHeight + 'px';
+            }
+          });
+        }
+        adjustSectionHeight();
+        window.addEventListener('resize', adjustSectionHeight, { passive: true });
+        window.addEventListener('load', adjustSectionHeight, { passive: true });
+        setTimeout(adjustSectionHeight, 200);
+      })();
+    } catch (e) {
+      console.warn('[SectionHeightResilience] error:', e);
+    }
+
     // Universal Interactive Portal & ARIA Controller (Pure W3C Standards, Zero Hardcoding)
     try {
       (function() {
         const portalElements = Array.from(document.querySelectorAll('[data-portal-for], [data-interactive-portal]'));
 
         portalElements.forEach(function(portal) {
-          const triggerId = portal.getAttribute('data-portal-for');
-          const trigger = triggerId ? document.getElementById(triggerId) : null;
+          if (portal.hasAttribute('data-mutation-id')) return;
+          const triggerId = portal.getAttribute('data-portal-for') || portal.getAttribute('data-mutation-src');
+          let trigger = null;
+          if (triggerId) {
+            try {
+              trigger = document.querySelector(triggerId) || document.getElementById(triggerId);
+            } catch (e) {
+              trigger = document.getElementById(triggerId);
+            }
+          }
           if (!trigger) return;
 
           function positionPortal() {
