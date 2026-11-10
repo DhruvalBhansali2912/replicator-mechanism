@@ -832,8 +832,8 @@ export class JsSynthesizer {
     const ctrlId = menuBtn.getAttribute('aria-controls') || menuBtn.getAttribute('aria-owns');
     if (ctrlId && !ctrlId.includes('search') && !ctrlId.includes('video')) {
       drawer = document.getElementById(ctrlId) || document.querySelector('[id="' + ctrlId + '"]');
-      if (drawer && drawer.closest('.col-full-nav')) {
-        drawer = drawer.closest('.col-full-nav');
+      if (drawer && drawer.closest('.col-full-nav, .nav-collapse, [class*="nav-collapse"], [class*="navbar-collapse"], [class*="drawer"]')) {
+        drawer = drawer.closest('.col-full-nav, .nav-collapse, [class*="nav-collapse"], [class*="navbar-collapse"], [class*="drawer"]');
       }
     }
   }
@@ -1272,6 +1272,21 @@ export class JsSynthesizer {
         b.classList.remove('is-open');
         b.style.setProperty('display', 'none', 'important');
       });
+
+      itDropdown.querySelectorAll('[class*="submenu-list-item"], [class*="list-item"], a, [class*="content"], [class*="group"], [class*="header"], [class*="menu-inner"], [class*="submenu-inner"]').forEach(function(el) {
+        el.style.opacity = '';
+        el.style.visibility = '';
+        el.style.pointerEvents = '';
+        el.style.transform = '';
+      });
+      let dropAnc = itDropdown.parentElement;
+      while (dropAnc && dropAnc !== it && dropAnc !== document.body) {
+        dropAnc.classList.remove('is-open', 'open', 'show', 'active');
+        Array.from(dropAnc.classList).forEach(function(c) {
+          if (/--(?:show|open|active)$/i.test(c)) dropAnc.classList.remove(c);
+        });
+        dropAnc = dropAnc.parentElement;
+      }
     }
 
     // Reset trigger elements aria and state attributes
@@ -1285,32 +1300,17 @@ export class JsSynthesizer {
       trg.classList.remove('is-open', 'open', 'active', 'is-active');
       applyFrameworkStateClasses(trg, false);
     });
-      if (it.classList.contains('w-dropdown') || it.querySelector('.w-dropdown')) {
-        const wDd = it.classList.contains('w-dropdown') ? it : it.querySelector('.w-dropdown');
-        wDd.classList.remove('w--open');
-        const t = wDd.querySelector('.w-dropdown-toggle');
-        if (t) { t.classList.remove('w--open'); t.setAttribute('aria-expanded', 'false'); }
-        const l = wDd.querySelector('.w-dropdown-list');
-        if (l) {
-          l.classList.remove('w--open');
-          l.style.removeProperty('display');
-          l.style.removeProperty('visibility');
-          l.style.removeProperty('opacity');
-        }
-      }
-      itDropdown.querySelectorAll('[class*="submenu-list-item"], [class*="list-item"], a, [class*="content"], [class*="group"], [class*="header"], [class*="menu-inner"], [class*="submenu-inner"]').forEach(function(el) {
-        el.style.opacity = '';
-        el.style.visibility = '';
-        el.style.pointerEvents = '';
-        el.style.transform = '';
-      });
-      let anc = itDropdown.parentElement;
-      while (anc && anc !== it && anc !== document.body) {
-        anc.classList.remove('is-open', 'open', 'show', 'active');
-        Array.from(anc.classList).forEach(function(c) {
-          if (/--(?:show|open|active)$/i.test(c)) anc.classList.remove(c);
-        });
-        anc = anc.parentElement;
+    if (it.classList.contains('w-dropdown') || it.querySelector('.w-dropdown')) {
+      const wDd = it.classList.contains('w-dropdown') ? it : it.querySelector('.w-dropdown');
+      wDd.classList.remove('w--open');
+      const t = wDd.querySelector('.w-dropdown-toggle');
+      if (t) { t.classList.remove('w--open'); t.setAttribute('aria-expanded', 'false'); }
+      const l = wDd.querySelector('.w-dropdown-list');
+      if (l) {
+        l.classList.remove('w--open');
+        l.style.removeProperty('display');
+        l.style.removeProperty('visibility');
+        l.style.removeProperty('opacity');
       }
     }
     // Clean up aria-expanded, active, and trigger open states
@@ -1453,6 +1453,19 @@ export class JsSynthesizer {
         navMenu.classList.remove('w--nav-menu-open');
         navMenu.style.setProperty('display', 'none', 'important');
       }
+      let collapseAnc = drawer;
+      while (collapseAnc && collapseAnc !== navRoot && collapseAnc !== document.body) {
+        collapseAnc.classList.remove('is-open', 'open', 'active', 'show');
+        if (collapseAnc.classList.contains('nav-collapse') || collapseAnc.matches('[class*="nav-collapse"], [class*="navbar-collapse"]')) {
+          collapseAnc.style.removeProperty('transform');
+          collapseAnc.style.removeProperty('visibility');
+          collapseAnc.style.removeProperty('opacity');
+          collapseAnc.style.removeProperty('display');
+          collapseAnc.style.removeProperty('height');
+          collapseAnc.style.removeProperty('z-index');
+        }
+        collapseAnc = collapseAnc.parentElement;
+      }
       applyFrameworkStateClasses(drawer, false);
     }
     document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled', 'visitor-nav-is-open', 'nav-is-open', 'is-nav-open');
@@ -1588,13 +1601,38 @@ export class JsSynthesizer {
             drawer.style.setProperty('left', '0px', 'important');
             drawer.style.setProperty('z-index', '2147483647', 'important');
           } else if (drawer.classList.contains('nav-collapse') || drawer.id === 'nav-main') {
-            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('display', 'block', 'important');
             drawer.style.setProperty('z-index', '999990', 'important');
+            drawer.style.setProperty('height', 'calc(100vh - 64px)', 'important');
+            drawer.style.setProperty('height', 'calc(100dvh - 64px)', 'important');
           } else {
             drawer.style.setProperty('display', 'block', 'important');
             drawer.style.setProperty('z-index', '999990', 'important');
           }
           drawer.style.setProperty('transform', 'none', 'important');
+
+          let collapseAnc = drawer;
+          while (collapseAnc && collapseAnc !== navRoot && collapseAnc !== document.body) {
+            collapseAnc.classList.add('is-open', 'open', 'active', 'show');
+            if (collapseAnc.classList.contains('nav-collapse') || collapseAnc.matches('[class*="nav-collapse"], [class*="navbar-collapse"]')) {
+              collapseAnc.style.setProperty('transform', 'none', 'important');
+              collapseAnc.style.setProperty('visibility', 'visible', 'important');
+              collapseAnc.style.setProperty('opacity', '1', 'important');
+              collapseAnc.style.setProperty('display', 'block', 'important');
+              collapseAnc.style.setProperty('height', 'calc(100vh - 64px)', 'important');
+              collapseAnc.style.setProperty('height', 'calc(100dvh - 64px)', 'important');
+              collapseAnc.style.setProperty('z-index', '999990', 'important');
+              collapseAnc.querySelectorAll('.pathfinder-nav-accordion, [class*="accordion"]').forEach(function(el) {
+                el.style.setProperty('visibility', 'visible', 'important');
+                el.style.setProperty('opacity', '1', 'important');
+                el.querySelectorAll('*').forEach(function(ch) {
+                  if (ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
+                  if (ch.style.opacity === '0') ch.style.removeProperty('opacity');
+                });
+              });
+            }
+            collapseAnc = collapseAnc.parentElement;
+          }
 
           const drawerCls = (typeof drawer.className === 'string' ? drawer.className : (drawer.getAttribute && drawer.getAttribute('class')) || '').toLowerCase();
           if (drawerCls.includes('hamburger-menu')) {

@@ -704,7 +704,7 @@ export function createServer(): express.Application {
     const jobDir = path.join(CONFIG.jobsDir, req.params.id, 'full-page');
     const p = path.join(jobDir, 'script.js');
     let js = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
-    if ((!js || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+    if ((!js || js.includes('let anc = itDropdown') || !js.includes('dropAnc') || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
       const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
       let jobData: any = {};
       if (fs.existsSync(metaPath)) {
