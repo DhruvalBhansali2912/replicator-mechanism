@@ -465,10 +465,12 @@ a[class*="rounded-full"].active, a[class*="rounded-full"].is-active {
 
         if (matches) {
           let ruleString = rule.toString();
-          // If enclosed in a media query at-rule, preserve the media query wrapper
-          if (rule.parent && rule.parent.type === 'atrule' && (rule.parent as AtRule).name === 'media') {
-            const mediaParams = (rule.parent as AtRule).params;
-            ruleString = `@media ${mediaParams} {\n  ${ruleString}\n}`;
+          // If enclosed in at-rules (e.g. @media, @container, @supports), preserve them
+          let currentParent = rule.parent;
+          while (currentParent && currentParent.type === 'atrule') {
+            const at = currentParent as AtRule;
+            ruleString = `@${at.name} ${at.params} {\n  ${ruleString}\n}`;
+            currentParent = currentParent.parent;
           }
           matchingRules.push(ruleString);
         }

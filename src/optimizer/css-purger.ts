@@ -203,9 +203,9 @@ export class CssPurger {
             }
           });
 
-          // Clean empty at-rules (like @media with no rules inside)
+          // Clean empty at-rules (like @media, @supports, @container with no rules inside)
           root.walkAtRules((atRule: AtRule) => {
-            if (atRule.name === 'media' || atRule.name === 'supports') {
+            if (atRule.name === 'media' || atRule.name === 'supports' || atRule.name === 'container') {
               if (!atRule.nodes || atRule.nodes.length === 0) {
                 atRule.remove();
               }
@@ -594,9 +594,9 @@ export function optimizeCssForDocument(css: string, html: string): string {
     }
   });
 
-  // Purge empty at-rules (@media, @supports)
+  // Purge empty at-rules (@media, @supports, @container)
   root.walkAtRules((atRule) => {
-    if (atRule.name === 'media' || atRule.name === 'supports') {
+    if (atRule.name === 'media' || atRule.name === 'supports' || atRule.name === 'container') {
       if (!atRule.nodes || atRule.nodes.length === 0) {
         atRule.remove();
       }

@@ -591,8 +591,31 @@ export class JsSynthesizer {
             return root.querySelector(m.targetSelector) || document.querySelector(m.targetSelector);
           }).filter(Boolean);
 
+          trigger.__replicator_close = function() {
+            clearTimeout(hoverLeaveTimer);
+            reverseMutations(interaction.mutations, interaction.reverseMutations);
+            trigger.__replicator_is_toggled = false;
+            const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
+            if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, false);
+          };
+
           function openHoverState() {
             clearTimeout(hoverLeaveTimer);
+            // Close any other active recorded hover triggers immediately to prevent overlapping menus
+            const allActive = Array.from(document.querySelectorAll('[data-has-recorded-interaction="true"]')).filter(function(t) {
+              return t !== trigger && t.__replicator_is_toggled && typeof t.__replicator_close === 'function';
+            });
+            allActive.forEach(function(other) {
+              other.__replicator_close();
+            });
+            // Also close sibling flyout items in universal flyout controller
+            if (typeof navDropdownItems !== 'undefined' && Array.isArray(navDropdownItems)) {
+              navDropdownItems.forEach(function(navItem) {
+                if (!navItem.contains(trigger) && typeof closeFlyoutItem === 'function') {
+                  closeFlyoutItem(navItem);
+                }
+              });
+            }
             applyMutations(interaction.mutations);
             trigger.__replicator_is_toggled = true;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
@@ -603,16 +626,15 @@ export class JsSynthesizer {
             clearTimeout(hoverLeaveTimer);
             if (e && e.relatedTarget) {
               const rel = e.relatedTarget;
-              if (trigger.contains(rel) || (container && container.contains(rel)) || mutationTargets.some(function(t) { return t.contains(rel); })) {
+              if (trigger.contains(rel) || mutationTargets.some(function(t) { return t.contains(rel); })) {
                 return;
               }
             }
             hoverLeaveTimer = setTimeout(function() {
-              reverseMutations(interaction.mutations, interaction.reverseMutations);
-              trigger.__replicator_is_toggled = false;
-              const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
-              if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, false);
-            }, 250);
+              if (typeof trigger.__replicator_close === 'function') {
+                trigger.__replicator_close();
+              }
+            }, 150);
           }
 
           trigger.addEventListener('mouseenter', openHoverState);
@@ -1105,16 +1127,21 @@ export class JsSynthesizer {
     if (menuBtns && (menuBtns.includes(item) || menuBtns.some(function(b) { return item.contains(b); }))) return false;
     if (item.matches('.universal-nav-toggle-item, .universal-nav-toggle, .universal-mobile-menu-drawer, [class*="nav-toggle"]') || item.querySelector('.universal-nav-toggle, [class*="nav-toggle"]')) return false;
 
+    // Exclude tabs, tab rows, tablists, and two-pane items from being top-level nav dropdown triggers
+    if (item.matches('[role="tab"], [role="tablist"], [class*="two-pane"], [class*="tab-row"], [class*="grid-item"], [class*="category-tab"]')) return false;
+    if (item.closest('[role="tablist"], [class*="two-pane"], [role="tabpanel"]')) return false;
+
     // 2. Dropdown element must exist for this item
     const dd = getDropdownFor(item);
     if (!dd) return false;
+    if (dd === drawer || (drawer && drawer.contains(dd)) || dd.matches('.nav-collapse, [class*="drawer"]:not([class*="dropdown"]), [class*="collapse"]:not([class*="dropdown"])')) return false;
 
     // Filter toolbars, faceted search, and filter dropdowns belong to the Universal Interactive Controls controller, NOT the site nav flyout controller
     if (item.closest('[class*="filter"], [class*="faceted"], [class*="toolbar"], [class*="sorting"], [class*="refine"]')) return false;
 
     // 3. Exclude elements that are inside another dropdown/flyout/menu panel
-    const parentPanel = item.parentElement ? item.parentElement.closest('.nav-dropdown-menu, [class*="l1-menu"], [class*="l2-menu"], [class*="dropdown-menu"], [class*="flyout"]:not([class*="item"]):not([class*="menu-list"]), [class*="megamenu"], [class*="overlay"]') : null;
-    if (parentPanel && parentPanel.querySelectorAll('[aria-controls]').length <= 1) {
+    const parentPanel = item.parentElement ? item.parentElement.closest('.nav-dropdown-menu, [class*="dropdown-menu"], [class*="l1-menu"], [class*="l2-menu"], [class*="flyout-menu"], [class*="megamenu"], [class*="overlay"]') : null;
+    if (parentPanel) {
       return false;
     }
 
@@ -1204,34 +1231,28 @@ export class JsSynthesizer {
 
   function closeFlyoutItem(it) {
     if (!it) return;
-    it.classList.remove('is-open', 'open', 'active');
-    Array.from(it.classList).forEach(function(cls) {
-      if (cls.includes('flyout-open') || cls.endsWith('-open')) {
-        it.classList.remove(cls);
-      }
-      if (cls.endsWith('--show') || cls.endsWith('--active') || cls.endsWith('--open')) {
-        it.classList.remove(cls);
-      }
-    });
-    if (it.parentElement) {
-      Array.from(it.parentElement.classList).forEach(function(cls) {
-        if (cls.endsWith('--show') || cls.endsWith('--active')) {
-          it.parentElement.classList.remove(cls);
+    let anc = it;
+    while (anc && anc !== document.body && anc !== navRoot) {
+      anc.classList.remove('is-open', 'open', 'active');
+      Array.from(anc.classList).forEach(function(cls) {
+        if (cls.includes('flyout-open') || cls.endsWith('-open') || cls.endsWith('--show') || cls.endsWith('--active') || cls.endsWith('--open') || cls === 'open' || cls === 'is-open' || cls === 'active') {
+          anc.classList.remove(cls);
         }
       });
+      anc = anc.parentElement;
     }
     applyFrameworkStateClasses(it, false);
     const itDropdown = getDropdownFor(it);
     if (itDropdown) {
       itDropdown.classList.remove('is-open', 'open', 'show', 'active');
       applyFrameworkStateClasses(itDropdown, false);
-      itDropdown.style.visibility = '';
-      itDropdown.style.opacity = '';
-      itDropdown.style.height = '';
-      itDropdown.style.minHeight = '';
+      itDropdown.style.removeProperty('height');
+      itDropdown.style.removeProperty('min-height');
       itDropdown.style.removeProperty('max-height');
-      itDropdown.style.display = 'none';
-      itDropdown.style.pointerEvents = '';
+      itDropdown.style.setProperty('display', 'none', 'important');
+      itDropdown.style.setProperty('visibility', 'hidden', 'important');
+      itDropdown.style.setProperty('opacity', '0', 'important');
+      itDropdown.style.setProperty('pointer-events', 'none', 'important');
       itDropdown.removeAttribute('data-open');
       itDropdown.setAttribute('data-state', 'closed');
       itDropdown.setAttribute('aria-hidden', 'true');
@@ -1243,14 +1264,27 @@ export class JsSynthesizer {
       if (parentDialog) {
         parentDialog.removeAttribute('open');
         parentDialog.classList.remove('is-open', 'open');
-        parentDialog.style.display = 'none';
+        parentDialog.style.setProperty('display', 'none', 'important');
       }
       const backdrops = Array.from(document.querySelectorAll('.tds-modal-backdrop, [class*="modal-backdrop"], [class*="scrim"]'));
       backdrops.forEach(function(b) {
         b.setAttribute('aria-hidden', 'true');
         b.classList.remove('is-open');
-        b.style.display = 'none';
+        b.style.setProperty('display', 'none', 'important');
       });
+    }
+
+    // Reset trigger elements aria and state attributes
+    const trgs = Array.from(it.querySelectorAll('button, a, [role="button"], [class*="trigger"], [class*="nav-link"]')).filter(function(el) {
+      return !itDropdown || !itDropdown.contains(el);
+    });
+    trgs.forEach(function(trg) {
+      trg.setAttribute('aria-expanded', 'false');
+      trg.removeAttribute('data-popup-open');
+      trg.removeAttribute('data-pressed');
+      trg.classList.remove('is-open', 'open', 'active', 'is-active');
+      applyFrameworkStateClasses(trg, false);
+    });
       if (it.classList.contains('w-dropdown') || it.querySelector('.w-dropdown')) {
         const wDd = it.classList.contains('w-dropdown') ? it : it.querySelector('.w-dropdown');
         wDd.classList.remove('w--open');
@@ -2122,9 +2156,11 @@ export class JsSynthesizer {
 
     function openFlyout() {
       clearTimeout(flyoutLeaveTimer);
-      if (activeFlyoutItem && activeFlyoutItem !== item) {
-        closeFlyoutItem(activeFlyoutItem);
-      }
+      navDropdownItems.forEach(function(other) {
+        if (other !== item) {
+          closeFlyoutItem(other);
+        }
+      });
       activeFlyoutItem = item;
 
       item.classList.add('is-open', 'open', 'active');
@@ -2467,8 +2503,16 @@ export class JsSynthesizer {
     const tabs = Array.from(tablist.querySelectorAll('[role="tab"], .pathfinder-two-pane__tab, [class*="tab-btn"], button[id*="tab"]'));
     if (tabs.length < 2) return;
 
-    const paneContainer = tablist.closest('.pathfinder-two-pane, [class*="two-pane"], .nav-dropdown-menu, [class*="megamenu"], [class*="dropdown-menu"]') || tablist.parentElement || document;
-    const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], .pathfinder-two-pane__panel, [class*="two-pane__panel"]:not([class*="wrap"])'));
+    // Find the enclosing component or dropdown container that contains both tabs and panels
+    let paneContainer = tablist.parentElement;
+    while (paneContainer && paneContainer !== document.body) {
+      if (paneContainer.querySelector('[role="tabpanel"], .pathfinder-two-pane__panel, [class*="two-pane__panel"]:not([class*="wrap"]), [class*="tab-pane"]')) {
+        break;
+      }
+      paneContainer = paneContainer.parentElement;
+    }
+    if (!paneContainer) paneContainer = tablist.closest('.pathfinder-two-pane, [class*="two-pane"], .nav-dropdown-menu, [class*="megamenu"], [class*="dropdown-menu"]') || document;
+    const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], .pathfinder-two-pane__panel, [class*="two-pane__panel"]:not([class*="wrap"]), [class*="tab-pane"]'));
 
     function activateTab(tab) {
       const panelId = tab.getAttribute('aria-controls');
@@ -2507,9 +2551,9 @@ export class JsSynthesizer {
         panel.style.setProperty('opacity', '1', 'important');
         panel.setAttribute('aria-hidden', 'false');
         panel.classList.add('is-active', 'active');
-        panel.querySelectorAll('a, button, ul, li, div').forEach(function(el) {
-          if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
-          if (el.style.opacity === '0') el.style.opacity = '1';
+        panel.querySelectorAll('*').forEach(function(el) {
+          if (el.style.visibility === 'hidden') el.style.removeProperty('visibility');
+          if (el.style.opacity === '0') el.style.removeProperty('opacity');
         });
       }
     }
@@ -3191,13 +3235,13 @@ export class JsSynthesizer {
       let panes = [];
       const hasDirectControls = tabs.some(function(t) {
         const id = t.getAttribute('aria-controls') || t.getAttribute('data-target') || (t.getAttribute('href') || '').replace(/^#/, '');
-        return id && document.getElementById(id);
+        return id && (tabScope.querySelector('#' + CSS.escape(id)) || document.getElementById(id));
       });
       
       if (hasDirectControls) {
         panes = tabs.map(function(t) {
           const id = t.getAttribute('aria-controls') || t.getAttribute('data-target') || (t.getAttribute('href') || '').replace(/^#/, '');
-          return id ? document.getElementById(id) : null;
+          return id ? (tabScope.querySelector('#' + CSS.escape(id)) || document.getElementById(id)) : null;
         }).filter(Boolean);
       }
 
@@ -3243,7 +3287,7 @@ export class JsSynthesizer {
         const targetTab = tabs[targetIdx];
         if (!targetTab) return;
         const directId = targetTab.getAttribute('aria-controls') || targetTab.getAttribute('data-target') || (targetTab.getAttribute('href') || '').replace(/^#/, '');
-        const targetPane = directId ? document.getElementById(directId) : null;
+        const targetPane = directId ? (tabScope.querySelector('#' + CSS.escape(directId)) || document.getElementById(directId)) : null;
 
         // Animate pill indicator / sliding underline if present
         const targetItem = targetTab.closest('.tabnav-item, .tab-item, li') || targetTab;
@@ -3370,6 +3414,11 @@ export class JsSynthesizer {
               p.style.visibility = 'visible';
               p.style.pointerEvents = 'auto';
 
+              p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
+                if (ch.style.opacity === '0') ch.style.removeProperty('opacity');
+              });
+
               // Play video if present
               const activeVid = p.querySelector('video');
               if (activeVid) {
@@ -3486,6 +3535,13 @@ export class JsSynthesizer {
         tab.addEventListener('click', function(e) {
           if (tab.tagName.toLowerCase() === 'a') e.preventDefault();
           setActiveTab(idx);
+        });
+
+        tab.addEventListener('mouseenter', function() {
+          if (group.closest('nav, header, [class*="nav"], [class*="menu"], [class*="dropdown"], [class*="pane"], [class*="flyout"]') ||
+              tab.closest('nav, header, [class*="nav"], [class*="menu"], [class*="dropdown"], [class*="pane"], [class*="flyout"]')) {
+            setActiveTab(idx);
+          }
         });
 
         tab.addEventListener('keydown', function(e) {

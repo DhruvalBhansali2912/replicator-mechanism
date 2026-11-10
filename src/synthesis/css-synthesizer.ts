@@ -1912,7 +1912,7 @@ ${this.getUniversalInteractiveRules(ast)}
       });
 
       root.walkAtRules((atRule: AtRule) => {
-        if (atRule.name === 'media' || atRule.name === 'supports') {
+        if (atRule.name === 'media' || atRule.name === 'supports' || atRule.name === 'container') {
           if (!atRule.nodes || atRule.nodes.length === 0) {
             atRule.remove();
           }

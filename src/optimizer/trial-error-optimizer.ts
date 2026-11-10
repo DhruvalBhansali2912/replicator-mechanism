@@ -149,9 +149,9 @@ export class TrialErrorOptimizer {
           }
         });
 
-        // Clean empty media queries
+        // Clean empty media/supports/container queries
         candidateRoot.walkAtRules((atRule) => {
-          if ((atRule.name === 'media' || atRule.name === 'supports') && (!atRule.nodes || atRule.nodes.length === 0)) {
+          if ((atRule.name === 'media' || atRule.name === 'supports' || atRule.name === 'container') && (!atRule.nodes || atRule.nodes.length === 0)) {
             atRule.remove();
           }
         });
