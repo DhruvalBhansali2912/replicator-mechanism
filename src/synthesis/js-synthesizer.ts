@@ -60,6 +60,147 @@ export class JsSynthesizer {
       }
     }
 
+    // Universal Dropdown & Popover Stacking / Height Space Controller
+    scripts.push(`
+  // Universal Dropdown & Popover Stacking / Height Space Controller
+  (function() {
+    if (window.__resolveDropdownPanel && window.__ensureDropdownSpace) return;
+
+    window.__resolveDropdownPanel = function(trigger) {
+      if (!trigger) return null;
+      const actualTrigger = trigger.closest ? (trigger.closest('button, [role="button"], a') || trigger) : trigger;
+      const ctrlId = actualTrigger.getAttribute('aria-controls') || actualTrigger.getAttribute('data-target') || actualTrigger.getAttribute('data-bs-target');
+      if (ctrlId) {
+        const el = document.getElementById(ctrlId.replace(/^#/, '')) || document.querySelector(ctrlId);
+        if (el) return el;
+      }
+      if (actualTrigger.nextElementSibling && !actualTrigger.nextElementSibling.matches('button, a, input, select')) {
+        return actualTrigger.nextElementSibling;
+      }
+      const container = actualTrigger.parentElement ? actualTrigger.parentElement.closest('[class*="wrap"], [class*="dropdown"], [class*="menu"], li, div') : actualTrigger.parentElement;
+      if (container) {
+        const p = container.querySelector('.drop_menu, .dropdown-menu, [class*="dropdown-menu"], [class*="dropdown-content"], [class*="drop_menu"]:not([class*="wrap"]), [role="menu"], [class*="menu-group"]');
+        if (p && p !== actualTrigger && !actualTrigger.contains(p) && p !== container) return p;
+      }
+      return document.querySelector('.drop_menu, [class*="dropdown-menu"].is-open, [class*="dropdown-menu"].show, [class*="drop_menu"]:not([class*="wrap"]).open');
+    };
+
+    window.__ensureDropdownSpace = function(trigger, panel, isOpen) {
+      if (!trigger) return;
+      const sec = trigger.closest('section, header, nav, footer, [id^="sec_"], .authentic-section') || document.querySelector('.authentic-section, section, header');
+      const targetPanel = panel || window.__resolveDropdownPanel(trigger);
+
+      if (isOpen) {
+        let anc = trigger.parentElement;
+        while (anc && anc !== document.body && anc !== document.documentElement) {
+          if (!anc.hasAttribute('data-orig-zindex')) {
+            anc.setAttribute('data-orig-zindex', anc.style.zIndex || '');
+          }
+          anc.style.setProperty('z-index', '100000', 'important');
+          const cs = window.getComputedStyle(anc);
+          if (cs.overflow === 'hidden' || cs.overflowX === 'hidden' || cs.overflowY === 'hidden' || cs.overflow === 'clip') {
+            if (!anc.hasAttribute('data-orig-overflow')) {
+              anc.setAttribute('data-orig-overflow', anc.style.overflow || '');
+            }
+            anc.style.setProperty('overflow', 'visible', 'important');
+          }
+          anc = anc.parentElement;
+        }
+        if (sec) {
+          if (!sec.hasAttribute('data-orig-zindex')) {
+            sec.setAttribute('data-orig-zindex', sec.style.zIndex || '');
+          }
+          sec.style.setProperty('z-index', '100000', 'important');
+        }
+
+        function measureAndExpand() {
+          if (!targetPanel) return;
+          const pRect = targetPanel.getBoundingClientRect();
+          const sRect = sec ? sec.getBoundingClientRect() : null;
+          if (pRect.height > 0) {
+            if (sec && sRect) {
+              const neededSecHeight = Math.ceil(pRect.bottom - sRect.top + 24);
+              if (neededSecHeight > sRect.height) {
+                if (!sec.hasAttribute('data-orig-min-height')) {
+                  sec.setAttribute('data-orig-min-height', sec.style.minHeight || '');
+                }
+                sec.style.setProperty('min-height', neededSecHeight + 'px', 'important');
+              }
+            }
+            const neededBodyHeight = Math.ceil(pRect.bottom + 24);
+            if (neededBodyHeight > document.body.getBoundingClientRect().height) {
+              if (!document.body.hasAttribute('data-orig-min-height')) {
+                document.body.setAttribute('data-orig-min-height', document.body.style.minHeight || '');
+              }
+              document.body.style.setProperty('min-height', neededBodyHeight + 'px', 'important');
+            }
+          }
+        }
+        measureAndExpand();
+        setTimeout(measureAndExpand, 50);
+        setTimeout(measureAndExpand, 150);
+      } else {
+        let anc = trigger.parentElement;
+        while (anc && anc !== document.body && anc !== document.documentElement) {
+          if (anc.hasAttribute('data-orig-zindex')) {
+            const origZ = anc.getAttribute('data-orig-zindex');
+            if (origZ) anc.style.setProperty('z-index', origZ);
+            else anc.style.removeProperty('z-index');
+            anc.removeAttribute('data-orig-zindex');
+          }
+          if (anc.hasAttribute('data-orig-overflow')) {
+            const origO = anc.getAttribute('data-orig-overflow');
+            if (origO) anc.style.setProperty('overflow', origO);
+            else anc.style.removeProperty('overflow');
+            anc.removeAttribute('data-orig-overflow');
+          }
+          anc = anc.parentElement;
+        }
+        if (sec) {
+          if (sec.hasAttribute('data-orig-zindex')) {
+            const origZ = sec.getAttribute('data-orig-zindex');
+            if (origZ) sec.style.setProperty('z-index', origZ);
+            else sec.style.removeProperty('z-index');
+            sec.removeAttribute('data-orig-zindex');
+          }
+          if (sec.hasAttribute('data-orig-min-height')) {
+            const origH = sec.getAttribute('data-orig-min-height');
+            if (origH) sec.style.setProperty('min-height', origH);
+            else sec.style.removeProperty('min-height');
+            sec.removeAttribute('data-orig-min-height');
+          }
+        }
+        if (document.body.hasAttribute('data-orig-min-height')) {
+          const origBH = document.body.getAttribute('data-orig-min-height');
+          if (origBH) document.body.style.setProperty('min-height', origBH);
+          else document.body.style.removeProperty('min-height');
+          document.body.removeAttribute('data-orig-min-height');
+        }
+      }
+    };
+
+    document.addEventListener('click', function(e) {
+      const trg = e.target && e.target.closest ? (e.target.closest('button, [role="button"], a') || e.target.closest('[class*="tick"], [class*="toggle"], [class*="trigger"], [class*="opener"]')) : null;
+      if (trg) {
+        setTimeout(function() {
+          const p = window.__resolveDropdownPanel(trg);
+          if (p) {
+            const isOpen = p.classList.contains('open') || p.classList.contains('is-open') || p.classList.contains('show') || (p.style.display && p.style.display !== 'none') || (window.getComputedStyle(p).display !== 'none' && window.getComputedStyle(p).visibility !== 'hidden');
+            window.__ensureDropdownSpace(trg, p, isOpen);
+          }
+        }, 30);
+      }
+    }, true);
+  })();
+
+  function resolveDropdownPanel(trigger) {
+    return window.__resolveDropdownPanel ? window.__resolveDropdownPanel(trigger) : null;
+  }
+  function ensureDropdownSpace(trigger, panel, isOpen) {
+    if (window.__ensureDropdownSpace) window.__ensureDropdownSpace(trigger, panel, isOpen);
+  }
+`);
+
     // 0. Behavioral State Mutation Controller (Synthesized from In-Situ DOM Mutation Probes)
     if (ast.interactive?.recordedTransitions && ast.interactive.recordedTransitions.length > 0) {
       scripts.push(`
@@ -421,6 +562,8 @@ export class JsSynthesizer {
               p.classList.add('is-open', 'open', 'show', 'active');
             });
             isToggled = true;
+            const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
+            if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, true);
           } else {
             reverseMutations(interaction.mutations, interaction.reverseMutations);
             // Explicitly close all interactive portals associated with this trigger
@@ -433,6 +576,8 @@ export class JsSynthesizer {
               p.classList.remove('is-open', 'open', 'show', 'active');
             });
             isToggled = false;
+            const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
+            if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, false);
           }
           trigger.__replicator_is_toggled = isToggled;
         }
@@ -507,7 +652,8 @@ export class JsSynthesizer {
               const portals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
                 return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
               });
-              const clickedInsideAny = portals.some(function(p) { return p.contains(e.target); });
+              const menuPanel = typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null;
+              const clickedInsideAny = (menuPanel && menuPanel.contains(e.target)) || portals.some(function(p) { return p.contains(e.target); });
               if (!clickedInsideAny) {
                 handleToggleState(false);
               }
@@ -1150,6 +1296,10 @@ export class JsSynthesizer {
         }
       });
     });
+
+    if (typeof ensureDropdownSpace === 'function') {
+      ensureDropdownSpace(it, itDropdown, false);
+    }
   }
 
   function closeAllNav() {
@@ -2171,6 +2321,10 @@ export class JsSynthesizer {
             }
           });
         });
+      }
+
+      if (typeof ensureDropdownSpace === 'function') {
+        ensureDropdownSpace(item, dropdown, true);
       }
     }
 
@@ -4986,6 +5140,10 @@ export class JsSynthesizer {
     const icon = trigger.querySelector('svg, .icon, [class*="icon"], [class*="chevron"], [class*="arrow"]');
     if (icon) {
       icon.style.transform = open ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    if (typeof ensureDropdownSpace === 'function') {
+      ensureDropdownSpace(trigger, panel, open);
     }
   }
 
