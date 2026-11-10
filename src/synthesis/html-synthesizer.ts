@@ -1313,14 +1313,14 @@ export class HtmlSynthesizer {
 
       // 2. Synthesize universal mobile menu drawer
       const hasExistingDrawer = $(
-        '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button):not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"], nav.hamburger-menu, [class*="hamburger-menu"], [class*="content-drawer"]'
+        '.universal-mobile-menu-drawer, [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button):not(.dx-mega-menu), [class*="menu-drawer"], [class*="nav-drawer"], nav.hamburger-menu, [class*="hamburger-menu"], [class*="content-drawer"], [class*="nav-collapse"], [class*="navbar-collapse"], [class*="offcanvas"], [class*="off-canvas"], [class*="header_sidebar_menu"], [class*="drawer"]:not([class*="cart"]):not([class*="btn"]), #nav-main'
       ).length > 0;
 
       if (!hasExistingDrawer) {
         const drawerListItems: string[] = [];
         const seenLabels = new Set<string>();
 
-        $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li, nav > ul > li, header nav a, [role="navigation"] a, nav a, header a, .trending-bar-section a').each((_, el) => {
+        $('header [class*="align--center"] > li, header nav > ul > li, header ul.navbar-nav > li, header [class*="align--end"] > li, nav > ul > li, header nav a, [role="navigation"] a, nav a, header a, .trending-bar-section a, .pathfinder-nav-accordion__header, [class*="accordion"] button, [role="tab"], .pathfinder-two-pane__tab, [class*="two-pane"] a').each((_, el) => {
           const btn = $(el).is('a, button') ? $(el) : $(el).find('button, a').first();
           const text = (btn.clone().children('svg, .icon, [class*="icon"]').remove().end().text().trim() || btn.text().trim() || btn.attr('title') || btn.attr('aria-label') || '').trim();
           const id = btn.attr('id') || '';

@@ -657,7 +657,7 @@ export class JsSynthesizer {
   }
   if (!drawer && navRoot) {
     drawer = navRoot.querySelector(
-      '[class*="gnb"][class*="container"], #nav-content, [class*="header_sidebar_menu"], [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button), [class*="menu-drawer"], [class*="mobile-nav"], [class*="nav-drawer"], [class*="nav-sections"], [class*="navigation-menu__content"], [class*="navigation-menu-content"], [role="dialog"]:not([class*="search"]):not([class*="video"]), [role="navigation"]:not(header > nav)'
+      '[class*="gnb"][class*="container"], #nav-content, #nav-main, [class*="nav-collapse"], [class*="navbar-collapse"], [class*="header_sidebar_menu"], [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button), [class*="menu-drawer"], [class*="mobile-nav"], [class*="nav-drawer"], [class*="nav-sections"], [class*="navigation-menu__content"], [class*="navigation-menu-content"], [role="dialog"]:not([class*="search"]):not([class*="video"]), [role="navigation"]:not(header > nav)'
     );
   }
   if (!drawer) {
@@ -677,6 +677,9 @@ export class JsSynthesizer {
       '[class*="header_sidebar_menu"]',
       '[class*="offcanvas"]',
       '[class*="off-canvas"]',
+      '[class*="nav-collapse"]',
+      '[class*="navbar-collapse"]',
+      '#nav-main',
       '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="pw"]):not([class*="paywall"]):not([class*="btn"])',
       '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
       '#nav-content',
@@ -1230,8 +1233,8 @@ export class JsSynthesizer {
       }
       applyFrameworkStateClasses(drawer, false);
     }
-    document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled');
-    document.documentElement.classList.remove('menu-open');
+    document.body.classList.remove('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled', 'visitor-nav-is-open', 'nav-is-open', 'is-nav-open');
+    document.documentElement.classList.remove('menu-open', 'visitor-nav-is-open', 'nav-is-open', 'is-nav-open');
     menuBtns.forEach(function(btn) {
       btn.setAttribute('aria-expanded', 'false');
       btn.setAttribute('data-state', 'closed');
@@ -1339,11 +1342,11 @@ export class JsSynthesizer {
         navDropdownItems.forEach(function(it) {
           closeFlyoutItem(it);
         });
-        document.body.classList.add('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled');
-        document.documentElement.classList.add('menu-open');
+        document.body.classList.add('menu-open', 'nav-open', 'sidebar-open', 'content-drawer-open', 'mobile-toggled', 'visitor-nav-is-open', 'nav-is-open', 'is-nav-open');
+        document.documentElement.classList.add('menu-open', 'visitor-nav-is-open', 'nav-is-open', 'is-nav-open');
 
         if (!drawer) {
-          drawer = (navRoot ? navRoot.querySelector('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]') : null) || document.querySelector('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]');
+          drawer = (navRoot ? navRoot.querySelector('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"], #nav-main, [class*="nav-collapse"]') : null) || document.querySelector('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"], #nav-main, [class*="nav-collapse"]');
         }
 
         if (drawer) {
@@ -1362,6 +1365,9 @@ export class JsSynthesizer {
             drawer.style.setProperty('display', 'flex', 'important');
             drawer.style.setProperty('left', '0px', 'important');
             drawer.style.setProperty('z-index', '2147483647', 'important');
+          } else if (drawer.classList.contains('nav-collapse') || drawer.id === 'nav-main') {
+            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('z-index', '999990', 'important');
           } else {
             drawer.style.setProperty('display', 'block', 'important');
             drawer.style.setProperty('z-index', '999990', 'important');
@@ -1744,7 +1750,7 @@ export class JsSynthesizer {
 
   // Universal mobile & desktop accordion toggle for submenus, categories, and drawer items
   const accordionButtons = Array.from(document.querySelectorAll(
-    '.mobile-nav-accordion-btn, .toggle-button, [class*="accordion-trigger"], [class*="accordion-button"], [class*="accordion-toggle"], [class*="toggle-btn"], button[aria-controls*="toggle" i], button[aria-controls*="content" i], button[aria-controls*="collapse" i], [data-accordion-title], [data-cmp-hook-accordion="button"], [class*="cmp-accordion__title"] a, [class*="cmp-header-navigation__item"] a[aria-haspopup]'
+    '.pathfinder-nav-accordion__header, [class*="accordion__header"], [class*="accordion-header"], [class*="nav-accordion"] button, button[aria-controls*="acc" i], button[aria-controls*="pf-acc"], [class*="accordion"] > button, .mobile-nav-accordion-btn, .toggle-button, [class*="accordion-trigger"], [class*="accordion-button"], [class*="accordion-toggle"], [class*="toggle-btn"], button[aria-controls*="toggle" i], button[aria-controls*="content" i], button[aria-controls*="collapse" i], [data-accordion-title], [data-cmp-hook-accordion="button"], [class*="cmp-accordion__title"] a, [class*="cmp-header-navigation__item"] a[aria-haspopup]'
   ));
   accordionButtons.forEach(function(btn) {
     if (btn.hasAttribute('data-accordion-bound')) return;
@@ -1786,13 +1792,16 @@ export class JsSynthesizer {
           target = btn.parentElement.querySelector('.toggle-content, [class*="accordion-content"], [class*="accordion__panel"], [class*="content"]:not(.accordion-button)');
         }
       }
-      const parentContainer = btn.closest('.accordion-row, [class*="accordion-row"], [class*="accordion" i]:not(.accordion), [class*="toggle" i], [class*="collapse" i], .mobile-nav-item, [class*="navigation__item"], li');
+      const parentContainer = btn.closest('.accordion-row, [class*="accordion-row"], [class*="accordion" i]:not(.accordion), [class*="toggle" i], [class*="collapse" i], .mobile-nav-item, [class*="navigation__item"], li, [class*="nav-accordion"]');
       const isCurrentlyOpen = btn.getAttribute('aria-expanded') === 'true' ||
+        btn.classList.contains('is-open') || btn.classList.contains('active') ||
         (parentContainer && (parentContainer.classList.contains('is-open') || parentContainer.classList.contains('active') || parentContainer.classList.contains('is-current'))) ||
         (target && (target.classList.contains('is-open') || target.classList.contains('active') || target.classList.contains('cmp-accordion__panel--expanded') || target.style.display === 'block'));
 
       const willOpen = !isCurrentlyOpen;
       btn.setAttribute('aria-expanded', String(willOpen));
+      btn.classList.toggle('is-open', willOpen);
+      btn.classList.toggle('active', willOpen);
 
       // Coordinate nav item active state
       const navItem = btn.closest('[class*="navigation__item"], .cmp-header-navigation__item, li');
@@ -1859,11 +1868,17 @@ export class JsSynthesizer {
         if (target.matches('.accordion, [class*="level-"]')) {
           target.style.removeProperty('display');
         } else {
-          target.style.display = willOpen ? 'block' : 'none';
+          target.style.setProperty('display', willOpen ? 'block' : 'none', 'important');
+          target.style.setProperty('visibility', willOpen ? 'visible' : 'hidden', 'important');
+          target.style.setProperty('opacity', willOpen ? '1' : '0', 'important');
         }
         applyFrameworkStateClasses(target, willOpen);
 
         if (willOpen) {
+          target.querySelectorAll('ul, li, a, button, [role="tabpanel"], [class*="content"]').forEach(function(el) {
+            if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
+            if (el.style.opacity === '0') el.style.opacity = '1';
+          });
           let parentMenu = target.closest('[class*="vertical-menu"], [class*="menu-container"], [class*="drawer"]');
           while (parentMenu && parentMenu !== document.body) {
             parentMenu.classList.add('is-open', 'open');
@@ -2258,54 +2273,69 @@ export class JsSynthesizer {
   // Universal WAI-ARIA Tab & Two-Pane Category Controller
   const tablists = Array.from(document.querySelectorAll('[role="tablist"]'));
   tablists.forEach(function(tablist) {
-    const tabs = Array.from(tablist.querySelectorAll('[role="tab"]'));
+    const tabs = Array.from(tablist.querySelectorAll('[role="tab"], .pathfinder-two-pane__tab, [class*="tab-btn"], button[id*="tab"]'));
     if (tabs.length < 2) return;
 
     const paneContainer = tablist.closest('.pathfinder-two-pane, [class*="two-pane"], .nav-dropdown-menu, [class*="megamenu"], [class*="dropdown-menu"]') || tablist.parentElement || document;
+    const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], .pathfinder-two-pane__panel, [class*="two-pane__panel"]:not([class*="wrap"])'));
 
-    tabs.forEach(function(tab) {
-      function activateTab() {
-        const panelId = tab.getAttribute('aria-controls');
-        tabs.forEach(function(t) {
-          t.setAttribute('aria-selected', 'false');
-          t.setAttribute('tabindex', '-1');
-          t.classList.remove('is-active', 'active');
-        });
-        tab.setAttribute('aria-selected', 'true');
-        tab.setAttribute('tabindex', '0');
-        tab.classList.add('is-active', 'active');
+    function activateTab(tab) {
+      const panelId = tab.getAttribute('aria-controls');
+      const tabIndex = tabs.indexOf(tab);
 
-        // Ensure parent panel wrappers remain visible
-        paneContainer.querySelectorAll('[class*="panel-wrap"], [class*="panels-wrap"]').forEach(function(pw) {
-          pw.style.setProperty('display', 'block', 'important');
-          pw.style.setProperty('visibility', 'visible', 'important');
-        });
+      tabs.forEach(function(t) {
+        t.setAttribute('aria-selected', 'false');
+        t.setAttribute('tabindex', '-1');
+        t.classList.remove('is-active', 'active');
+      });
+      tab.setAttribute('aria-selected', 'true');
+      tab.setAttribute('tabindex', '0');
+      tab.classList.add('is-active', 'active');
 
-        // Hide sibling leaf panels within this specific two-pane/menu container
-        const allPanels = Array.from(paneContainer.querySelectorAll('[role="tabpanel"], .pathfinder-two-pane__panel, [class*="two-pane__panel"]:not([class*="wrap"])'));
-        allPanels.forEach(function(p) {
-          p.style.setProperty('display', 'none', 'important');
-          p.setAttribute('aria-hidden', 'true');
-          p.classList.remove('is-active', 'active');
-        });
+      // Ensure parent panel wrappers remain visible
+      paneContainer.querySelectorAll('[class*="panel-wrap"], [class*="panels-wrap"]').forEach(function(pw) {
+        pw.style.setProperty('display', 'block', 'important');
+        pw.style.setProperty('visibility', 'visible', 'important');
+      });
 
-        if (panelId) {
-          const panel = paneContainer.querySelector('#' + CSS.escape(panelId)) || document.getElementById(panelId);
-          if (panel) {
-            panel.style.setProperty('display', 'block', 'important');
-            panel.setAttribute('aria-hidden', 'false');
-            panel.classList.add('is-active', 'active');
-          }
-        }
+      // Hide sibling leaf panels within this specific two-pane/menu container
+      allPanels.forEach(function(p) {
+        p.style.setProperty('display', 'none', 'important');
+        p.setAttribute('aria-hidden', 'true');
+        p.classList.remove('is-active', 'active');
+      });
+
+      let panel = panelId ? (paneContainer.querySelector('#' + CSS.escape(panelId)) || document.getElementById(panelId)) : null;
+      if (!panel && tabIndex >= 0 && allPanels[tabIndex]) {
+        panel = allPanels[tabIndex];
       }
 
-      tab.addEventListener('mouseenter', activateTab);
+      if (panel) {
+        panel.style.setProperty('display', 'block', 'important');
+        panel.style.setProperty('visibility', 'visible', 'important');
+        panel.style.setProperty('opacity', '1', 'important');
+        panel.setAttribute('aria-hidden', 'false');
+        panel.classList.add('is-active', 'active');
+        panel.querySelectorAll('a, button, ul, li, div').forEach(function(el) {
+          if (el.style.visibility === 'hidden') el.style.visibility = 'visible';
+          if (el.style.opacity === '0') el.style.opacity = '1';
+        });
+      }
+    }
+
+    tabs.forEach(function(tab) {
+      tab.addEventListener('mouseenter', function() { activateTab(tab); });
       tab.addEventListener('click', function(e) {
         e.preventDefault();
-        activateTab();
+        activateTab(tab);
       });
-      tab.addEventListener('focus', activateTab);
+      tab.addEventListener('focus', function() { activateTab(tab); });
     });
+
+    const initialActive = tabs.find(function(t) { return t.getAttribute('aria-selected') === 'true' || t.classList.contains('active') || t.classList.contains('is-active'); }) || tabs[0];
+    if (initialActive) {
+      activateTab(initialActive);
+    }
   });
 
   // Dialog & modal close button handler
@@ -4563,6 +4593,19 @@ export class JsSynthesizer {
   // Universal Interactive Controls: Dropdowns, Popovers, Swatches & Faceted Filtering
   const scope = document.getElementById('${ast.id}') || document;
 
+  // Helper: Validate panel element to prevent misidentifying nav items, triggers, or ancestors
+  function isValidDropdownPanel(el, trigger) {
+    if (!el || el === trigger) return false;
+    if (trigger && (trigger.contains(el) || el.contains(trigger))) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'button' || tag === 'a' || tag === 'input' || tag === 'select' || tag === 'li' || tag === 'span' || tag === 'label') return false;
+    if (el.getAttribute('role') === 'button' || el.getAttribute('role') === 'listitem') return false;
+    const cls = (typeof el.className === 'string' ? el.className : (el.getAttribute && el.getAttribute('class')) || '').toLowerCase();
+    if (cls.includes('nav-item') || cls.includes('menu-item') || cls.includes('dropdown-item')) return false;
+    if (cls.includes('nav-dropdown') && !cls.includes('menu') && !cls.includes('content') && !cls.includes('panel') && !cls.includes('pane')) return false;
+    return true;
+  }
+
   // Helper: Find controlled popover/panel for any toggle trigger
   function findControlledPanel(trigger) {
     if (!trigger) return null;
@@ -4576,29 +4619,29 @@ export class JsSynthesizer {
                    trigger.getAttribute('data-menu-id');
     if (ctrlId) {
       const el = document.getElementById(ctrlId.replace(/^#/, '')) || (scope || document).querySelector(ctrlId) || document.querySelector(ctrlId);
-      if (el) return el;
+      if (isValidDropdownPanel(el, trigger)) return el;
     }
     if (trigger.id) {
       const byPortal = (scope || document).querySelector('[data-portal-for="' + CSS.escape(trigger.id) + '"], [aria-labelledby="' + CSS.escape(trigger.id) + '"]') ||
                        document.querySelector('[data-portal-for="' + CSS.escape(trigger.id) + '"], [aria-labelledby="' + CSS.escape(trigger.id) + '"]');
-      if (byPortal) return byPortal;
+      if (isValidDropdownPanel(byPortal, trigger)) return byPortal;
     }
     const testId = trigger.getAttribute('data-testid');
     if (testId) {
       const byTestId = (scope || document).querySelector('[data-portal-for="' + CSS.escape(testId) + '"]') ||
                        document.querySelector('[data-portal-for="' + CSS.escape(testId) + '"]');
-      if (byTestId) return byTestId;
+      if (isValidDropdownPanel(byTestId, trigger)) return byTestId;
     }
     // Check next element sibling
     const sib = trigger.nextElementSibling;
-    if (sib && sib !== trigger && !trigger.contains(sib) && !sib.matches('button, input, select')) {
+    if (sib && isValidDropdownPanel(sib, trigger)) {
       if (
         sib.getAttribute('role') === 'menu' ||
         sib.getAttribute('role') === 'listbox' ||
         sib.getAttribute('role') === 'dialog' ||
         sib.getAttribute('data-baseweb') === 'menu' ||
         sib.getAttribute('data-baseweb') === 'popover' ||
-        /(?:menu|option|dropdown|popover|content|panel|list)/i.test(sib.className || '') ||
+        /(?:menu|option|dropdown-menu|dropdown-content|two-pane|popover|panel|list)/i.test(sib.className || '') ||
         trigger.hasAttribute('aria-haspopup') ||
         trigger.hasAttribute('aria-expanded')
       ) {
@@ -4608,16 +4651,16 @@ export class JsSynthesizer {
     // Check parent li or nav item container (crucial for BEM mega-menus)
     const parentLi = trigger.closest('li, [role="listitem"], [class*="l0-menu"], [class*="nav-item"], [class*="menu-item"]');
     if (parentLi) {
-      const liPanel = parentLi.querySelector('[class*="menu-container"], [class*="l1-menu"], [class*="dropdown"], [class*="megamenu"], [class*="flyout"], [role="menu"], [role="listbox"], ul');
-      if (liPanel && liPanel !== trigger && !trigger.contains(liPanel)) return liPanel;
+      const liPanel = parentLi.querySelector('[class*="dropdown-menu"], [class*="dropdown__menu"], [class*="dropdown-content"], [class*="dropdown__content"], [class*="dropdown-panel"], [class*="dropdown__panel"], [class*="two-pane"], [class*="menu-container"], [class*="l1-menu"], [class*="megamenu"], [class*="flyout"], [role="menu"], [role="listbox"], ul:not([class*="navbar-nav"]):not([class*="nav-list"])');
+      if (liPanel && isValidDropdownPanel(liPanel, trigger)) return liPanel;
     }
     // Check inside immediate container and traverse up to 4 ancestors
     let searchBox = trigger.parentElement;
     let searchDepth = 0;
     while (searchBox && searchBox !== document.body && searchDepth < 4) {
       const foundPanel = Array.from(searchBox.querySelectorAll(
-        '[role="menu"], [role="listbox"], [role="dialog"], [data-baseweb="menu"], [data-baseweb="popover"], [class*="menu-container"], [class*="l1-menu"], [class*="dropdown"], [class*="popover"], [class*="megamenu"], [class*="flyout"], [class*="option-list"], [class*="select-options"], [class*="menu__list"], [class*="list-wrap"]'
-      )).find(function(p) { return p !== trigger && !trigger.contains(p); });
+        '[role="menu"], [role="listbox"], [role="dialog"], [data-baseweb="menu"], [data-baseweb="popover"], [class*="menu-container"], [class*="l1-menu"], [class*="dropdown-menu"], [class*="dropdown__menu"], [class*="dropdown-content"], [class*="dropdown-panel"], [class*="two-pane"], [class*="popover"], [class*="megamenu"], [class*="flyout"], [class*="option-list"], [class*="select-options"], [class*="menu__list"], [class*="list-wrap"]'
+      )).find(function(p) { return isValidDropdownPanel(p, trigger); });
       if (foundPanel) return foundPanel;
       searchBox = searchBox.parentElement;
       searchDepth++;
@@ -4626,7 +4669,7 @@ export class JsSynthesizer {
     // Check parent's next sibling or adjacent container
     if (trigger.parentElement) {
       const nextSib = trigger.parentElement.nextElementSibling;
-      if (nextSib && (
+      if (nextSib && isValidDropdownPanel(nextSib, trigger) && (
         nextSib.getAttribute('role') === 'menu' ||
         nextSib.getAttribute('data-baseweb') === 'menu' ||
         nextSib.querySelector('[role="menu"], [data-baseweb="menu"]')
@@ -4843,7 +4886,7 @@ export class JsSynthesizer {
 
       // Toggle only the panel element (never climb and hide page ancestors or nav lists)
       const elementsToToggle = [panel].filter(function(el) {
-        if (!el || el.contains(trigger)) return false;
+        if (!isValidDropdownPanel(el, trigger)) return false;
         const tag = (el.tagName || '').toLowerCase();
         if (tag === 'ul' || tag === 'ol' || tag === 'nav' || tag === 'header') {
           if (el.id === 'globalnav-list' || (el.className || '').includes('globalnav') || el.querySelector('.globalnav-link, .nav-link')) {
@@ -4952,7 +4995,7 @@ export class JsSynthesizer {
   )).filter(function(b) {
     if (b.hasAttribute('data-has-recorded-interaction')) return false;
     // Skip items inside another dropdown panel (options, subitems, etc.)
-    if (b.closest('[class*="dropdown-menu"], [class*="dropdown"], [role="menu"], [role="listbox"], [class*="sublist"]')) return false;
+    if (b.closest('[class*="dropdown-menu"], [class*="dropdown__menu"], [class*="dropdown-content"], [class*="dropdown-panel"], [role="menu"], [role="listbox"], [class*="sublist"]')) return false;
     // Skip nav items that are already actively managed by the navigation flyout controller
     if (b.hasAttribute('data-flyout-bound') || b.closest('[data-flyout-bound="true"]')) return false;
     const hasPanel = !!findControlledPanel(b);

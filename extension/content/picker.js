@@ -1147,11 +1147,11 @@
       }
     }
 
-    // 3. Explore menus, dropdowns, and interactive controls
+    // 3. Deep Recursive Exploration of menus, dropdowns, tabs, accordions, and submenus
     const triggers = Array.from(sectionEl.querySelectorAll(
-      'button, a, [role="button"], [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [data-menu], li'
+      'button, a, [role="button"], [aria-haspopup], [aria-expanded], [data-dropdown], [data-toggle], [data-menu], .nav-dropdown > button, .nav-item, [data-cy*="trigger"]'
     )).filter((el) => {
-      const isTab = el.getAttribute('role') === 'tab' || getElementClassString(el).toLowerCase().includes('tab');
+      const isTab = el.getAttribute('role') === 'tab';
       return !isTab && !el.closest('#__replicator_picker_bar__') && !el.closest('#__replicator_picker_overlay__');
     });
 
@@ -1177,9 +1177,83 @@
           }
         }
       } catch {}
-      // Wait for CSS animations, Framer Motion, and React state updates (300ms)
-      await sleep(300);
+      // Wait for CSS animations, Framer Motion, and React/Vue state updates (250ms)
+      await sleep(250);
+
+      // Deep probe nested tabs revealed inside this dropdown/menu
+      try {
+        const revealedTabs = Array.from(sectionEl.querySelectorAll(
+          '[role="tab"], .pathfinder-two-pane__tab, [class*="tab-btn"], button[id*="tab"], .tab__item-title'
+        )).filter(t => !t.closest('#__replicator_picker_bar__'));
+        for (const tab of revealedTabs.slice(0, 16)) {
+          tab.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
+          tab.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          tab.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
+          tab.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+          tab.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          if (typeof tab.click === 'function') tab.click();
+          await sleep(120);
+        }
+      } catch {}
+
+      // Deep probe nested accordions revealed inside this dropdown/menu
+      try {
+        const revealedAccordions = Array.from(sectionEl.querySelectorAll(
+          '.pathfinder-nav-accordion button, [class*="accordion"] button, button[aria-controls*="acc"], [class*="accordion__header"]'
+        )).filter(a => !a.closest('#__replicator_picker_bar__'));
+        for (const acc of revealedAccordions.slice(0, 16)) {
+          if (acc.getAttribute('aria-expanded') !== 'true') {
+            acc.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            if (typeof acc.click === 'function') acc.click();
+            await sleep(150);
+          }
+        }
+      } catch {}
     }
+
+    // 4. Mobile Navigation & Responsive Drawer Deep Exploration
+    try {
+      const mobileToggles = Array.from(sectionEl.querySelectorAll(
+        'button[data-cy="hamburger-trigger"], button[class*="nav-toggle"], button[class*="hamburger"], button[aria-label*="menu" i], [class*="menu-toggle"], [aria-controls="nav-main"]'
+      )).filter(b => !b.closest('#__replicator_picker_bar__'));
+
+      for (const mobToggle of mobileToggles) {
+        mobToggle.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        if (typeof mobToggle.click === 'function') mobToggle.click();
+        await sleep(350);
+
+        // Mount all top-level mobile accordions
+        const mobAccordions = Array.from(sectionEl.querySelectorAll(
+          '.pathfinder-nav-accordion button, [class*="accordion"] button, button[aria-controls*="acc"], [class*="nav-collapse"] button[aria-expanded]'
+        )).filter(a => !a.closest('#__replicator_picker_bar__'));
+
+        for (const acc of mobAccordions.slice(0, 16)) {
+          if (acc.getAttribute('aria-expanded') !== 'true') {
+            acc.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            if (typeof acc.click === 'function') acc.click();
+            await sleep(200);
+
+            // Mount any nested sub-accordions or category panels inside
+            const subAccs = acc.parentElement?.querySelectorAll('.pathfinder-nav-accordion button, [class*="accordion"] button, button[aria-controls*="acc"]') || [];
+            for (const sub of Array.from(subAccs).slice(0, 10)) {
+              if (sub !== acc && sub.getAttribute('aria-expanded') !== 'true') {
+                sub.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+                if (typeof sub.click === 'function') sub.click();
+                await sleep(150);
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // Resolve any lazy-loaded image URLs immediately into src attributes across all revealed DOM
+    sectionEl.querySelectorAll('img').forEach((img) => {
+      const realSrc = img.getAttribute('data-desktop-src') || img.getAttribute('data-src') || img.getAttribute('data-original') || img.src;
+      if (realSrc && (!img.src || img.src.includes('data:image'))) {
+        img.src = realSrc;
+      }
+    });
 
     try {
       document.body.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true, view: window }));
