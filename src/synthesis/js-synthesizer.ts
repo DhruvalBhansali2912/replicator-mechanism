@@ -2023,7 +2023,7 @@ export class JsSynthesizer {
     });
   });
 
-  // universalAccordionV3: robust mobile accordion & WAI-ARIA tabpanel content-visibility handler
+  // universalAccordionV4: robust mobile accordion & WAI-ARIA tabpanel content-visibility handler
   // Universal mobile & desktop accordion toggle for submenus, categories, and drawer items
   const accordionButtons = Array.from(document.querySelectorAll(
     '.pathfinder-nav-accordion__header, [class*="accordion__header"], [class*="accordion-header"], [class*="nav-accordion"] button, button[aria-controls*="acc" i], button[aria-controls*="pf-acc"], [class*="accordion"] > button, .mobile-nav-accordion-btn, .toggle-button, [class*="accordion-trigger"], [class*="accordion-button"], [class*="accordion-toggle"], [class*="toggle-btn"], button[aria-controls*="toggle" i], button[aria-controls*="content" i], button[aria-controls*="collapse" i], [data-accordion-title], [data-cmp-hook-accordion="button"], [class*="cmp-accordion__title"] a, [class*="cmp-header-navigation__item"] a[aria-haspopup]'
@@ -2068,7 +2068,8 @@ export class JsSynthesizer {
           target = btn.parentElement.querySelector('.toggle-content, [class*="accordion-content"], [class*="accordion__panel"], [class*="content"]:not(.accordion-button)');
         }
       }
-      let accordionItem = btn.closest('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], [class*="nav-accordion"], li');
+      let accordionItem = (btn.parentElement ? btn.parentElement.closest('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], [class*="nav-accordion"]:not(button):not([class*="header"]), li') : null) || (btn.closest('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], li'));
+      if (accordionItem === btn) accordionItem = btn.parentElement;
       if (accordionItem && accordionItem.matches('nav, header, section, [class*="nav-collapse"], [class*="navbar-collapse"], [class*="col-full-nav"], [class*="drawer"], [role="dialog"], [class*="menu-container"], .nav-container')) {
         accordionItem = null;
       }
@@ -2095,18 +2096,20 @@ export class JsSynthesizer {
       const navItem = btn.closest('[class*="navigation__item"], .cmp-header-navigation__item, li');
       if (navItem && navItem.parentElement) {
         Array.from(navItem.parentElement.children).forEach(function(sib) {
-          if (sib !== navItem) sib.classList.remove('is-current', 'is-open', 'open', 'active');
+          if (sib !== navItem && sib !== accordionItem) sib.classList.remove('is-current', 'is-open', 'open', 'active');
         });
         if (willOpen) navItem.classList.add('is-current');
       }
 
-      // If opening in an accordion group, close sibling panels (only within the same accordion group, never closing the top-level drawer)
+      // If opening in an accordion group, close sibling panels (only within the same accordion group, never closing the top-level drawer or target)
       if (willOpen && accordionItem && accordionItem.parentElement) {
         const siblings = Array.from(accordionItem.parentElement.children);
         siblings.forEach(function(sib) {
-          if (sib !== accordionItem && sib.matches('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], [class*="nav-accordion"], li')) {
+          if (sib === accordionItem || sib === target || (target && (sib.contains(target) || target.contains(sib)))) return;
+          if (sib.matches('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], [class*="nav-accordion"], li')) {
             sib.classList.remove('is-open', 'open', 'is-current', 'active');
             sib.querySelectorAll('[aria-expanded="true"]').forEach(function(sBtn) {
+              if (sBtn === btn) return;
               sBtn.setAttribute('aria-expanded', 'false');
               sBtn.setAttribute('data-state', 'closed');
               sBtn.classList.remove('is-open', 'active');
@@ -2114,6 +2117,7 @@ export class JsSynthesizer {
               if (sChev) sChev.style.setProperty('transform', 'rotate(0deg)', 'important');
             });
             sib.querySelectorAll('.cmp-accordion__panel--expanded, [class*="accordion__panel"], [class*="toggle-content"], .accordion, [class*="level-"]').forEach(function(sPan) {
+              if (sPan === target || (target && (sPan.contains(target) || target.contains(sPan)))) return;
               sPan.classList.remove('cmp-accordion__panel--expanded', 'is-open', 'open', 'active');
               sPan.setAttribute('data-state', 'closed');
               sPan.style.setProperty('display', 'none', 'important');
