@@ -557,10 +557,22 @@ export class JsSynthesizer {
             });
             associatedPortals.forEach(function(p) {
               const origDisplay = (p.getAttribute('data-original-display') && p.getAttribute('data-original-display') !== 'none') ? p.getAttribute('data-original-display') : 'block';
+              p.removeAttribute('hidden');
               p.style.setProperty('display', origDisplay, 'important');
               p.style.setProperty('z-index', '99999', 'important');
+              p.style.setProperty('visibility', 'visible', 'important');
+              p.style.setProperty('opacity', '1', 'important');
+              p.style.setProperty('pointer-events', 'auto', 'important');
+              p.style.setProperty('content-visibility', 'visible', 'important');
+              p.style.removeProperty('max-height');
               p.setAttribute('data-state', 'open');
               p.classList.add('is-open', 'open', 'show', 'active');
+              p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.style && ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
+                if (ch.style && ch.style.opacity === '0') ch.style.removeProperty('opacity');
+                if (ch.style && ch.style.pointerEvents === 'none') ch.style.removeProperty('pointer-events');
+                if (ch.hasAttribute('hidden')) ch.removeAttribute('hidden');
+              });
             });
             isToggled = true;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
@@ -573,6 +585,9 @@ export class JsSynthesizer {
             });
             associatedPortals.forEach(function(p) {
               p.style.setProperty('display', 'none', 'important');
+              p.style.setProperty('visibility', 'hidden', 'important');
+              p.style.setProperty('opacity', '0', 'important');
+              p.style.setProperty('pointer-events', 'none', 'important');
               p.setAttribute('data-state', 'closed');
               p.classList.remove('is-open', 'open', 'show', 'active');
             });
@@ -2008,6 +2023,7 @@ export class JsSynthesizer {
     });
   });
 
+  // universalAccordionV3: robust mobile accordion & WAI-ARIA tabpanel content-visibility handler
   // Universal mobile & desktop accordion toggle for submenus, categories, and drawer items
   const accordionButtons = Array.from(document.querySelectorAll(
     '.pathfinder-nav-accordion__header, [class*="accordion__header"], [class*="accordion-header"], [class*="nav-accordion"] button, button[aria-controls*="acc" i], button[aria-controls*="pf-acc"], [class*="accordion"] > button, .mobile-nav-accordion-btn, .toggle-button, [class*="accordion-trigger"], [class*="accordion-button"], [class*="accordion-toggle"], [class*="toggle-btn"], button[aria-controls*="toggle" i], button[aria-controls*="content" i], button[aria-controls*="collapse" i], [data-accordion-title], [data-cmp-hook-accordion="button"], [class*="cmp-accordion__title"] a, [class*="cmp-header-navigation__item"] a[aria-haspopup]'
@@ -2052,16 +2068,28 @@ export class JsSynthesizer {
           target = btn.parentElement.querySelector('.toggle-content, [class*="accordion-content"], [class*="accordion__panel"], [class*="content"]:not(.accordion-button)');
         }
       }
-      const parentContainer = btn.closest('.accordion-row, [class*="accordion-row"], [class*="accordion" i]:not(.accordion), [class*="toggle" i], [class*="collapse" i], .mobile-nav-item, [class*="navigation__item"], li, [class*="nav-accordion"]');
+      let accordionItem = btn.closest('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], [class*="nav-accordion"], li');
+      if (accordionItem && accordionItem.matches('nav, header, section, [class*="nav-collapse"], [class*="navbar-collapse"], [class*="col-full-nav"], [class*="drawer"], [role="dialog"], [class*="menu-container"], .nav-container')) {
+        accordionItem = null;
+      }
+      const targetIsVisible = target && window.getComputedStyle(target).display !== 'none' && window.getComputedStyle(target).visibility !== 'hidden' && (target.classList.contains('is-open') || target.classList.contains('cmp-accordion__panel--expanded') || target.getAttribute('data-state') === 'open');
       const isCurrentlyOpen = btn.getAttribute('aria-expanded') === 'true' ||
-        btn.classList.contains('is-open') || btn.classList.contains('active') ||
-        (parentContainer && (parentContainer.classList.contains('is-open') || parentContainer.classList.contains('active') || parentContainer.classList.contains('is-current'))) ||
-        (target && (target.classList.contains('is-open') || target.classList.contains('active') || target.classList.contains('cmp-accordion__panel--expanded') || target.style.display === 'block'));
+        btn.getAttribute('data-state') === 'open' ||
+        btn.classList.contains('is-open') ||
+        Boolean(targetIsVisible) ||
+        (accordionItem && (accordionItem.classList.contains('is-open') || accordionItem.classList.contains('active')) && !accordionItem.matches('nav, header, [class*="collapse"], [class*="drawer"]'));
 
       const willOpen = !isCurrentlyOpen;
       btn.setAttribute('aria-expanded', String(willOpen));
+      btn.setAttribute('data-state', willOpen ? 'open' : 'closed');
       btn.classList.toggle('is-open', willOpen);
       btn.classList.toggle('active', willOpen);
+
+      const chevron = btn.querySelector('[class*="chevron"], [class*="caret"], [class*="arrow"], svg');
+      if (chevron) {
+        chevron.style.setProperty('transform', willOpen ? 'rotate(180deg)' : 'rotate(0deg)', 'important');
+        chevron.style.transition = 'transform 0.2s ease';
+      }
 
       // Coordinate nav item active state
       const navItem = btn.closest('[class*="navigation__item"], .cmp-header-navigation__item, li');
@@ -2072,16 +2100,26 @@ export class JsSynthesizer {
         if (willOpen) navItem.classList.add('is-current');
       }
 
-      // If opening in an accordion group, close sibling panels
-      if (willOpen && parentContainer && parentContainer.parentElement) {
-        const siblings = Array.from(parentContainer.parentElement.children);
+      // If opening in an accordion group, close sibling panels (only within the same accordion group, never closing the top-level drawer)
+      if (willOpen && accordionItem && accordionItem.parentElement) {
+        const siblings = Array.from(accordionItem.parentElement.children);
         siblings.forEach(function(sib) {
-          if (sib !== parentContainer) {
+          if (sib !== accordionItem && sib.matches('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], [class*="nav-accordion"], li')) {
             sib.classList.remove('is-open', 'open', 'is-current', 'active');
-            sib.querySelectorAll('[aria-expanded="true"]').forEach(function(sBtn) { sBtn.setAttribute('aria-expanded', 'false'); });
+            sib.querySelectorAll('[aria-expanded="true"]').forEach(function(sBtn) {
+              sBtn.setAttribute('aria-expanded', 'false');
+              sBtn.setAttribute('data-state', 'closed');
+              sBtn.classList.remove('is-open', 'active');
+              const sChev = sBtn.querySelector('[class*="chevron"], [class*="caret"], [class*="arrow"], svg');
+              if (sChev) sChev.style.setProperty('transform', 'rotate(0deg)', 'important');
+            });
             sib.querySelectorAll('.cmp-accordion__panel--expanded, [class*="accordion__panel"], [class*="toggle-content"], .accordion, [class*="level-"]').forEach(function(sPan) {
               sPan.classList.remove('cmp-accordion__panel--expanded', 'is-open', 'open', 'active');
-              if (sPan.style && sPan.style.display === 'block') sPan.style.display = 'none';
+              sPan.setAttribute('data-state', 'closed');
+              sPan.style.setProperty('display', 'none', 'important');
+              sPan.style.setProperty('visibility', 'hidden', 'important');
+              sPan.style.setProperty('opacity', '0', 'important');
+              sPan.style.setProperty('pointer-events', 'none', 'important');
             });
           }
         });
@@ -2113,24 +2151,34 @@ export class JsSynthesizer {
         }
       }
 
-      if (parentContainer) {
-        parentContainer.classList.toggle('is-open', willOpen);
-        parentContainer.classList.toggle('open', willOpen);
-        parentContainer.classList.toggle('active', willOpen);
-        parentContainer.classList.toggle('is-current', willOpen);
-        applyFrameworkStateClasses(parentContainer, willOpen);
+      if (accordionItem) {
+        accordionItem.classList.toggle('is-open', willOpen);
+        accordionItem.classList.toggle('open', willOpen);
+        accordionItem.classList.toggle('active', willOpen);
+        accordionItem.classList.toggle('is-current', willOpen);
+        applyFrameworkStateClasses(accordionItem, willOpen);
       }
       if (target) {
         target.classList.toggle('is-open', willOpen);
         target.classList.toggle('open', willOpen);
         target.classList.toggle('active', willOpen);
         target.classList.toggle('cmp-accordion__panel--expanded', willOpen);
+        target.setAttribute('data-state', willOpen ? 'open' : 'closed');
         if (target.matches('.accordion, [class*="level-"]')) {
           target.style.removeProperty('display');
         } else {
           target.style.setProperty('display', willOpen ? 'block' : 'none', 'important');
           target.style.setProperty('visibility', willOpen ? 'visible' : 'hidden', 'important');
           target.style.setProperty('opacity', willOpen ? '1' : '0', 'important');
+          target.style.setProperty('pointer-events', willOpen ? 'auto' : 'none', 'important');
+          if (willOpen) {
+            target.removeAttribute('hidden');
+            target.style.removeProperty('max-height');
+            target.style.setProperty('max-height', 'none', 'important');
+            target.style.setProperty('content-visibility', 'visible', 'important');
+          } else {
+            target.style.setProperty('max-height', '0px', 'important');
+          }
         }
         applyFrameworkStateClasses(target, willOpen);
 
@@ -2574,8 +2622,13 @@ export class JsSynthesizer {
       // Hide sibling leaf panels within this specific two-pane/menu container
       allPanels.forEach(function(p) {
         p.style.setProperty('display', 'none', 'important');
+        p.style.setProperty('visibility', 'hidden', 'important');
+        p.style.setProperty('opacity', '0', 'important');
+        p.style.setProperty('pointer-events', 'none', 'important');
         p.setAttribute('aria-hidden', 'true');
-        p.classList.remove('is-active', 'active');
+        p.setAttribute('hidden', 'until-found');
+        p.classList.remove('is-active', 'active', 'current');
+        p.classList.add('should-hide');
       });
 
       let panel = panelId ? (paneContainer.querySelector('#' + CSS.escape(panelId)) || document.getElementById(panelId)) : null;
@@ -2584,14 +2637,21 @@ export class JsSynthesizer {
       }
 
       if (panel) {
+        panel.removeAttribute('hidden');
         panel.style.setProperty('display', 'block', 'important');
         panel.style.setProperty('visibility', 'visible', 'important');
         panel.style.setProperty('opacity', '1', 'important');
+        panel.style.setProperty('pointer-events', 'auto', 'important');
+        panel.style.setProperty('content-visibility', 'visible', 'important');
+        panel.style.removeProperty('max-height');
         panel.setAttribute('aria-hidden', 'false');
-        panel.classList.add('is-active', 'active');
+        panel.classList.remove('should-hide');
+        panel.classList.add('is-active', 'active', 'current');
         panel.querySelectorAll('*').forEach(function(el) {
-          if (el.style.visibility === 'hidden') el.style.removeProperty('visibility');
-          if (el.style.opacity === '0') el.style.removeProperty('opacity');
+          if (el.style && el.style.visibility === 'hidden') el.style.removeProperty('visibility');
+          if (el.style && el.style.opacity === '0') el.style.removeProperty('opacity');
+          if (el.style && el.style.pointerEvents === 'none') el.style.removeProperty('pointer-events');
+          if (el.hasAttribute('hidden')) el.removeAttribute('hidden');
         });
       }
     }
@@ -3452,9 +3512,14 @@ export class JsSynthesizer {
               p.style.visibility = 'visible';
               p.style.pointerEvents = 'auto';
 
+              p.removeAttribute('hidden');
+              p.style.setProperty('content-visibility', 'visible', 'important');
+              p.style.removeProperty('max-height');
               p.querySelectorAll('*').forEach(function(ch) {
                 if (ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
                 if (ch.style.opacity === '0') ch.style.removeProperty('opacity');
+                if (ch.style.pointerEvents === 'none') ch.style.removeProperty('pointer-events');
+                if (ch.hasAttribute('hidden')) ch.removeAttribute('hidden');
               });
 
               // Play video if present
@@ -3519,6 +3584,7 @@ export class JsSynthesizer {
               p.style.zIndex = '0';
               p.style.visibility = 'hidden';
               p.style.pointerEvents = 'none';
+              p.setAttribute('hidden', 'until-found');
 
               // Pause video
               const inactVid = p.querySelector('video');
