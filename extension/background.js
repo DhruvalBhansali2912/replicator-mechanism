@@ -129,6 +129,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'UPDATE_PROGRESS') {
+    const { progress, currentStep } = request;
+    const pct = Math.max(1, Math.min(99, Math.round(progress)));
+    chrome.action.setBadgeText({ text: `${pct}%` });
+    chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
+    chrome.storage.local.get(['activeJob']).then((store) => {
+      const current = store.activeJob || {};
+      chrome.storage.local.set({
+        activeJob: {
+          ...current,
+          status: 'processing',
+          progress: pct,
+          currentStep: currentStep || current.currentStep || 'Replicating section...',
+          startedAt: current.startedAt || Date.now(),
+        }
+      });
+    });
+    sendResponse({ success: true });
+    return true;
+  }
+
   if (request.action === 'REFRESH_BALANCE') {
     refreshAccountBalance()
       .then((res) => sendResponse(res))
@@ -171,14 +192,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
  * Initiates page extraction call to server and starts resilient background polling
  */
 async function handleStartExtraction({ url, options }) {
-  const { apiKey, deviceId, apiUrl } = await chrome.storage.local.get([
+  let { apiKey, deviceId, apiUrl } = await chrome.storage.local.get([
     'apiKey',
     'deviceId',
     'apiUrl',
   ]);
 
   if (!apiKey) {
-    throw new Error('Please enter your License Key before starting replication.');
+    const prov = await ensureTrialProvisioned();
+    if (prov && prov.success && prov.apiKey) {
+      apiKey = prov.apiKey;
+    } else {
+      throw new Error('Please enter your License Key before starting replication.');
+    }
   }
 
   const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
@@ -205,7 +231,7 @@ async function handleStartExtraction({ url, options }) {
   // Fetch all external stylesheets directly in Service Worker using extension host_permissions
   if (stylesheetUrls.size > 0) {
     try {
-      const fetchedCss = await Promise.all(
+      const fetchPromise = Promise.all(
         Array.from(stylesheetUrls).map(async (cssUrl) => {
           try {
             const resp = await fetch(cssUrl, { cache: 'force-cache' });
@@ -219,7 +245,11 @@ async function handleStartExtraction({ url, options }) {
           return '';
         })
       );
-      const validCss = fetchedCss.filter((c) => c && c.trim().length > 0);
+      const fetchedCss = await Promise.race([
+        fetchPromise,
+        new Promise((r) => setTimeout(() => r([]), 5000))
+      ]);
+      const validCss = (fetchedCss || []).filter((c) => c && c.trim().length > 0);
       if (validCss.length > 0) {
         // External link stylesheets provide base styles and must precede inline overrides in CSS cascade
         const existing = new Set((options.clientStylesheets || []).map((s) => s.slice(0, 200)));
@@ -275,8 +305,8 @@ async function handleStartExtraction({ url, options }) {
     id: jobId,
     url,
     status: 'queued',
-    progress: 0,
-    currentStep: 'Job queued...',
+    progress: 45,
+    currentStep: 'Job queued on server...',
     startedAt: Date.now(),
     previewUrl: `${baseUrl}/api/jobs/${jobId}/preview`,
     downloadUrl: `${baseUrl}/api/jobs/${jobId}/download`,
@@ -285,7 +315,7 @@ async function handleStartExtraction({ url, options }) {
   await chrome.storage.local.set({ activeJob: initialJob });
 
   // Update badge
-  chrome.action.setBadgeText({ text: '0%' });
+  chrome.action.setBadgeText({ text: '45%' });
   chrome.action.setBadgeBackgroundColor({ color: '#4F46E5' });
 
   // Start background polling that persists across tab changes / popup closes

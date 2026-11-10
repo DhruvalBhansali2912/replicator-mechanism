@@ -153,6 +153,30 @@
 
   let currentTarget = null;
   let selectedData = null;
+  let isReplicating = false;
+
+  function ensureBarInDOM() {
+    if (bar && !bar.isConnected) {
+      (document.body || document.documentElement).appendChild(bar);
+    }
+  }
+
+  function updateReplicationProgress(pct, stepText) {
+    ensureBarInDOM();
+    const stepEl = document.getElementById('__replicator_progress_step__');
+    const fillEl = document.getElementById('__replicator_progress_fill__');
+    const numEl = document.getElementById('__replicator_progress_num__');
+    if (stepEl && stepText) stepEl.textContent = stepText;
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    if (numEl) numEl.textContent = `${pct}%`;
+    try {
+      chrome.runtime.sendMessage({
+        action: 'UPDATE_PROGRESS',
+        progress: pct,
+        currentStep: stepText,
+      });
+    } catch {}
+  }
 
   // Helper: check if element is a global page shell / layout wrapper that spans the entire document
   function isPageShell(element) {
@@ -1586,8 +1610,17 @@
         return getScore(b) - getScore(a);
       });
 
-      for (let i = 0; i < candidates.length; i++) {
-        let el = candidates[i];
+      // Filter out low-priority static text/links and cap candidates to 18 to ensure responsive probing
+      const prioritizedCandidates = candidates.filter(el => {
+        const tag = el.tagName.toLowerCase();
+        const role = el.getAttribute('role') || '';
+        const hasAria = el.hasAttribute('aria-expanded') || el.hasAttribute('aria-haspopup');
+        return tag === 'input' || tag === 'button' || role === 'button' || role === 'tab' || role === 'combobox' || role === 'searchbox' || hasAria;
+      });
+      const candidateList = prioritizedCandidates.length > 0 ? prioritizedCandidates.slice(0, 18) : candidates.slice(0, 12);
+
+      for (let i = 0; i < candidateList.length; i++) {
+        let el = candidateList[i];
         if (!el.isConnected) {
           const prevSel = candidateMap ? Array.from(candidateMap.keys())[i] : null;
           if (prevSel) {
@@ -1602,10 +1635,10 @@
 
         redirectInitiated = false;
 
-        if (progressStepEl) {
-          const txt = (el.textContent || el.getAttribute('aria-label') || el.id || el.tagName.toLowerCase()).replace(/\s+/g, ' ').trim().slice(0, 24);
-          progressStepEl.textContent = `Probing (${i + 1}/${candidates.length}): <${el.tagName.toLowerCase()}> "${txt}"...`;
-        }
+        const probeProgress = 15 + Math.round(((i + 1) / candidateList.length) * 20); // 15% -> 35%
+        const tag = el.tagName.toLowerCase();
+        const labelTxt = (el.textContent || el.getAttribute('aria-label') || el.id || tag).replace(/\s+/g, ' ').trim().slice(0, 24);
+        updateReplicationProgress(probeProgress, `Probing (${i + 1}/${candidateList.length}): <${tag}> "${labelTxt}"...`);
 
         // Check if element is a navigation link
         const href = el.getAttribute('href') || (el.tagName.toLowerCase() === 'a' ? el.href : null);
@@ -1883,12 +1916,13 @@
             document.activeElement.blur();
           }
           if (typeof el.blur === 'function') el.blur();
-          window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-          document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
           const outsideTarget = document.querySelector('main') || document.body;
-          outsideTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-          outsideTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-          outsideTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          if (outsideTarget) {
+            outsideTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: false }));
+            outsideTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            outsideTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            outsideTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          }
           const closeBtn = document.querySelector('dialog [aria-label*="Close" i], [role="dialog"] [aria-label*="Close" i], [data-testid*="modal"] button');
           if (closeBtn) closeBtn.click();
         } catch {}
@@ -1900,12 +1934,13 @@
         if (document.activeElement && typeof document.activeElement.blur === 'function') {
           document.activeElement.blur();
         }
-        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
-        document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true }));
         const outsideTarget = document.querySelector('main') || document.body;
-        outsideTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-        outsideTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
-        outsideTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        if (outsideTarget) {
+          outsideTarget.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: false }));
+          outsideTarget.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+          outsideTarget.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+          outsideTarget.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        }
       } catch {}
       await sleep(200);
 
@@ -1931,154 +1966,169 @@
   async function initiateReplication() {
     const data = selectedData;
     if (!data) return;
+    isReplicating = true;
+    window.removeEventListener('keydown', onKeyDown, true);
     installNavShield();
 
-    // Switch bar to live progress bar state
-    bar.innerHTML = `
-      <div style="display:flex;align-items:center;gap:12px;">
-        <span style="font-size:18px;display:inline-block;animation:spin 1s linear infinite;">⏳</span>
-        <div>
-          <div style="font-weight:700;font-size:13px;color:#ffffff;">Replicating ${data.archetypeName}...</div>
-          <div id="__replicator_progress_step__" style="font-size:11px;color:#93c5fd;">Revealing dynamic menus & sub-panels...</div>
+    try {
+      // Switch bar to live progress bar state
+      ensureBarInDOM();
+      bar.innerHTML = `
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="font-size:18px;display:inline-block;animation:spin 1s linear infinite;">⏳</span>
+          <div>
+            <div style="font-weight:700;font-size:13px;color:#ffffff;">Replicating ${data.archetypeName}...</div>
+            <div id="__replicator_progress_step__" style="font-size:11px;color:#93c5fd;">Revealing dynamic menus & sub-panels...</div>
+          </div>
+          <div style="width:130px;height:7px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin-left:8px;">
+            <div id="__replicator_progress_fill__" style="width:15%;height:100%;background:#38bdf8;border-radius:4px;transition:width 0.4s ease;"></div>
+          </div>
+          <span id="__replicator_progress_num__" style="font-size:11px;font-family:monospace;color:#ffffff;min-width:32px;">15%</span>
         </div>
-        <div style="width:130px;height:7px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin-left:8px;">
-          <div id="__replicator_progress_fill__" style="width:15%;height:100%;background:#38bdf8;border-radius:4px;transition:width 0.4s ease;"></div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <button id="__replicator_abort_btn__" style="background:rgba(255,255,255,0.1);color:#94a3b8;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;" title="Cancel replication">
+            Cancel
+          </button>
         </div>
-        <span id="__replicator_progress_num__" style="font-size:11px;font-family:monospace;color:#ffffff;min-width:32px;">15%</span>
-      </div>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <button id="__replicator_abort_btn__" style="background:rgba(255,255,255,0.1);color:#94a3b8;border:none;border-radius:4px;padding:4px 8px;font-size:11px;cursor:pointer;" title="Cancel replication">
-          Cancel
-        </button>
-      </div>
-    `;
+      `;
 
-    let isCancelled = false;
-    document.getElementById('__replicator_abort_btn__')?.addEventListener('click', () => {
-      isCancelled = true;
-      cleanup();
-    });
-
-    // Universally explore and reveal dynamic sections before capturing
-    try {
-      await revealDynamicSections(currentTarget);
-    } catch (probeErr) {
-      console.warn('[replicator] Dynamic section probe warning:', probeErr);
-    }
-    const dynamicSectionHtml = harvestSectionHtmlWithDynamics(currentTarget, data.archetype);
-
-    const progressStepEl = document.getElementById('__replicator_progress_step__');
-    if (progressStepEl) progressStepEl.textContent = 'Probing & recording interactive behaviors...';
-    let recordedInteractions = [];
-    try {
-      recordedInteractions = await recordDynamicInteractions(currentTarget);
-    } catch (recordErr) {
-      console.warn('[replicator] Interactive behavior recording warning:', recordErr);
-    }
-
-    const finalSectionHtml = dynamicSectionHtml || data.sectionHtml;
-
-    if (progressStepEl) progressStepEl.textContent = 'Extracting styles & synthesizing code...';
-
-    // Harvest page client stylesheets in strict document cascade order
-    const sheets = [];
-    const sheetEntries = [];
-    const fetchedHrefs = new Set();
-
-    try {
-      const allStyleSheets = Array.from(document.styleSheets);
-      for (let i = 0; i < allStyleSheets.length; i++) {
-        const sheet = allStyleSheets[i];
-        let css = '';
+      let isCancelled = false;
+      document.getElementById('__replicator_abort_btn__')?.addEventListener('click', () => {
+        isCancelled = true;
+        isReplicating = false;
+        cleanup();
         try {
-          if (sheet.cssRules && sheet.cssRules.length > 0) {
-            for (let j = 0; j < sheet.cssRules.length; j++) {
-              css += sheet.cssRules[j].cssText + '\n';
-            }
-          }
-        } catch {
-          // Cross-origin CSS rule security restriction
-        }
+          chrome.runtime.sendMessage({ action: 'DISMISS_JOB' });
+        } catch {}
+      });
 
-        if (css.trim()) {
-          sheetEntries.push({ index: i, css });
-        } else if (sheet.href && !sheet.href.startsWith('chrome-extension://')) {
-          const href = sheet.href;
-          fetchedHrefs.add(href);
-          sheetEntries.push({
-            index: i,
-            href,
-            promise: fetch(href, { cache: 'force-cache' })
-              .then((r) => (r.ok ? r.text() : ''))
-              .catch(() => '')
-          });
-        }
+      updateReplicationProgress(15, 'Revealing dynamic menus & sub-panels...');
+
+      // Universally explore and reveal dynamic sections before capturing
+      try {
+        await revealDynamicSections(currentTarget);
+      } catch (probeErr) {
+        console.warn('[replicator] Dynamic section probe warning:', probeErr);
+      }
+      const dynamicSectionHtml = harvestSectionHtmlWithDynamics(currentTarget, data.archetype);
+
+      updateReplicationProgress(20, 'Probing & recording interactive behaviors...');
+      let recordedInteractions = [];
+      try {
+        recordedInteractions = await recordDynamicInteractions(currentTarget);
+      } catch (recordErr) {
+        console.warn('[replicator] Interactive behavior recording warning:', recordErr);
       }
 
-      // Also ensure any <link rel="stylesheet"> in document is represented in document order
-      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
-      for (const link of links) {
-        const href = link.href;
-        if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
-          fetchedHrefs.add(href);
-          sheetEntries.push({
-            index: sheetEntries.length,
-            href,
-            promise: fetch(href, { cache: 'force-cache' })
-              .then((r) => (r.ok ? r.text() : ''))
-              .catch(() => '')
-          });
-        }
-      }
+      const finalSectionHtml = dynamicSectionHtml || data.sectionHtml;
 
-      // Resolve external stylesheets in parallel while preserving exact document cascade order
-      const pending = sheetEntries.filter((e) => e.promise);
-      if (pending.length > 0) {
-        await Promise.race([
-          Promise.allSettled(
-            pending.map(async (e) => {
-              try {
-                e.css = await e.promise;
-              } catch {
-                e.css = '';
+      updateReplicationProgress(38, 'Extracting styles & synthesizing code...');
+
+      // Harvest page client stylesheets in strict document cascade order
+      const sheets = [];
+      const sheetEntries = [];
+      const fetchedHrefs = new Set();
+
+      try {
+        const allStyleSheets = Array.from(document.styleSheets);
+        for (let i = 0; i < allStyleSheets.length; i++) {
+          const sheet = allStyleSheets[i];
+          let css = '';
+          try {
+            if (sheet.cssRules && sheet.cssRules.length > 0) {
+              for (let j = 0; j < sheet.cssRules.length; j++) {
+                css += sheet.cssRules[j].cssText + '\n';
               }
-            })
-          ),
-          new Promise((r) => setTimeout(r, 4000))
-        ]);
-      }
+            }
+          } catch {
+            // Cross-origin CSS rule security restriction
+          }
 
-      for (const entry of sheetEntries) {
-        if (entry.css && entry.css.trim()) {
-          sheets.push(entry.css);
+          if (css.trim()) {
+            sheetEntries.push({ index: i, css });
+          } else if (sheet.href && !sheet.href.startsWith('chrome-extension://')) {
+            const href = sheet.href;
+            fetchedHrefs.add(href);
+            sheetEntries.push({
+              index: i,
+              href,
+              promise: fetch(href, { cache: 'force-cache' })
+                .then((r) => (r.ok ? r.text() : ''))
+                .catch(() => '')
+            });
+          }
         }
-      }
-    } catch {}
 
-    chrome.runtime.sendMessage(
-      {
-        action: 'START_EXTRACTION',
-        payload: {
-          url: window.location.href,
-          options: {
-            sectionSelector: data.selector,
-            sectionHtml: finalSectionHtml,
-            targetArchetype: data.archetype,
-            clientStylesheets: sheets,
-            stylesheetUrls: Array.from(fetchedHrefs),
-            htmlSnapshot: document.documentElement.outerHTML,
-            recordedInteractions: recordedInteractions,
-            tabsData: window.__capturedTabsData || [],
-            rootCssVariables: harvestRootCssVariables(),
-            pageTheme: document.body?.classList.contains('theme-dark') || document.documentElement?.classList.contains('theme-dark') ? 'dark' : 'light',
-            localizeAssets: true,
-            purgeCss: true,
-            renameClasses: true,
+        // Also ensure any <link rel="stylesheet"> in document is represented in document order
+        const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+        for (const link of links) {
+          const href = link.href;
+          if (href && !href.startsWith('chrome-extension://') && !fetchedHrefs.has(href)) {
+            fetchedHrefs.add(href);
+            sheetEntries.push({
+              index: sheetEntries.length,
+              href,
+              promise: fetch(href, { cache: 'force-cache' })
+                .then((r) => (r.ok ? r.text() : ''))
+                .catch(() => '')
+            });
+          }
+        }
+
+        // Resolve external stylesheets in parallel while preserving exact document cascade order
+        const pending = sheetEntries.filter((e) => e.promise);
+        if (pending.length > 0) {
+          await Promise.race([
+            Promise.allSettled(
+              pending.map(async (e) => {
+                try {
+                  e.css = await e.promise;
+                } catch {
+                  e.css = '';
+                }
+              })
+            ),
+            new Promise((r) => setTimeout(r, 4000))
+          ]);
+        }
+
+        for (const entry of sheetEntries) {
+          if (entry.css && entry.css.trim()) {
+            sheets.push(entry.css);
+          }
+        }
+      } catch {}
+
+      updateReplicationProgress(42, 'Connecting to engine & queuing job...');
+
+      chrome.runtime.sendMessage(
+        {
+          action: 'START_EXTRACTION',
+          payload: {
+            url: window.location.href,
+            options: {
+              sectionSelector: data.selector,
+              sectionHtml: finalSectionHtml,
+              targetArchetype: data.archetype,
+              clientStylesheets: sheets,
+              stylesheetUrls: Array.from(fetchedHrefs),
+              htmlSnapshot: document.documentElement.outerHTML,
+              recordedInteractions: recordedInteractions,
+              tabsData: window.__capturedTabsData || [],
+              rootCssVariables: harvestRootCssVariables(),
+              pageTheme: document.body?.classList.contains('theme-dark') || document.documentElement?.classList.contains('theme-dark') ? 'dark' : 'light',
+              localizeAssets: true,
+              purgeCss: true,
+              renameClasses: true,
+            },
           },
         },
-      },
-      (res) => {
-        if (isCancelled) return;
+        (res) => {
+          if (chrome.runtime.lastError) {
+            showError(chrome.runtime.lastError.message);
+            return;
+          }
+          if (isCancelled) return;
 
           if (res && res.success && res.jobId) {
             const jobId = res.jobId;
@@ -2124,12 +2174,13 @@
                   }
                   if (!job || job.id !== jobId) return;
 
+                  ensureBarInDOM();
                   const stepEl = document.getElementById('__replicator_progress_step__');
                   const fillEl = document.getElementById('__replicator_progress_fill__');
                   const numEl = document.getElementById('__replicator_progress_num__');
 
                   if (job.status === 'processing' || job.status === 'queued') {
-                    const pct = Math.max(15, Math.min(95, job.progress || (pollAttempts * 10)));
+                    const pct = Math.max(45, Math.min(95, job.progress || (pollAttempts * 10)));
                     if (stepEl && job.currentStep) stepEl.textContent = job.currentStep;
                     if (fillEl) fillEl.style.width = `${pct}%`;
                     if (numEl) numEl.textContent = `${pct}%`;
@@ -2142,6 +2193,7 @@
                     const previewUrl = job.previewUrl || `${baseUrl}/api/jobs/${jobId}/preview`;
                     const downloadUrl = job.downloadUrl || `${baseUrl}/api/jobs/${jobId}/download`;
 
+                    ensureBarInDOM();
                     bar.innerHTML = `
                       <div style="display:flex;align-items:center;gap:12px;">
                         <span style="font-size:22px;color:#10b981;">✓</span>
@@ -2183,24 +2235,30 @@
           }
         }
       );
+    } catch (fatalErr) {
+      console.error('[replicator] initiateReplication fatal error:', fatalErr);
+      showError(fatalErr?.message || 'Replication failed unexpectedly. Please retry.');
     }
+  }
 
-    function showError(msg) {
-      bar.innerHTML = `
-        <div style="display:flex;align-items:center;gap:10px;color:#fca5a5;">
-          <span>⚠️ <strong>Error:</strong> ${msg}</span>
-        </div>
-        <div style="display:flex;gap:6px;">
-          <button id="__replicator_retry_btn__" style="background:#2563eb;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-weight:600;font-size:12px;cursor:pointer;">Retry</button>
-          <button id="__replicator_close_err_btn__" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:5px 10px;font-weight:600;font-size:12px;cursor:pointer;">Close</button>
-        </div>
-      `;
-      document.getElementById('__replicator_retry_btn__')?.addEventListener('click', initiateReplication);
-      document.getElementById('__replicator_close_err_btn__')?.addEventListener('click', cleanup);
-    }
+  function showError(msg) {
+    ensureBarInDOM();
+    bar.innerHTML = `
+      <div style="display:flex;align-items:center;gap:10px;color:#fca5a5;">
+        <span>⚠️ <strong>Error:</strong> ${msg}</span>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button id="__replicator_retry_btn__" style="background:#2563eb;color:#fff;border:none;border-radius:4px;padding:5px 12px;font-weight:600;font-size:12px;cursor:pointer;">Retry</button>
+        <button id="__replicator_close_err_btn__" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:5px 10px;font-weight:600;font-size:12px;cursor:pointer;">Close</button>
+      </div>
+    `;
+    document.getElementById('__replicator_retry_btn__')?.addEventListener('click', initiateReplication);
+    document.getElementById('__replicator_close_err_btn__')?.addEventListener('click', cleanup);
+  }
 
   // Key Down Listener (ESC to cancel, Up/Down to navigate DOM hierarchy)
   function onKeyDown(e) {
+    if (!e.isTrusted || isReplicating) return;
     if (e.key === 'Escape') {
       cleanup();
       chrome.runtime.sendMessage({ action: 'SECTION_PICKER_CANCELLED' });
@@ -2224,6 +2282,7 @@
   }
 
   function cleanup() {
+    isReplicating = false;
     if (removeNavShield) {
       try { removeNavShield(); } catch {}
     }
