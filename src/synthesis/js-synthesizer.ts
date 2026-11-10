@@ -6476,7 +6476,22 @@ export class JsSynthesizer {
     try {
       (function() {
         function adjustSectionHeight() {
-          const sectionRoots = Array.from(document.querySelectorAll('header, nav, section, footer, .authentic-section, [id^="sec_"]'));
+          // Immediately reset and pin all headers, navbars, and top navigation items to top: 0 with natural height
+          document.querySelectorAll('header, nav, [class*="navbar"], [class*="header-nav"], [class*="authentic-navbar"], .nav-wrapper').forEach(function(h) {
+            h.style.removeProperty('min-height');
+            h.style.setProperty('top', '0px');
+            h.style.setProperty('margin-top', '0px');
+          });
+
+          // Only evaluate top-level content sections, strictly excluding headers, navbars, and footers
+          const sectionRoots = Array.from(document.querySelectorAll('body > section, body > .authentic-section, body > [id^="sec_"]')).filter(function(sec) {
+            const tag = (sec.tagName || '').toLowerCase();
+            const cls = (typeof sec.className === 'string' ? sec.className : (sec.getAttribute && sec.getAttribute('class')) || '').toLowerCase();
+            if (tag === 'header' || tag === 'nav' || tag === 'footer') return false;
+            if (cls.includes('nav') || cls.includes('header') || cls.includes('navbar') || cls.includes('menu')) return false;
+            return true;
+          });
+
           sectionRoots.forEach(function(sec) {
             const sRect = sec.getBoundingClientRect();
             if (sRect.width === 0) return;
@@ -6486,7 +6501,10 @@ export class JsSynthesizer {
               const d = descendants[i];
               if (d.hasAttribute('data-interactive-portal') && d.getAttribute('data-state') === 'closed') continue;
               const s = window.getComputedStyle(d);
-              if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0' || s.position === 'fixed') continue;
+              // Ignore hidden, fixed, or absolute elements (e.g. out-of-flow dropdowns, popovers, tooltips, modals)
+              if (s.display === 'none' || s.visibility === 'hidden' || s.opacity === '0' || s.position === 'fixed' || s.position === 'absolute') continue;
+              // Ignore dropdown menus, accordions, and flyout panels
+              if (d.matches('[role="menu"], [role="listbox"], [role="dialog"], [role="tabpanel"], [class*="dropdown"], [class*="flyout"], [class*="drawer"], [class*="two-pane"], [class*="popup"], [class*="modal"], [class*="collapse"]')) continue;
               const r = d.getBoundingClientRect();
               if (r.width > 0 && r.height > 0 && r.bottom > maxBottom) {
                 if (r.bottom <= window.innerHeight * 1.5) {

@@ -1929,9 +1929,11 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\nheader.authentic-section.navbar-section { background: transparent; border: none; }\n';
     scopedCss += '\n.scroll-trigger, .scroll-trigger.animate--slide-in, .scroll-trigger.animate--fade-in, [class*="scroll-trigger"] { opacity: 1 !important; transform: none !important; visibility: visible !important; }\n';
     scopedCss += '\n.html-mesh-hidden, [class*="html-mesh-hidden"] { opacity: 1 !important; visibility: visible !important; display: block !important; }\n';
-    scopedCss += '\nhtml, body { height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; min-height: 100% !important; }\n';
+    scopedCss += '\nhtml, body { margin: 0 !important; padding: 0 !important; display: block !important; height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; min-height: 100% !important; }\n';
     scopedCss += '\nbody::after, body:after, body::before, body:before { pointer-events: none !important; }\n';
-    scopedCss += '\nsection.authentic-section, [class*="authentic-section"] { position: relative !important; z-index: 1 !important; height: auto !important; min-height: 100vh !important; overflow: visible !important; }\n';
+    scopedCss += '\nbody > :first-child, body > .authentic-section:first-of-type, body > header:first-of-type, body > nav:first-of-type, body > section:first-of-type { top: 0 !important; margin-top: 0 !important; }\n';
+    scopedCss += '\nsection.authentic-section, [class*="authentic-section"] { position: relative !important; z-index: 1 !important; top: 0 !important; margin-top: 0 !important; height: auto !important; overflow: visible !important; }\n';
+    scopedCss += '\nheader.authentic-section, nav.authentic-section, [class*="navbar-section"], [class*="header-nav"], [class*="authentic-navbar"], header, nav { min-height: auto !important; height: auto !important; top: 0 !important; margin-top: 0 !important; }\n';
     scopedCss += '\n.loader--ready, .loader button, .loader a, [class*="loader"] button, [class*="loader"] a, [class*="btn"], button, a { pointer-events: auto !important; }\n';
     scopedCss += '\n.button__content { position: relative !important; overflow: hidden !important; display: inline-block !important; }\n';
     scopedCss += '\n.button__content-sub { display: block !important; transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
@@ -2347,9 +2349,32 @@ body::after, body:after, body::before, body:before {
 body > section, section, section.authentic-section, [class*="authentic-section"] {
   position: relative !important;
   z-index: 2 !important;
+  top: 0 !important;
+  margin-top: 0 !important;
   height: auto !important;
-  min-height: 100vh !important;
   overflow: visible !important;
+}
+
+header.authentic-section,
+nav.authentic-section,
+[class*="navbar-section"],
+[class*="header-nav"],
+[class*="authentic-navbar"],
+header,
+nav {
+  min-height: auto !important;
+  height: auto !important;
+  top: 0 !important;
+  margin-top: 0 !important;
+}
+
+body > :first-child,
+body > .authentic-section:first-of-type,
+body > header:first-of-type,
+body > nav:first-of-type,
+body > section:first-of-type {
+  top: 0 !important;
+  margin-top: 0 !important;
 }
 
 ${this.getUniversalInteractiveRules(ast)}
