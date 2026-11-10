@@ -87,7 +87,7 @@ export class JsSynthesizer {
 
     window.__ensureDropdownSpace = function(trigger, panel, isOpen) {
       if (!trigger) return;
-      const sec = trigger.closest('section, header, nav, footer, [id^="sec_"], .authentic-section') || document.querySelector('.authentic-section, section, header');
+      const sec = trigger.closest ? (trigger.closest('.authentic-section, [id^="sec_"]') || document.querySelector('.authentic-section, [id^="sec_"]')) : null;
       const targetPanel = panel || window.__resolveDropdownPanel(trigger);
 
       if (isOpen) {
@@ -118,7 +118,8 @@ export class JsSynthesizer {
           const pRect = targetPanel.getBoundingClientRect();
           const sRect = sec ? sec.getBoundingClientRect() : null;
           if (pRect.height > 0) {
-            if (sec && sRect) {
+            const isHeaderOrNav = sec && (sec.matches('header, nav, [class*="header"], [class*="nav"], [class*="navbar"]') || !!sec.querySelector('nav, [class*="nav"]'));
+            if (sec && sRect && !isHeaderOrNav) {
               const neededSecHeight = Math.ceil(pRect.bottom - sRect.top + 24);
               if (neededSecHeight > sRect.height) {
                 if (!sec.hasAttribute('data-orig-min-height')) {
@@ -584,11 +585,48 @@ export class JsSynthesizer {
         trigger.__replicator_close = function() { handleToggleState(false); };
 
         if (interaction.eventType === 'mouseenter') {
-          trigger.addEventListener('mouseenter', function() {
+          let hoverLeaveTimer = null;
+          const container = trigger.closest ? (trigger.closest('li, [class*="item"], [class*="dropdown"], [class*="wrap"]') || trigger.parentElement) : trigger.parentElement;
+          const mutationTargets = (interaction.mutations || []).map(function(m) {
+            return root.querySelector(m.targetSelector) || document.querySelector(m.targetSelector);
+          }).filter(Boolean);
+
+          function openHoverState() {
+            clearTimeout(hoverLeaveTimer);
             applyMutations(interaction.mutations);
-          });
-          trigger.addEventListener('mouseleave', function() {
-            reverseMutations(interaction.mutations, interaction.reverseMutations);
+            trigger.__replicator_is_toggled = true;
+            const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
+            if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, true);
+          }
+
+          function scheduleHoverClose(e) {
+            clearTimeout(hoverLeaveTimer);
+            if (e && e.relatedTarget) {
+              const rel = e.relatedTarget;
+              if (trigger.contains(rel) || (container && container.contains(rel)) || mutationTargets.some(function(t) { return t.contains(rel); })) {
+                return;
+              }
+            }
+            hoverLeaveTimer = setTimeout(function() {
+              reverseMutations(interaction.mutations, interaction.reverseMutations);
+              trigger.__replicator_is_toggled = false;
+              const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
+              if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, false);
+            }, 250);
+          }
+
+          trigger.addEventListener('mouseenter', openHoverState);
+          trigger.addEventListener('mouseleave', scheduleHoverClose);
+
+          if (container && container !== trigger) {
+            container.addEventListener('mouseenter', openHoverState);
+            container.addEventListener('mouseleave', scheduleHoverClose);
+          }
+          mutationTargets.forEach(function(t) {
+            if (t && t !== trigger && t !== container) {
+              t.addEventListener('mouseenter', openHoverState);
+              t.addEventListener('mouseleave', scheduleHoverClose);
+            }
           });
         } else {
           if (isCheckboxOrRadio) {
@@ -2348,7 +2386,6 @@ export class JsSynthesizer {
 
     triggers.forEach(function(trg) {
       trg.addEventListener('mouseenter', handleDesktopHoverOrFocus);
-      trg.addEventListener('mouseleave', handleDesktopLeaveOrBlur);
       trg.addEventListener('focus', handleDesktopHoverOrFocus);
     });
 
