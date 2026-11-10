@@ -2023,7 +2023,7 @@ export class JsSynthesizer {
     });
   });
 
-  // universalAccordionV4: robust mobile accordion & WAI-ARIA tabpanel content-visibility handler
+  // universalAccordionV5: robust mobile accordion & WAI-ARIA tabpanel content-visibility handler
   // Universal mobile & desktop accordion toggle for submenus, categories, and drawer items
   const accordionButtons = Array.from(document.querySelectorAll(
     '.pathfinder-nav-accordion__header, [class*="accordion__header"], [class*="accordion-header"], [class*="nav-accordion"] button, button[aria-controls*="acc" i], button[aria-controls*="pf-acc"], [class*="accordion"] > button, .mobile-nav-accordion-btn, .toggle-button, [class*="accordion-trigger"], [class*="accordion-button"], [class*="accordion-toggle"], [class*="toggle-btn"], button[aria-controls*="toggle" i], button[aria-controls*="content" i], button[aria-controls*="collapse" i], [data-accordion-title], [data-cmp-hook-accordion="button"], [class*="cmp-accordion__title"] a, [class*="cmp-header-navigation__item"] a[aria-haspopup]'
@@ -5357,6 +5357,8 @@ export class JsSynthesizer {
     if (b.closest('[class*="dropdown-menu"], [class*="dropdown__menu"], [class*="dropdown-content"], [class*="dropdown-panel"], [role="menu"], [role="listbox"], [class*="sublist"]')) return false;
     // Skip nav items that are already actively managed by the navigation flyout controller
     if (b.hasAttribute('data-flyout-bound') || b.closest('[data-flyout-bound="true"]')) return false;
+    // Skip accordion buttons and panels already managed by the dedicated accordion controller
+    if (b.hasAttribute('data-accordion-bound') || b.closest('[data-accordion-bound="true"]') || b.matches('.pathfinder-nav-accordion__header, [class*="accordion__header"], [class*="accordion-header"], [class*="nav-accordion"] button, button[aria-controls*="acc" i], button[aria-controls*="pf-acc"], [class*="accordion"] > button, .mobile-nav-accordion-btn, [class*="accordion-trigger"], [class*="accordion-button"], [class*="accordion-toggle"]')) return false;
     const hasPanel = !!findControlledPanel(b);
     if (!hasPanel && !b.matches('button, [role="button"], a, [aria-expanded], [aria-haspopup]')) return false;
     const cls = (typeof b.className === 'string' ? b.className : (b.getAttribute && b.getAttribute('class')) || '').toLowerCase();
