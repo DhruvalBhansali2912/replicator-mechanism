@@ -1926,7 +1926,7 @@ ${this.getUniversalInteractiveRules(ast)}
 
     // Resilient modal dialogs and root navbar wrapper rules
     scopedCss += '\ndialog:not([open]) { display: none !important; }\n';
-    scopedCss += '\nheader.authentic-section.navbar-section { background: transparent; border: none; }\n';
+    scopedCss += '\nheader.authentic-section.navbar-section { box-sizing: border-box; }\n';
     scopedCss += '\n.scroll-trigger, .scroll-trigger.animate--slide-in, .scroll-trigger.animate--fade-in, [class*="scroll-trigger"] { opacity: 1 !important; transform: none !important; visibility: visible !important; }\n';
     scopedCss += '\n.html-mesh-hidden, [class*="html-mesh-hidden"] { opacity: 1 !important; visibility: visible !important; display: block !important; }\n';
     scopedCss += '\nhtml, body { margin: 0 !important; padding: 0 !important; display: block !important; height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; min-height: 100% !important; }\n';

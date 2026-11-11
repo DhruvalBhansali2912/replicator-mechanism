@@ -434,7 +434,15 @@
           if (!sheet.cssRules) continue;
           for (const rule of Array.from(sheet.cssRules)) {
             const sel = (rule.selectorText || '').toLowerCase();
-            if (sel === ':root' || sel === 'html' || sel === 'body' || sel.includes(':root') || sel.includes('theme-dark')) {
+            const isRootOrTheme =
+              sel === ':root' || sel === 'html' || sel === 'body' ||
+              sel.includes(':root') || sel.includes('theme') || sel.includes('mode') ||
+              sel.includes('data-theme') || sel.includes('data-color-mode') || sel.includes('data-mode') ||
+              (rule.selectorText && (
+                (document.documentElement && document.documentElement.matches(rule.selectorText)) ||
+                (document.body && document.body.matches(rule.selectorText))
+              ));
+            if (isRootOrTheme) {
               const style = rule.style;
               if (style) {
                 for (let i = 0; i < style.length; i++) {
@@ -450,7 +458,7 @@
       }
       const computed = window.getComputedStyle(document.documentElement);
       for (const key of Object.keys(rootVars)) {
-        if (!rootVars[key]) {
+        if (!rootVars[key] || rootVars[key].includes('var(')) {
           const val = computed.getPropertyValue(key).trim();
           if (val) rootVars[key] = val;
         }

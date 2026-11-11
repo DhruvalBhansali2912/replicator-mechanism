@@ -444,9 +444,14 @@ export function optimizeCssForDocument(css: string, html: string): string {
 
   function matchesSelector(sel: string): boolean {
     const s = sel.trim();
-    if (s === '*' || s === ':root' || s === 'html' || s === 'body' || s.includes(':root') || s.includes(':host')) return true;
-    if (/^(?:html|body|\*)\s*$/i.test(s)) return true;
-    if (/^:root(?:\[[^\]]+\])?$/i.test(s) || /^(?:\.dark|\.light|\[data-theme[^\]]*\])$/i.test(s)) return true;
+    if (
+      s === '*' || s === ':root' || s === 'html' || s === 'body' || s.includes(':root') || s.includes(':host') ||
+      s.includes('data-theme') || s.includes('data-color-mode') || s.includes('data-light-theme') || s.includes('data-dark-theme') ||
+      s.includes('data-mode') || s.includes('data-bs-theme') || s.includes('color-scheme') ||
+      /^(?:html|body|\*)\s*$/i.test(s) ||
+      /^:root(?:\[[^\]]+\])?$/i.test(s) ||
+      /^(?:\.dark|\.light|\[data-theme[^\]]*\]|\[data-color-mode[^\]]*\]|\[data-mode[^\]]*\])$/i.test(s)
+    ) return true;
     if (s.includes(':has(') || s.includes(':is(') || s.includes(':where(')) return true;
 
     let clean = stripPseudos(s);
@@ -539,8 +544,21 @@ export function optimizeCssForDocument(css: string, html: string): string {
       }
       seenRules.add(key);
 
-      // 3. Purge statically unused rules that definitely do not exist in the DOM
       const rawSelectors = node.selectors || [node.selector];
+
+      // Theme tokens and CSS custom property definitions on root/body/theme must never be purged
+      const hasCustomProps = (node.nodes || []).some((d: any) => d.type === 'decl' && typeof d.prop === 'string' && d.prop.startsWith('--'));
+      if (hasCustomProps) {
+        const isRootOrThemeScope = rawSelectors.some(sel => {
+          const sl = sel.toLowerCase();
+          return sl.includes(':root') || sl.includes('html') || sl.includes('body') || sl.includes('theme') || sl.includes('mode') || sl.startsWith('[');
+        });
+        if (isRootOrThemeScope) {
+          return; // Keep all theme CSS variable definitions!
+        }
+      }
+
+      // 3. Purge statically unused rules that definitely do not exist in the DOM
       const matching: string[] = [];
 
       for (const sel of rawSelectors) {

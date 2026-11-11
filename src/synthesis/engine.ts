@@ -98,9 +98,19 @@ export class GroundUpSynthesisEngine {
     if (htmlSnapshot && htmlSnapshot.length > 50) {
       try {
         const $s = cheerio.load(htmlSnapshot);
-        const bCls = $s('body').attr('class') || '';
-        const hCls = $s('html').attr('class') || '';
-        docHtml = `<!DOCTYPE html><html class="${hCls}"><body class="${bCls}">${html}</body></html>`;
+        const snapHtml = $s('html');
+        const snapBody = $s('body');
+        const bCls = snapBody.attr('class') || '';
+        const hCls = snapHtml.attr('class') || '';
+        let hAttrs = '';
+        for (const [k, v] of Object.entries(snapHtml.attr() || {})) {
+          if (k !== 'class') hAttrs += ` ${k}="${v}"`;
+        }
+        let bAttrs = '';
+        for (const [k, v] of Object.entries(snapBody.attr() || {})) {
+          if (k !== 'class') bAttrs += ` ${k}="${v}"`;
+        }
+        docHtml = `<!DOCTYPE html><html class="${hCls}"${hAttrs}><body class="${bCls}"${bAttrs}>${html}</body></html>`;
       } catch {}
     }
     css = optimizeCssForDocument(css, docHtml);

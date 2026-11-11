@@ -483,6 +483,22 @@ export function enrichSectionWithCompanions(
         ($el.is('footer') && !cls.includes('menu') && !cls.includes('drawer'))
       )) return;
 
+      // When enriching navigation headers, companion drawers/overlays must NEVER be inside the primary page body (<main>, <article>, [role="main"])
+      // and must never match repository/content layout sidebars (e.g. SidebarSection, page-sidebar)
+      if (isNav) {
+        if ($el.closest('main, article, [role="main"]').length > 0) return;
+        if (
+          cls.includes('sidebarsection') ||
+          cls.includes('sidebar-section') ||
+          cls.includes('page-sidebar') ||
+          cls.includes('col-sidebar') ||
+          cls.includes('layout-sidebar') ||
+          cls.includes('repository-content') ||
+          cls.includes('content-sidebar') ||
+          cls.includes('widget-area')
+        ) return;
+      }
+
       // Sanitize companion to resting closed state
       const $clone = cheerio.load(outer, { xmlMode: false }, false);
       $clone.root().children().each((_, ch) => {
@@ -625,7 +641,13 @@ export function enrichSectionWithCompanions(
         '[class*="offcanvas"]:not([class*="main-canvas"]):not([class*="canvas-main"])',
         '[class*="off-canvas"]:not([class*="main-canvas"]):not([class*="canvas-main"])',
         '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="pw"]):not([class*="paywall"])',
-        '[class*="sidebar"]:not([class*="cart"]):not([class*="widget"]):not([class*="filter"])',
+        '[class*="nav-sidebar"]',
+        '[class*="sidebar-nav"]',
+        '[class*="sidebar-menu"]',
+        '[class*="offcanvas-sidebar"]',
+        '[class*="drawer-sidebar"]',
+        'nav[class*="sidebar"]',
+        '[class*="sidebar"][role="navigation"]',
         '[class*="side-nav"]',
         '[class*="site-menu"]',
         '[class*="header-panel"]',
@@ -641,6 +663,11 @@ export function enrichSectionWithCompanions(
         const cls = ($el.attr('class') || '').toLowerCase();
         const id = ($el.attr('id') || '').toLowerCase();
 
+        // Never companion page body content or layout sidebars for navbars
+        if (isNav && $el.closest('main, article, [role="main"]').length > 0) {
+          return;
+        }
+
         // Reject utility / non-navigation popups
         if (
           cls.includes('cookie') || cls.includes('consent') || cls.includes('gdpr') ||
@@ -648,6 +675,7 @@ export function enrichSectionWithCompanions(
           cls.includes('newsletter') || cls.includes('toast') || cls.includes('alert') ||
           cls.includes('chat') || cls.includes('review') || cls.includes('feedback') ||
           cls.includes('login') || cls.includes('cart') || cls.includes('filter') ||
+          cls.includes('sidebarsection') || cls.includes('sidebar-section') ||
           id.includes('cookie') || id.includes('consent') || id.includes('cart') || id.includes('paywall')
         ) {
           return;
