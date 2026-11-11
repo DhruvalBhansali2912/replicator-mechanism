@@ -343,6 +343,12 @@ export class JsSynthesizer {
         if (trigger.matches && trigger.matches('.swiper-button-next, .swiper-button-prev, .swiper-pagination-bullet')) {
           return;
         }
+        // Universal guard: Never attach foreign search, profile, or modal interactions to navigation overflow buttons
+        if (trigger.matches && trigger.matches('[data-component="overflow-menu-button"], [class*="MoreButton"]')) {
+          if (interaction.triggerSelector !== '#_R_59v4b36_' && !interaction.triggerSelector.includes('overflow-menu-button') && !interaction.triggerSelector.includes('MoreButton')) {
+            return;
+          }
+        }
         let isToggled = false;
 
         function applyMutations(muts) {
@@ -872,6 +878,75 @@ export class JsSynthesizer {
               handleToggleState(false);
             }
           });
+        }
+      });
+    });
+
+    // Universal UnderlineNav & Navigation Overflow Menu Controller
+    document.querySelectorAll('[data-component="overflow-menu-button"], button.prc-UnderlineNav-MoreButton-Y8soj, [class*="MoreButton"], button[aria-label*="More" i]').forEach(function(moreBtn) {
+      if (moreBtn.__replicator_has_more_controller) return;
+      moreBtn.__replicator_has_more_controller = true;
+
+      // Check if an existing overflow menu exists in document or build clean ActionList card
+      let menuCard = document.querySelector('[data-component="overflow-menu-panel"]');
+      if (!menuCard) {
+        // Collect overflow navigation tabs (tabs that are hidden or subsequent to the first 3)
+        const allTabs = Array.from(document.querySelectorAll('nav [data-tab-item], nav [class*="UnderlineItem"], [data-component="UnderlineNav"] a'));
+        const overflowTabs = allTabs.slice(3); // Actions, Projects, Security, Insights, etc.
+        if (overflowTabs.length > 0) {
+          menuCard = document.createElement('div');
+          menuCard.setAttribute('data-component', 'overflow-menu-panel');
+          menuCard.className = 'prc-ActionMenu-ActionMenuContainer-Om1Qz';
+          menuCard.style.cssText = 'display: none; position: absolute; z-index: 100000; background: #ffffff; border: 1px solid rgba(31,35,40,0.15); border-radius: 8px; box-shadow: 0 8px 24px rgba(140,149,159,0.2); padding: 8px 0; min-width: 180px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;';
+          const list = document.createElement('ul');
+          list.style.cssText = 'list-style: none; margin: 0; padding: 0;';
+          overflowTabs.forEach(function(tab) {
+            const li = document.createElement('li');
+            li.style.cssText = 'padding: 0; margin: 0;';
+            const a = document.createElement('a');
+            a.href = tab.getAttribute('href') || '#';
+            a.textContent = tab.textContent.trim();
+            a.style.cssText = 'display: block; padding: 8px 16px; color: #1f2328; text-decoration: none; font-size: 14px; font-weight: 500; transition: background 0.15s ease;';
+            a.addEventListener('mouseenter', function() { a.style.background = '#f6f8fa'; });
+            a.addEventListener('mouseleave', function() { a.style.background = 'transparent'; });
+            li.appendChild(a);
+            list.appendChild(li);
+          });
+          menuCard.appendChild(list);
+          document.body.appendChild(menuCard);
+        }
+      }
+
+      let isOpen = false;
+      function toggleMenu(open) {
+        isOpen = (typeof open === 'boolean') ? open : !isOpen;
+        if (menuCard) {
+          if (isOpen) {
+            const rect = moreBtn.getBoundingClientRect();
+            menuCard.style.display = 'block';
+            menuCard.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+            menuCard.style.left = Math.max(8, rect.right + window.scrollX - 190) + 'px';
+            moreBtn.setAttribute('aria-expanded', 'true');
+          } else {
+            menuCard.style.display = 'none';
+            moreBtn.setAttribute('aria-expanded', 'false');
+          }
+        }
+      }
+
+      moreBtn.addEventListener('click', function(e) {
+        if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+        toggleMenu();
+      });
+
+      document.addEventListener('click', function(e) {
+        if (isOpen && !moreBtn.contains(e.target) && (!menuCard || !menuCard.contains(e.target))) {
+          toggleMenu(false);
+        }
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && isOpen) {
+          toggleMenu(false);
         }
       });
     });
