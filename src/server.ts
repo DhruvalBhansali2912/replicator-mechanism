@@ -704,7 +704,7 @@ export function createServer(): express.Application {
     const jobDir = path.join(CONFIG.jobsDir, req.params.id, 'full-page');
     const p = path.join(jobDir, 'script.js');
     let js = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '';
-    if ((!js || js.includes('let anc = itDropdown') || !js.includes('dropAnc') || !js.includes('universalAccordionV5') || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+    if ((!js || js.includes('let anc = itDropdown') || !js.includes('dropAnc') || !js.includes('universalAccordionV5') || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync') || !js.includes('getAssociatedPortals') || req.query.fresh) && fs.existsSync(path.join(jobDir, 'index.html'))) {
       const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
       let jobData: any = {};
       if (fs.existsSync(metaPath)) {
@@ -1234,16 +1234,29 @@ nav.hamburger-menu.is-open,
 }
 
 /* Universal Dialog & Modal Overlays (W3C Standard) */
-dialog:not([open]),
-[role="dialog"][aria-hidden="true"] {
+dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
+[role="dialog"][aria-hidden="true"]:not(.is-open):not(.open):not([data-state="open"]) {
   display: none !important;
   pointer-events: none !important;
 }
 
 dialog[open],
-[role="dialog"]:not([aria-hidden="true"]) {
+dialog.is-open,
+dialog.open,
+[role="dialog"]:not([aria-hidden="true"]),
+[role="dialog"].is-open,
+[role="dialog"].open,
+[role="dialog"][data-state="open"],
+[data-interactive-portal].is-open [role="dialog"],
+[data-interactive-portal][data-state="open"] [role="dialog"],
+[data-interactive-portal].is-open [class*="Overlay"],
+[data-interactive-portal][data-state="open"] [class*="Overlay"],
+[data-interactive-portal].is-open [class*="Backdrop"],
+[data-interactive-portal][data-state="open"] [class*="Backdrop"] {
   display: block !important;
   pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Universal Header Transparency when containing styled containers */
@@ -1479,7 +1492,7 @@ ${drawerListItems.join('\n')}
     if (req.path === '/script.js') {
       const jsPath = path.join(jobDir, 'script.js');
       let js = fs.existsSync(jsPath) ? fs.readFileSync(jsPath, 'utf8') : '';
-      if ((!js || js.includes('let anc = itDropdown') || !js.includes('dropAnc') || !js.includes('universalAccordionV5') || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync')) && fs.existsSync(path.join(jobDir, 'index.html'))) {
+      if ((!js || js.includes('let anc = itDropdown') || !js.includes('dropAnc') || !js.includes('universalAccordionV5') || !js.includes('universal-mobile-menu-drawer') || !js.includes('dx-mega-menu-panel') || !js.includes('hamburger-menu') || !js.includes('accordion-row-active-sync') || !js.includes('getAssociatedPortals') || req.query.fresh) && fs.existsSync(path.join(jobDir, 'index.html'))) {
         const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
         let jobData: any = {};
         if (fs.existsSync(metaPath)) {

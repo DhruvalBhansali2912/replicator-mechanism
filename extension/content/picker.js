@@ -1321,7 +1321,7 @@
     }
 
     // 2. Semantic role or data-attributes
-    const dataAttrs = ['data-mutation-src', 'data-portal-for', 'data-role', 'data-tab', 'data-filter', 'data-target', 'data-toggle', 'data-action', 'data-color', 'data-size', 'data-value', 'aria-controls'];
+    const dataAttrs = ['data-mutation-src', 'data-portal-for', 'data-role', 'data-tab', 'data-filter', 'data-target', 'data-toggle', 'data-action', 'data-color', 'data-size', 'data-value', 'aria-controls', 'data-component', 'data-testid'];
     for (const attr of dataAttrs) {
       const val = el.getAttribute(attr);
       if (val) {
@@ -1332,11 +1332,11 @@
       }
     }
 
-    // 3. Accessibility and state attributes (name, for, value, an-la, aria-label)
-    const semanticAttrs = ['name', 'for', 'value', 'an-la', 'aria-label'];
+    // 3. Accessibility and state attributes (name, for, value, an-la, aria-label, aria-labelledby, aria-haspopup)
+    const semanticAttrs = ['name', 'for', 'value', 'an-la', 'aria-label', 'aria-labelledby', 'aria-haspopup'];
     for (const attr of semanticAttrs) {
       const val = el.getAttribute(attr);
-      if (val && val.length < 50 && !val.includes('"') && !val.includes('\n')) {
+      if (val && val.length < 100 && !val.includes('\n')) {
         const sel = `${el.tagName.toLowerCase()}[${attr}="${CSS.escape(val)}"]`;
         try {
           if ((scope || document).querySelectorAll(sel).length === 1) return sel;
@@ -1361,49 +1361,53 @@
         try {
           const matches = Array.from((scope || document).querySelectorAll(primaryCls));
           if (matches.length === 1) return primaryCls;
-          if (matches.length > 1) {
-            const idx = matches.indexOf(el);
-            if (idx !== -1) {
-              const parent = el.parentElement;
-              if (parent && parent !== scope && parent.className && typeof parent.className === 'string') {
-                const parentClasses = parent.className.split(/\s+/).filter(c => c && !c.startsWith('is-') && !c.includes('__replicator'));
-                if (parentClasses.length > 0) {
-                  const parentCls = '.' + CSS.escape(parentClasses[0]);
-                  const childIdx = Array.from(parent.children).indexOf(el) + 1;
-                  const scopedSel = `${parentCls} > ${primaryCls}:nth-of-type(${childIdx})`;
-                  try {
-                    if ((scope || document).querySelectorAll(scopedSel).length === 1) return scopedSel;
-                  } catch (e) {}
-                }
-              }
-              return `${primaryCls}:nth-of-type(${idx + 1})`;
+          // Try combining primary class with tag and semantic attributes
+          for (const attr of ['aria-label', 'aria-labelledby', 'data-component', 'data-action']) {
+            const attrVal = el.getAttribute(attr);
+            if (attrVal) {
+              const combined = `${el.tagName.toLowerCase()}${primaryCls}[${attr}="${CSS.escape(attrVal)}"]`;
+              if ((scope || document).querySelectorAll(combined).length === 1) return combined;
             }
           }
         } catch (e) {}
       }
     }
 
-    // 5. Semantic ancestor-anchored path
+    // 5. Semantic ancestor-anchored unique :nth-child path
     const path = [];
     let curr = el;
-    while (curr && curr !== scope && curr !== document.body && curr.parentElement) {
-      let tag = curr.tagName.toLowerCase();
-      let idx = 1;
-      let sib = curr.previousElementSibling;
-      while (sib) {
-        if (sib.tagName === curr.tagName) idx++;
-        sib = sib.previousElementSibling;
+    const rootScope = scope || document.body || document.documentElement;
+    while (curr && curr !== rootScope && curr !== document.documentElement && curr.parentElement) {
+      const parent = curr.parentElement;
+      const childIdx = Array.from(parent.children).indexOf(curr) + 1;
+      const tag = curr.tagName.toLowerCase();
+      
+      // If current element or an ancestor has a unique ID, anchor to it
+      if (curr !== el && curr.id && !/^\d/.test(curr.id) && !curr.id.includes(':') && !curr.id.includes('__') && curr.id.length < 50) {
+        try {
+          if ((scope || document).querySelectorAll('#' + CSS.escape(curr.id)).length === 1) {
+            path.unshift('#' + CSS.escape(curr.id));
+            break;
+          }
+        } catch (e) {}
       }
+
+      // If current ancestor has a unique class, anchor to it
       const validCls = curr.className && typeof curr.className === 'string'
         ? curr.className.split(/\s+/).find(c => c && !c.startsWith('is-') && !c.includes('open') && !c.includes('active') && !c.includes('__replicator'))
         : null;
-      if (validCls) {
-        path.unshift(`.${CSS.escape(validCls)}`);
-        break;
-      } else {
-        path.unshift(`${tag}:nth-of-type(${idx})`);
+      if (curr !== el && validCls) {
+        const clsSel = `.${CSS.escape(validCls)}`;
+        try {
+          if ((scope || document).querySelectorAll(clsSel).length === 1) {
+            path.unshift(clsSel);
+            break;
+          }
+        } catch (e) {}
       }
-      curr = curr.parentElement;
+
+      path.unshift(`${tag}:nth-child(${childIdx})`);
+      curr = parent;
     }
     return path.join(' > ');
   }

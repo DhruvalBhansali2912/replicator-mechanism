@@ -4326,16 +4326,29 @@ nav.hamburger-menu.is-open,
 ` : ''}
 
 /* Universal Dialog & Modal Overlays (W3C Standard) */
-dialog:not([open]),
-[role="dialog"][aria-hidden="true"] {
+dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
+[role="dialog"][aria-hidden="true"]:not(.is-open):not(.open):not([data-state="open"]) {
   display: none !important;
   pointer-events: none !important;
 }
 
 dialog[open],
-[role="dialog"]:not([aria-hidden="true"]) {
+dialog.is-open,
+dialog.open,
+[role="dialog"]:not([aria-hidden="true"]),
+[role="dialog"].is-open,
+[role="dialog"].open,
+[role="dialog"][data-state="open"],
+[data-interactive-portal].is-open [role="dialog"],
+[data-interactive-portal][data-state="open"] [role="dialog"],
+[data-interactive-portal].is-open [class*="Overlay"],
+[data-interactive-portal][data-state="open"] [class*="Overlay"],
+[data-interactive-portal].is-open [class*="Backdrop"],
+[data-interactive-portal][data-state="open"] [class*="Backdrop"] {
   display: block !important;
   pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Universal Header Transparency when containing styled containers */

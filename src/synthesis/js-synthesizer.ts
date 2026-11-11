@@ -116,12 +116,17 @@ export class JsSynthesizer {
         // Universal Anchor Positioning for Floating / Anchored / Portal panels
         if (targetPanel && typeof targetPanel.getBoundingClientRect === 'function') {
           const tRect = trigger.getBoundingClientRect();
-          const overlayChild = targetPanel.matches('[class*="AnchoredOverlay"], [data-component="AnchoredOverlay"], [class*="Overlay"]')
+          const overlayChild = targetPanel.matches('[class*="AnchoredOverlay"], [data-component="AnchoredOverlay"], [class*="Overlay"], [class*="ActionMenu"], [class*="SelectPanel"]')
             ? targetPanel
-            : targetPanel.querySelector('[class*="AnchoredOverlay"], [data-component="AnchoredOverlay"], [class*="Overlay"]');
-          const isAnchoredOrPortal = targetPanel.hasAttribute('data-interactive-portal') ||
+            : targetPanel.querySelector('[class*="AnchoredOverlay"], [data-component="AnchoredOverlay"], [class*="Overlay"], [class*="ActionMenu"], [class*="SelectPanel"]');
+
+          const isFullDrawerOrModal = targetPanel.matches('[class*="Backdrop"], [class*="backdrop"], [class*="drawer"], [class*="Drawer"], [aria-modal="true"]') ||
+            !!targetPanel.querySelector('[class*="Backdrop"], [class*="backdrop"], [class*="drawer"], [class*="Drawer"], [class*="Dialog-Dialog"]');
+
+          const isAnchoredOrPortal = (targetPanel.hasAttribute('data-interactive-portal') ||
             !!overlayChild ||
-            targetPanel.matches('[class*="AnchoredOverlay"], [class*="SelectPanel"], [data-component="SelectPanel"], [class*="ActionMenu"], [role="menu"]');
+            targetPanel.matches('[class*="AnchoredOverlay"], [class*="SelectPanel"], [data-component="SelectPanel"], [class*="ActionMenu"], [role="menu"]')) &&
+            !isFullDrawerOrModal;
 
           if (isAnchoredOrPortal && tRect.width > 0 && tRect.height > 0) {
             const elToPosition = overlayChild || targetPanel;
@@ -609,6 +614,13 @@ export class JsSynthesizer {
                   ch.setAttribute('data-orig-aria-hidden', 'true');
                   ch.removeAttribute('aria-hidden');
                 }
+                if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
+                  ch.classList.add('is-open', 'open');
+                  ch.setAttribute('data-state', 'open');
+                  ch.style.setProperty('display', 'block', 'important');
+                  ch.style.setProperty('visibility', 'visible', 'important');
+                  ch.style.setProperty('opacity', '1', 'important');
+                }
               });
               // Wire dismiss/close buttons inside the portal
               p.querySelectorAll('button[aria-label*="close" i], button[aria-label*="dismiss" i], [class*="close-button"], [class*="closeBtn"], [data-action="close"]').forEach(function(closeBtn) {
@@ -634,18 +646,29 @@ export class JsSynthesizer {
               p.style.setProperty('pointer-events', 'none', 'important');
               p.setAttribute('data-state', 'closed');
               p.classList.remove('is-open', 'open', 'show', 'active');
-              p.querySelectorAll('[data-orig-aria-hidden="true"]').forEach(function(ch) {
-                ch.setAttribute('aria-hidden', 'true');
-                ch.removeAttribute('data-orig-aria-hidden');
+              p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
+                  ch.classList.remove('is-open', 'open');
+                  ch.setAttribute('data-state', 'closed');
+                  ch.style.setProperty('display', 'none', 'important');
+                }
+                if (ch.hasAttribute('data-orig-aria-hidden')) {
+                  ch.setAttribute('aria-hidden', 'true');
+                  ch.removeAttribute('data-orig-aria-hidden');
+                }
               });
             });
             isToggled = false;
+            trigger.__replicator_clicked_open = false;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
             if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, false);
           }
           trigger.__replicator_is_toggled = isToggled;
         }
-        trigger.__replicator_close = function() { handleToggleState(false); };
+        trigger.__replicator_close = function() {
+          trigger.__replicator_clicked_open = false;
+          handleToggleState(false);
+        };
 
         if (interaction.eventType === 'mouseenter') {
           let hoverLeaveTimer = null;
@@ -656,6 +679,7 @@ export class JsSynthesizer {
 
           trigger.__replicator_close = function() {
             clearTimeout(hoverLeaveTimer);
+            trigger.__replicator_clicked_open = false;
             reverseMutations(interaction.mutations, interaction.reverseMutations);
             const associatedPortals = getAssociatedPortals();
             associatedPortals.forEach(function(p) {
@@ -665,9 +689,16 @@ export class JsSynthesizer {
               p.style.setProperty('pointer-events', 'none', 'important');
               p.setAttribute('data-state', 'closed');
               p.classList.remove('is-open', 'open', 'show', 'active');
-              p.querySelectorAll('[data-orig-aria-hidden="true"]').forEach(function(ch) {
-                ch.setAttribute('aria-hidden', 'true');
-                ch.removeAttribute('data-orig-aria-hidden');
+              p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
+                  ch.classList.remove('is-open', 'open');
+                  ch.setAttribute('data-state', 'closed');
+                  ch.style.setProperty('display', 'none', 'important');
+                }
+                if (ch.hasAttribute('data-orig-aria-hidden')) {
+                  ch.setAttribute('aria-hidden', 'true');
+                  ch.removeAttribute('data-orig-aria-hidden');
+                }
               });
             });
             trigger.__replicator_is_toggled = false;
@@ -718,6 +749,13 @@ export class JsSynthesizer {
                   ch.setAttribute('data-orig-aria-hidden', 'true');
                   ch.removeAttribute('aria-hidden');
                 }
+                if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
+                  ch.classList.add('is-open', 'open');
+                  ch.setAttribute('data-state', 'open');
+                  ch.style.setProperty('display', 'block', 'important');
+                  ch.style.setProperty('visibility', 'visible', 'important');
+                  ch.style.setProperty('opacity', '1', 'important');
+                }
               });
             });
             trigger.__replicator_is_toggled = true;
@@ -727,6 +765,9 @@ export class JsSynthesizer {
 
           function scheduleHoverClose(e) {
             clearTimeout(hoverLeaveTimer);
+            if (trigger.__replicator_clicked_open) {
+              return;
+            }
             if (e && e.relatedTarget) {
               const rel = e.relatedTarget;
               if (trigger.contains(rel) || mutationTargets.some(function(t) { return t.contains(rel); })) {
@@ -734,10 +775,11 @@ export class JsSynthesizer {
               }
             }
             hoverLeaveTimer = setTimeout(function() {
+              if (trigger.__replicator_clicked_open) return;
               if (typeof trigger.__replicator_close === 'function') {
                 trigger.__replicator_close();
               }
-            }, 150);
+            }, 250);
           }
 
           trigger.addEventListener('mouseenter', openHoverState);
@@ -807,6 +849,7 @@ export class JsSynthesizer {
               });
             }
             handleToggleState(!isToggled);
+            trigger.__replicator_clicked_open = trigger.__replicator_is_toggled;
           });
 
           // Click-outside and Escape dismisser
@@ -818,12 +861,14 @@ export class JsSynthesizer {
               const menuPanel = typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null;
               const clickedInsideAny = (menuPanel && menuPanel.contains(e.target)) || portals.some(function(p) { return p.contains(e.target); });
               if (!clickedInsideAny) {
+                trigger.__replicator_clicked_open = false;
                 handleToggleState(false);
               }
             }
           });
           document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape' && isToggled) {
+              trigger.__replicator_clicked_open = false;
               handleToggleState(false);
             }
           });
