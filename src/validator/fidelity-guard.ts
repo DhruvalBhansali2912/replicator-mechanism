@@ -5,6 +5,7 @@ import { BrowserManager } from '../crawler/browser.js';
 export interface DefectSignal {
   type:
     | 'duplicate_header'
+    | 'resting_overlay_blocker'
     | 'unresponsive_dropdown'
     | 'unresponsive_submenu'
     | 'unresponsive_filter'
@@ -134,6 +135,39 @@ export class FidelityGuard {
             defectType: 'duplicate_header',
             extractedCss: responsiveFixCss,
             reason: 'Enforced authentic responsive breakpoint rules separating mobile and desktop header containers',
+          });
+        } else if (defect.type === 'resting_overlay_blocker') {
+          const restingIsolationCss = `
+/* [Authentic Origin Resting Modal / Backdrop Isolation] */
+dialog:not([open]):not(.is-open):not(.open),
+[role="dialog"]:not([open]):not(.is-open):not(.open):not([data-state="open"]),
+[aria-modal="true"]:not([open]):not(.is-open):not(.open):not([data-state="open"]),
+[class*="Dialog-Backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="dialog-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="modal-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="drawer-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="menu-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class~="backdrop"]:not(.is-open):not([open]):not([data-state="open"]):not(.always-visible),
+[class*="-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+.prc-Dialog-Backdrop-5Nt2U:not(.is-open):not([open]) {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+}
+dialog.is-open, dialog[open], [role="dialog"].is-open, [class*="Dialog-Backdrop"].is-open, [class~="backdrop"].is-open, [class*="-backdrop"].is-open {
+  display: block !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+  opacity: 1 !important;
+}
+`;
+          currentCss += restingIsolationCss;
+          patchesApplied.push({
+            targetSelector: defect.selector,
+            defectType: 'resting_overlay_blocker',
+            extractedCss: restingIsolationCss,
+            reason: 'Enforced authentic resting state hiding for obstructing modal backdrop',
           });
         } else if (defect.type === 'unresponsive_dropdown') {
           // Retrieve authentic CSS from origin website for the trigger's classes and parent classes
@@ -382,12 +416,14 @@ a[class*="rounded-full"].active, a[class*="rounded-full"].is-active {
     }
 
     const resolvedCount = Math.max(0, initialDefects.length - lastProbeRes.defects.length);
-    const finalScore = lastProbeRes.defects.length === 0 ? 100 : Math.max(80, Math.round(((initialDefects.length - lastProbeRes.defects.length) / Math.max(1, initialDefects.length)) * 100));
+    const finalScore = lastProbeRes.defects.length === 0
+      ? 100
+      : Math.max(0, Math.round(((initialDefects.length - lastProbeRes.defects.length) / Math.max(1, initialDefects.length)) * 100));
 
     console.log(`[FidelityGuard] Multi-pass verification complete after ${pass - 1} passes. Initial: ${initialDefects.length}, Remaining: ${lastProbeRes.defects.length}. Final score: ${finalScore}%`);
 
     return {
-      passed: finalScore >= 90 && lastProbeRes.defects.length === 0,
+      passed: finalScore >= 95 && lastProbeRes.defects.length === 0 && lastProbeRes.menuTogglePassed,
       fidelityScore: finalScore,
       initialDefects,
       resolvedDefects: resolvedCount,
@@ -706,6 +742,24 @@ ${html}
                   details: `Both mobile navigation (${mobileChild.className}) and desktop navigation are simultaneously rendered at 1440px desktop view`,
                 });
               }
+            }
+          });
+
+          // 1.5 Check for Obstructing Modal / Drawer / Backdrop in Resting State (at 1440px desktop view)
+          const restingOverlays = document.querySelectorAll(
+            '[role="dialog"], [aria-modal="true"], [class*="Dialog-Backdrop"], [class*="dialog-backdrop"], [class*="modal-backdrop"], dialog[open], [class*="drawer-backdrop"], [class~="backdrop"], [class*="-backdrop"]'
+          );
+          restingOverlays.forEach((el: any) => {
+            const cs = window.getComputedStyle(el);
+            const r = el.getBoundingClientRect();
+            if (cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0' && r.width > 300 && r.height > 300) {
+              defects.push({
+                type: 'resting_overlay_blocker',
+                selector: el.className ? `.${el.className.trim().split(/\s+/)[0]}` : el.tagName.toLowerCase(),
+                tagName: el.tagName.toLowerCase(),
+                classes: Array.from(el.classList),
+                details: `Obstructing modal/backdrop (${Math.round(r.width)}x${Math.round(r.height)}) is visible on initial load in resting state`,
+              });
             }
           });
 

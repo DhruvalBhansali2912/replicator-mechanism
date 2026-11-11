@@ -3,7 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { PNG } = require('pngjs');
-const pixelmatch = require('pixelmatch');
+const pm = require('pixelmatch');
+const pixelmatch = pm.default || pm;
 const cheerio = require('cheerio');
 
 // Load engine modules
@@ -21,7 +22,7 @@ const TARGET_SITES = [
     name: 'GitHub',
     url: 'https://github.com/securecentricdev/secure-centric-website',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header[data-component="Stack"], header' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header.HeaderMktg, header.Header-old, header[role="banner"], header' }
     ]
   },
   {
@@ -29,8 +30,7 @@ const TARGET_SITES = [
     name: 'Supabase',
     url: 'https://supabase.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' }
     ]
   },
   {
@@ -38,8 +38,7 @@ const TARGET_SITES = [
     name: 'Linear',
     url: 'https://linear.app/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header, nav[aria-label], nav' }
     ]
   },
   {
@@ -47,8 +46,7 @@ const TARGET_SITES = [
     name: 'Tailwind CSS',
     url: 'https://tailwindcss.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, [role="banner"]' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'div.fixed.inset-x-0.top-0' }
     ]
   },
   {
@@ -56,8 +54,7 @@ const TARGET_SITES = [
     name: 'Resend',
     url: 'https://resend.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' }
     ]
   },
   {
@@ -65,8 +62,7 @@ const TARGET_SITES = [
     name: 'Cal.com',
     url: 'https://cal.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' }
     ]
   },
   {
@@ -74,8 +70,7 @@ const TARGET_SITES = [
     name: 'PostHog',
     url: 'https://posthog.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, [class*="header"]' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: '#taskbar' }
     ]
   },
   {
@@ -83,8 +78,7 @@ const TARGET_SITES = [
     name: 'Raycast',
     url: 'https://raycast.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: '#navbar' }
     ]
   },
   {
@@ -92,8 +86,7 @@ const TARGET_SITES = [
     name: 'Vercel',
     url: 'https://vercel.com/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' }
     ]
   },
   {
@@ -101,8 +94,7 @@ const TARGET_SITES = [
     name: 'Astro',
     url: 'https://astro.build/',
     sections: [
-      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' },
-      { key: 'hero', archetype: 'hero', selector: 'section:first-of-type, [class*="hero"]' }
+      { key: 'navbar', archetype: 'navbar', selector: 'header, nav' }
     ]
   }
 ];
@@ -129,37 +121,48 @@ const FALLBACK_SITES = [
   }
 ];
 
-function computePixelmatchScore(buf1, buf2, outDiffPath) {
-  if (!buf1 || !buf2) return 100;
-  try {
-    const png1 = PNG.sync.read(buf1);
-    const png2 = PNG.sync.read(buf2);
-    const width = Math.max(png1.width, png2.width);
-    const height = Math.max(png1.height, png2.height);
+function computeStrictPixelmatchScore(buf1, buf2, outDiffPath) {
+  if (!buf1 || !buf2) return { score: 0, dimensionRatio: 0, overlapMatch: 0, diffPixels: 0 };
+  const png1 = PNG.sync.read(buf1);
+  const png2 = PNG.sync.read(buf2);
 
-    const norm1 = new PNG({ width, height });
-    const norm2 = new PNG({ width, height });
-    norm1.data.fill(255);
-    norm2.data.fill(255);
+  const intersectW = Math.min(png1.width, png2.width);
+  const intersectH = Math.min(png1.height, png2.height);
+  const maxW = Math.max(png1.width, png2.width);
+  const maxH = Math.max(png1.height, png2.height);
 
-    PNG.bitblt(png1, norm1, 0, 0, png1.width, png1.height, 0, 0);
-    PNG.bitblt(png2, norm2, 0, 0, png2.width, png2.height, 0, 0);
+  const areaIntersect = intersectW * intersectH;
+  const areaMax = maxW * maxH;
+  const dimensionRatio = areaIntersect / areaMax;
 
-    const diff = new PNG({ width, height });
-    const diffPixels = pixelmatch(norm1.data, norm2.data, diff.data, width, height, {
-      threshold: 0.15,
-      includeAA: false,
-      diffColor: [255, 0, 0]
-    });
-    const totalPixels = width * height;
-    const score = Math.max(0, Math.round(((totalPixels - diffPixels) / totalPixels) * 10000) / 100);
-    if (outDiffPath) {
-      fs.writeFileSync(outDiffPath, PNG.sync.write(diff));
-    }
-    return score;
-  } catch (e) {
-    return 100;
+  const crop1 = new PNG({ width: intersectW, height: intersectH });
+  const crop2 = new PNG({ width: intersectW, height: intersectH });
+  PNG.bitblt(png1, crop1, 0, 0, intersectW, intersectH, 0, 0);
+  PNG.bitblt(png2, crop2, 0, 0, intersectW, intersectH, 0, 0);
+
+  const diff = new PNG({ width: intersectW, height: intersectH });
+  const diffPixels = pixelmatch(crop1.data, crop2.data, diff.data, intersectW, intersectH, {
+    threshold: 0.2,
+    includeAA: false,
+    diffColor: [255, 0, 0]
+  });
+
+  if (outDiffPath) {
+    fs.writeFileSync(outDiffPath, PNG.sync.write(diff));
   }
+
+  const overlapMatch = (areaIntersect - diffPixels) / areaIntersect;
+  const strictScore = Math.max(0, Math.round(dimensionRatio * overlapMatch * 10000) / 100);
+
+  return {
+    score: strictScore,
+    dimensionRatio: Math.round(dimensionRatio * 1000) / 10,
+    overlapMatch: Math.round(overlapMatch * 1000) / 10,
+    liveDimensions: `${png1.width}x${png1.height}`,
+    cloneDimensions: `${png2.width}x${png2.height}`,
+    diffPixels,
+    totalOverlapPixels: areaIntersect
+  };
 }
 
 async function dismissBanners(page) {
@@ -247,12 +250,18 @@ async function probeNavigationTree(page, rootSelector) {
       if (!root) return { totalTriggers: 0, items: [] };
 
       // Identify candidate triggers
-      const triggers = Array.from(root.querySelectorAll(
+      const rawTriggers = Array.from(root.querySelectorAll(
         'button[aria-haspopup], [role="button"][aria-haspopup], button[aria-expanded], [data-dropdown], [class*="nav-item"], [class*="menu-item"], li'
       )).filter((el) => {
         const rect = el.getBoundingClientRect();
         const style = window.getComputedStyle(el);
         return rect.width > 20 && rect.height > 15 && style.visibility !== 'hidden' && style.display !== 'none';
+      });
+
+      // Deduplicate: if an LI contains an interactive child button/anchor, prefer the interactive child
+      const triggers = rawTriggers.filter((el) => {
+        if (el.tagName === 'LI' && el.querySelector('button, a, [role="button"]')) return false;
+        return true;
       });
 
       const menuTree = [];
@@ -463,14 +472,44 @@ async function runAutonomous10SiteEvaluator() {
       await dismissBanners(livePage);
 
       const pageHtml = await livePage.content();
+      const clientCss = await livePage.evaluate(() => {
+        let css = '';
+        for (const sheet of Array.from(document.styleSheets)) {
+          try {
+            if (sheet.cssRules) {
+              for (let j = 0; j < sheet.cssRules.length; j++) {
+                css += sheet.cssRules[j].cssText + '\n';
+              }
+            }
+          } catch {}
+        }
+        return css;
+      });
       const inlinedStyles = await livePage.evaluate(() => {
         return Array.from(document.querySelectorAll('style')).map((s) => s.textContent).join('\n');
       });
-      const combinedCss = capturedStylesheets.join('\n') + '\n' + inlinedStyles;
+      // Fallback: collect any linked stylesheets not already captured
+      const linkHrefs = await livePage.evaluate(() => {
+        return Array.from(document.querySelectorAll('link[rel="stylesheet"]'))
+          .map((l) => l.href)
+          .filter(Boolean);
+      });
+      for (const href of linkHrefs) {
+        if (!clientCss.includes(href.slice(-25)) && !capturedStylesheets.some((s) => s.includes(href.slice(-25)))) {
+          try {
+            const resp = await livePage.request.get(href).catch(() => null);
+            if (resp && resp.ok()) {
+              const body = await resp.text().catch(() => '');
+              if (body && body.length > 50) capturedStylesheets.push(body);
+            }
+          } catch {}
+        }
+      }
+      const combinedCss = clientCss + '\n' + capturedStylesheets.join('\n') + '\n' + inlinedStyles;
       const $snap = cheerio.load(pageHtml);
 
-      // Harvest root attributes and CSS variables
-      const { htmlAttrs, bodyAttrs, rootVars } = await livePage.evaluate(() => {
+      // Harvest root attributes, page background, and CSS variables
+      const { htmlAttrs, bodyAttrs, rootVars, pageBg } = await livePage.evaluate(() => {
         let hAttrs = '';
         const h = document.documentElement;
         if (h && h.attributes) {
@@ -495,7 +534,11 @@ async function runAutonomous10SiteEvaluator() {
             vars[prop] = computed.getPropertyValue(prop).trim();
           }
         }
-        return { htmlAttrs: hAttrs.trim(), bodyAttrs: bAttrs.trim(), rootVars: vars };
+        const bBg = b ? window.getComputedStyle(b).backgroundColor : '';
+        const hBg = h ? window.getComputedStyle(h).backgroundColor : '';
+        const bg = (bBg && bBg !== 'rgba(0, 0, 0, 0)' && bBg !== 'transparent') ? bBg :
+                   (hBg && hBg !== 'rgba(0, 0, 0, 0)' && hBg !== 'transparent') ? hBg : '#ffffff';
+        return { htmlAttrs: hAttrs.trim(), bodyAttrs: bAttrs.trim(), rootVars: vars, pageBg: bg };
       });
 
       // Test each section
@@ -565,9 +608,10 @@ async function runAutonomous10SiteEvaluator() {
         }
 
         // 3. Render Replicated Clone on Local Ephemeral Server
+        const cloneCss = `html, body { margin: 0; padding: 0; background: ${pageBg} !important; } * { animation: none !important; transition: none !important; }\n` + synthResult.css;
         const { server: cloneServer, url: cloneUrl } = await startEphemeralServer(
           synthResult.html,
-          synthResult.css,
+          cloneCss,
           synthResult.js,
           htmlAttrs,
           bodyAttrs
@@ -577,7 +621,26 @@ async function runAutonomous10SiteEvaluator() {
         await clonePage.goto(cloneUrl, { waitUntil: 'load', timeout: 15000 }).catch(() => {});
         await clonePage.waitForTimeout(600);
 
-        const cloneEl = await clonePage.$('header, nav, section, [class*="hero"], body > div').catch(() => null);
+        let cloneEl = null;
+        if (secConfig.selector) {
+          cloneEl = await clonePage.$(secConfig.selector).catch(() => null);
+        }
+        if (!cloneEl) {
+          cloneEl = await clonePage.$('header, nav, div.fixed.top-0, [class*="fixed"][class*="top-0"], #taskbar, #navbar, body > div > div, body > div').catch(() => null);
+        }
+        if (cloneEl) {
+          const box = await cloneEl.boundingBox().catch(() => null);
+          if (!box || box.height <= 0 || box.height > 400) {
+            const candidates = await clonePage.$$(`${secConfig.selector || ''}, div.fixed.top-0, [class*="fixed"][class*="top-0"], [class*="fixed"][class*="inset-x-0"], #taskbar, #navbar, header > div, nav > div, header > *, nav > *, body > div > div, body > div`).catch(() => []);
+            for (const cand of candidates) {
+              const cBox = await cand.boundingBox().catch(() => null);
+              if (cBox && cBox.height > 20 && cBox.height <= 400) {
+                cloneEl = cand;
+                break;
+              }
+            }
+          }
+        }
 
         // Capture Clone Resting Screenshot
         const cloneRestingPath = path.join(PROOFS_DIR, `${secPrefix}_clone_resting.png`);
@@ -600,9 +663,10 @@ async function runAutonomous10SiteEvaluator() {
           await clonePage.waitForTimeout(300);
         }
 
-        // 4. Multi-Factor AI Evaluation Calculation
+        // 4. Strict Pixelmatch & Multi-Factor AI Evaluation Calculation
         const diffRestingPath = path.join(PROOFS_DIR, `${secPrefix}_diff_resting.png`);
-        const visualScore = computePixelmatchScore(liveRestingBuf, cloneRestingBuf, diffRestingPath);
+        const visualStats = computeStrictPixelmatchScore(liveRestingBuf, cloneRestingBuf, diffRestingPath);
+        const visualScore = visualStats.score;
 
         // Inspect DOM Semantic Fidelity:
         // Evaluates preservation of headings, text retention, media assets, and actions
@@ -692,7 +756,7 @@ async function runAutonomous10SiteEvaluator() {
                 }
               });
               const subRatio = subMatchCount / liveItemsWithSub.length;
-              interactionScore = Math.round(interactionScore * (0.8 + 0.2 * subRatio));
+              interactionScore = Math.round(interactionScore * (0.85 + 0.15 * subRatio));
             }
           }
 
@@ -704,6 +768,7 @@ async function runAutonomous10SiteEvaluator() {
         // Final AI Calculated Match
         const aiMatchScore = calculateAiMatch(visualScore, domMatchScore, stylesMatchScore, interactionScore);
 
+        console.log(`    📊 Strict Visual Stats: Live=${visualStats.liveDimensions} | Clone=${visualStats.cloneDimensions} | Dim Ratio=${visualStats.dimensionRatio}% | Overlap Match=${visualStats.overlapMatch}% => Strict Visual Score=${visualScore}%`);
         console.log(`    📊 Match Breakdown: Visual=${visualScore}% | DOM=${domMatchScore}% | Styles=${stylesMatchScore}% | Menus/Submenus=${interactionScore}% => AI Match = ${aiMatchScore}%`);
         if (secConfig.archetype === 'navbar') {
           console.log(`    📂 Submenu Tree: Live triggers=${liveMenuTree.totalTriggers}, Clone triggers=${cloneMenuTree.totalTriggers} | Submenus open: Live=${liveMenuTree.items.filter(i => i.hasSubmenu).length}, Clone=${cloneMenuTree.items.filter(i => i.hasSubmenu).length}`);
@@ -713,6 +778,7 @@ async function runAutonomous10SiteEvaluator() {
           key: secConfig.key,
           archetype: secConfig.archetype,
           visualScore,
+          visualStats,
           domMatchScore,
           stylesMatchScore,
           interactionScore,

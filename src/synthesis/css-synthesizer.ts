@@ -1932,8 +1932,9 @@ ${this.getUniversalInteractiveRules(ast)}
     scopedCss += '\nhtml, body { margin: 0 !important; padding: 0 !important; display: block !important; height: auto !important; overflow-x: hidden !important; overflow-y: auto !important; min-height: 100% !important; }\n';
     scopedCss += '\nbody::after, body:after, body::before, body:before { pointer-events: none !important; }\n';
     scopedCss += '\nbody > :first-child, body > .authentic-section:first-of-type, body > header:first-of-type, body > nav:first-of-type, body > section:first-of-type { top: 0 !important; margin-top: 0 !important; }\n';
-    scopedCss += '\nsection.authentic-section, [class*="authentic-section"] { position: relative !important; z-index: 1 !important; top: 0 !important; margin-top: 0 !important; height: auto !important; overflow: visible !important; }\n';
-    scopedCss += '\nheader.authentic-section, nav.authentic-section, [class*="navbar-section"], [class*="header-nav"], [class*="authentic-navbar"], header, nav { min-height: auto !important; height: auto !important; top: 0 !important; margin-top: 0 !important; }\n';
+    scopedCss += '\nsection.authentic-section, [class*="authentic-section"] { position: relative !important; z-index: 1 !important; top: 0 !important; margin-top: 0 !important; overflow: visible !important; }\n';
+    scopedCss += '\nheader.authentic-section, nav.authentic-section, [class*="navbar-section"], [class*="header-nav"], [class*="authentic-navbar"] { top: 0; margin-top: 0; }\n';
+    scopedCss += '\nheader.authentic-section:has(> [class*="fixed"]), header.authentic-section:has(> [id*="navbar"]), header.authentic-section:has(> [id*="taskbar"]) { position: relative; min-height: auto; }\n';
     scopedCss += '\n.loader--ready, .loader button, .loader a, [class*="loader"] button, [class*="loader"] a, [class*="btn"], button, a { pointer-events: auto !important; }\n';
     scopedCss += '\n.button__content { position: relative !important; overflow: hidden !important; display: inline-block !important; }\n';
     scopedCss += '\n.button__content-sub { display: block !important; transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1) !important; }\n';
@@ -2309,30 +2310,68 @@ ${scopedCss}
   display: none;
 }
 
-dialog:not([open]):not(.is-open):not(.open) {
-  display: none;
+/* Universal Resting Modal / Drawer / Backdrop / Portal Isolation */
+dialog:not([open]):not(.is-open):not(.open),
+[role="dialog"]:not([open]):not(.is-open):not(.open):not([data-state="open"]),
+[aria-modal="true"]:not([open]):not(.is-open):not(.open):not([data-state="open"]),
+[class*="Dialog-Backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="dialog-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="modal-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="drawer-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class*="menu-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[class~="backdrop"]:not(.is-open):not([open]):not([data-state="open"]):not(.always-visible),
+[class*="-backdrop"]:not(.is-open):not([open]):not([data-state="open"]),
+[data-component="Portal"]:not(.is-open):not([open]):not([data-state="open"]),
+[data-portal-for]:not(.is-open):not([open]):not([data-state="open"]),
+[data-interactive-portal]:not(.is-open):not([open]):not([data-state="open"]),
+.prc-Dialog-Backdrop-5Nt2U:not(.is-open):not([open]) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
 }
 
 dialog[open],
 dialog.is-open,
-dialog.open {
-  display: block;
+dialog.open,
+[role="dialog"].is-open,
+[role="dialog"].open,
+[role="dialog"][data-state="open"],
+[aria-modal="true"].is-open,
+[aria-modal="true"].open,
+[aria-modal="true"][data-state="open"],
+[class*="Dialog-Backdrop"].is-open,
+[class*="Dialog-Backdrop"].open,
+[class*="Dialog-Backdrop"][data-state="open"],
+[class*="modal-backdrop"].is-open,
+[class*="drawer-backdrop"].is-open,
+[class~="backdrop"].is-open,
+[class*="-backdrop"].is-open,
+[data-component="Portal"].is-open,
+[data-portal-for].is-open,
+[data-interactive-portal].is-open,
+.prc-Dialog-Backdrop-5Nt2U.is-open {
+  display: block !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
-[role="dialog"][aria-hidden="true"],
-[aria-modal="true"][aria-hidden="true"],
-dialog:not([open]) {
-  display: none !important;
-  pointer-events: none !important;
-  visibility: hidden !important;
+/* Universal Responsive Framework Utilities */
+@media (min-width: 640px) {
+  .sm\\:hidden, [class*="sm:hidden"] { display: none !important; }
 }
-
-[role="dialog"]:not([aria-hidden="true"]):not([hidden]),
-[aria-modal="true"]:not([aria-hidden="true"]):not([hidden]),
-dialog[open] {
-  display: block;
-  pointer-events: auto;
-  visibility: visible;
+@media (min-width: 768px) {
+  .md\\:hidden, [class*="md:hidden"] { display: none !important; }
+  .max-md\\:block, [class*="max-md:block"] { display: none !important; }
+}
+@media (min-width: 1024px) {
+  .lg\\:hidden, [class*="lg:hidden"] { display: none !important; }
+  .max-lg\\:block, [class*="max-lg:block"] { display: none !important; }
+}
+@media (min-width: 1280px) {
+  .xl\\:hidden, [class*="xl:hidden"] { display: none !important; }
+  .max-xl\\:block, [class*="max-xl:block"] { display: none !important; }
 }
 
 [role="tabpanel"][aria-hidden="true"]:not([class*="slide"]):not([class*="gallery"]):not([class*="carousel"]):not([class*="item"]),
@@ -2351,7 +2390,6 @@ body > section, section, section.authentic-section, [class*="authentic-section"]
   z-index: 2 !important;
   top: 0 !important;
   margin-top: 0 !important;
-  height: auto !important;
   overflow: visible !important;
 }
 
@@ -2359,13 +2397,9 @@ header.authentic-section,
 nav.authentic-section,
 [class*="navbar-section"],
 [class*="header-nav"],
-[class*="authentic-navbar"],
-header,
-nav {
-  min-height: auto !important;
-  height: auto !important;
-  top: 0 !important;
-  margin-top: 0 !important;
+[class*="authentic-navbar"] {
+  top: 0;
+  margin-top: 0;
 }
 
 body > :first-child,

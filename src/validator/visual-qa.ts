@@ -50,38 +50,34 @@ export class VisualQAService {
       result.diffImageUrls = evalData.diffImageUrls;
 
       // Calculate combined fidelity score (0-100%)
-      // 1. Structural & Functional Integrity (Up to 80 points)
-      //    - Page body rendered & no whiteout: 20 points
-      //    - Desktop navigation hover / flyout menus: 20 points
-      //    - Mobile navigation toggle / drawer: 20 points
-      //    - Responsive carousels & fallbacks visible: 20 points
-      let structuralPoints = 0;
-      if (evalData.structuralChecks.noWhiteOutSections) structuralPoints += 20;
-      if (evalData.menuInteractivity.desktopHoverPassed) structuralPoints += 20;
-      if (evalData.menuInteractivity.mobileTogglePassed) structuralPoints += 20;
-      if (evalData.structuralChecks.carouselsResponsive && evalData.structuralChecks.fallbacksVisible) structuralPoints += 20;
-      else if (evalData.structuralChecks.carouselsResponsive || evalData.structuralChecks.fallbacksVisible) structuralPoints += 10;
-
-      // 2. Visual Layout Alignment (Up to 20 points)
-      // Real-world dynamic websites (with autoplay videos, rotating hero carousels, webfonts)
-      // inherently differ in raw pixel-by-pixel comparisons against static offline clones.
-      // A visual match >= 25% confirms high-level layout, color, and section consistency.
       const visualAvg = (evalData.viewportScores.desktop + evalData.viewportScores.tablet + evalData.viewportScores.mobile) / 3;
       const hasBaselines = !!(baselines?.desktop || baselines?.mobile);
 
-      let visualPoints = 20;
+      // 1. Structural & Functional Integrity (40% weight)
+      let structuralPoints = 0;
+      if (evalData.structuralChecks.noWhiteOutSections) structuralPoints += 10;
+      if (evalData.menuInteractivity.desktopHoverPassed) structuralPoints += 10;
+      if (evalData.menuInteractivity.mobileTogglePassed) structuralPoints += 10;
+      if (evalData.structuralChecks.carouselsResponsive && evalData.structuralChecks.fallbacksVisible) structuralPoints += 10;
+      else if (evalData.structuralChecks.carouselsResponsive || evalData.structuralChecks.fallbacksVisible) structuralPoints += 5;
+
+      // 2. Strict Visual Layout Alignment (60% weight)
+      let visualPoints = 0;
       if (hasBaselines) {
-        if (visualAvg >= 25) {
-          visualPoints = 20; // High visual consistency with live site
-        } else if (visualAvg >= 12) {
-          visualPoints = 10; // Partial visual alignment
-        } else {
-          visualPoints = 0;  // Severe layout mismatch or blocked page
-        }
+        visualPoints = Math.round(visualAvg * 0.6);
+      } else {
+        visualPoints = structuralPoints >= 30 ? 60 : 20;
       }
 
       result.fidelityScore = Math.min(100, structuralPoints + visualPoints);
-      result.passed = result.fidelityScore >= 80;
+
+      // Viewport-blocking modal/backdrop in resting state caps score and marks as failed
+      if (evalData.defectiveSections.some((d) => d.type === 'resting_overlay_blocker')) {
+        result.fidelityScore = Math.min(result.fidelityScore, 30);
+        result.menuInteractivity.desktopHoverPassed = false;
+      }
+
+      result.passed = result.fidelityScore >= 90;
 
       if (result.passed || attempt >= maxAttempts) {
         break;
@@ -132,6 +128,29 @@ export class VisualQAService {
       await page.setViewportSize({ width: 1440, height: 900 });
       await page.waitForTimeout(300);
       const desktopClone = await page.screenshot({ fullPage: false, type: 'png' });
+
+      // Check for resting obstructing backdrops/modals in desktop resting state
+      const hasRestingOverlay = await page.evaluate(() => {
+        const overlays = document.querySelectorAll(
+          '[role="dialog"], [aria-modal="true"], [class*="Dialog-Backdrop"], [class*="dialog-backdrop"], [class*="modal-backdrop"], dialog[open], [class*="drawer-backdrop"], [class~="backdrop"], [class*="-backdrop"]'
+        );
+        for (const el of Array.from(overlays)) {
+          const cs = window.getComputedStyle(el);
+          const r = el.getBoundingClientRect();
+          if (cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0' && r.width > 300 && r.height > 300) {
+            return true;
+          }
+        }
+        return false;
+      });
+
+      if (hasRestingOverlay) {
+        defectiveSections.push({
+          selector: '[role="dialog"], [class*="Dialog-Backdrop"], .modal-backdrop',
+          reason: 'Resting state contains an open modal or backdrop overlay obstructing the page',
+          type: 'resting_overlay_blocker',
+        });
+      }
 
       // Check desktop hover
       const desktopNav = await page.$(
@@ -296,9 +315,15 @@ export class VisualQAService {
       const img1 = PNG.sync.read(baselineBuf);
       const img2 = PNG.sync.read(cloneBuf);
 
-      // Align dimensions to smaller bounding box and crop both buffers
+      // Compute strict dimension ratio
       const width = Math.min(img1.width, img2.width);
       const height = Math.min(img1.height, img2.height);
+      const maxW = Math.max(img1.width, img2.width);
+      const maxH = Math.max(img1.height, img2.height);
+
+      const areaIntersect = width * height;
+      const areaMax = maxW * maxH;
+      const dimensionRatio = areaMax > 0 ? areaIntersect / areaMax : 0;
 
       const cropped1 = new PNG({ width, height });
       const cropped2 = new PNG({ width, height });
@@ -306,20 +331,21 @@ export class VisualQAService {
       PNG.bitblt(img2, cropped2, 0, 0, width, height, 0, 0);
 
       const diff = new PNG({ width, height });
-      const numDiffPixels = pixelmatch(cropped1.data, cropped2.data, diff.data, width, height, {
-        threshold: 0.20,
+      const pm = (pixelmatch as any).default || pixelmatch;
+      const numDiffPixels = pm(cropped1.data, cropped2.data, diff.data, width, height, {
+        threshold: 0.15,
         includeAA: false,
       });
 
-      const totalPixels = width * height;
-      const mismatchRatio = totalPixels > 0 ? numDiffPixels / totalPixels : 0;
-      const score = Math.max(0, Math.round((1 - mismatchRatio) * 100));
+      const mismatchRatio = areaIntersect > 0 ? numDiffPixels / areaIntersect : 1;
+      const overlapMatch = Math.max(0, 1 - mismatchRatio);
+      const strictScore = Math.max(0, Math.round(dimensionRatio * overlapMatch * 100));
 
       fs.writeFileSync(diffOutPath, PNG.sync.write(diff));
-      return { score, mismatchPixels: numDiffPixels };
+      return { score: strictScore, mismatchPixels: numDiffPixels };
     } catch (e) {
       console.warn('[VisualQA] pixelmatch notice:', e);
-      return { score: 85, mismatchPixels: 0 };
+      return { score: 0, mismatchPixels: 0 };
     }
   }
 

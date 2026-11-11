@@ -123,7 +123,7 @@ export class SectionInspector {
         htmlSnapshot.includes('data-theme="dark"') ||
         htmlSnapshot.includes("data-theme='dark'") ||
         htmlSnapshot.includes('data-color-mode="dark"') ||
-        /<html[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot)
+        /<html[^>]*class="[^"]*(?:^|[\s])dark(?:[\s"]|$)/i.test(htmlSnapshot)
       ) : false;
 
       if (isExplicitDarkNav || snapshotHasDarkTheme) {
@@ -172,16 +172,18 @@ export class SectionInspector {
       htmlSnapshot.includes('data-theme="dark"') ||
       htmlSnapshot.includes("data-theme='dark'") ||
       htmlSnapshot.includes('data-color-mode="dark"') ||
-      /<html[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot) ||
-      /<body[^>]*class="[^"]*\bdark\b/i.test(htmlSnapshot)
+      /<html[^>]*class="[^"]*(?:^|[\s])dark(?:[\s"]|$)/i.test(htmlSnapshot) ||
+      /<body[^>]*class="[^"]*(?:^|[\s])dark(?:[\s"]|$)/i.test(htmlSnapshot) ||
+      /<html[^>]*class="[^"]*\[color-scheme:\s*dark\]/i.test(htmlSnapshot) ||
+      /<html[^>]*style="[^"]*color-scheme:\s*dark/i.test(htmlSnapshot)
     ) : false;
 
     const snapshotHasLightTheme = htmlSnapshot ? (
       htmlSnapshot.includes('data-theme="light"') ||
       htmlSnapshot.includes("data-theme='light'") ||
       htmlSnapshot.includes('data-color-mode="light"') ||
-      /<html[^>]*class="[^"]*\blight\b/i.test(htmlSnapshot) ||
-      /<body[^>]*class="[^"]*\blight\b/i.test(htmlSnapshot)
+      /<html[^>]*class="[^"]*(?:^|[\s])light(?:[\s"]|$)/i.test(htmlSnapshot) ||
+      /<body[^>]*class="[^"]*(?:^|[\s])light(?:[\s"]|$)/i.test(htmlSnapshot)
     ) : false;
 
     const rootVarsIndicateDark = rootCssVariables ? (

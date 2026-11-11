@@ -74,8 +74,8 @@ export function resolveTargetSectionFromSnapshot(
           }
         }
 
-        // If user targeted a subnav/link inside a header container, ascend to the enclosing header container
-        if (targetArchetype === 'navbar' || first.is('nav, [class*="nav"], [role="navigation"]')) {
+        // If user targeted a leaf item/link inside a header container, ascend to the enclosing header container
+        if (isLeafTag && (targetArchetype === 'navbar' || first.is('nav, [class*="nav"], [role="navigation"]'))) {
           const headerAncestors = first.parents('header, [role="banner"], [class*="Header"], [class*="site-header"], [class*="header"], [class*="navbar"]').filter((_, el) => {
             const t = el.tagName.toLowerCase();
             const c = ($snap(el).attr('class') || '').toLowerCase();

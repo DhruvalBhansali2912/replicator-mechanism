@@ -140,8 +140,23 @@ export class QualityScorer {
       failureReasons.push('Structural failure: section is virtually empty');
     }
 
+    // 3. Obstructing resting modal/backdrop check
+    const hasUnclosedModal = $('dialog[open], [role="dialog"]:not([aria-hidden="true"]), [class*="Dialog-Backdrop"]:not([aria-hidden="true"])').length > 0;
+    const hasRestingModalHiding = synthesizedCss.includes('dialog:not([open])') || synthesizedCss.includes('[role="dialog"]:not');
+    if (hasUnclosedModal && !hasRestingModalHiding) {
+      structuralPenalty += 50;
+      failureReasons.push('Structural failure: unclosed modal dialog or backdrop visible in resting state');
+    }
+
+    // 4. Duplicate overflow tab check
+    const duplicateOverflow = $('li, button, a').filter((_, el) => $(el).text().trim() === 'More items').length > 1;
+    if (duplicateOverflow) {
+      structuralPenalty += 20;
+      failureReasons.push('Structural defect: duplicate overflow navigation items detected');
+    }
+
     const totalScore = Math.max(0, Math.min(100, structuralScore + visualScore + interactiveScore - structuralPenalty));
-    const passed = totalScore >= 80;
+    const passed = totalScore >= 90 && failureReasons.length === 0;
 
     return {
       structuralScore,

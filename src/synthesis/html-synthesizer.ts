@@ -1121,7 +1121,10 @@ export class HtmlSynthesizer {
     });
 
     // Clean up resting open drawer state classes from body and menus
-    $('body').removeClass('content-drawer-open menu-open sidebar-open nav-open');
+    $('body, html')
+      .removeClass('content-drawer-open menu-open sidebar-open nav-open modal-open drawer-open dialog-open')
+      .removeAttr('data-dialog-scroll-disabled')
+      .removeAttr('data-scroll-locked');
     $('nav.hamburger-menu, .universal-mobile-menu-drawer').each((_, el) => {
       const $el = $(el);
       if ($el.parents('nav.hamburger-menu, .universal-mobile-menu-drawer').length > 0) return;
@@ -1717,7 +1720,10 @@ ${drawerListItems.join('\n')}
       });
 
       // Ensure any dialog panels / megamenu panels / search overlays start closed cleanly by default
-      $('dialog, [role="dialog"], [aria-modal="true"], [class*="menu-panel"], [class*="header-panel"], [class*="modal"], [class*="gnb-search"], [class*="search-layer"], [class*="search-overlay"]').removeAttr('open').attr('aria-hidden', 'true');
+      $('dialog, [role="dialog"], [aria-modal="true"], [class*="Dialog-Backdrop"], [class*="dialog-backdrop"], [class*="modal-backdrop"], [class*="drawer-backdrop"], [class*="menu-panel"], [class*="header-panel"], [class*="modal"], [class*="gnb-search"], [class*="search-layer"], [class*="search-overlay"]')
+        .removeAttr('open')
+        .attr('aria-hidden', 'true')
+        .removeClass('is-open is-active open active show');
       $('*').each((_, el) => {
         const cls = $(el).attr('class');
         if (cls) {
@@ -1750,8 +1756,24 @@ ${drawerListItems.join('\n')}
       });
 
       $('[class*="panel-content"]').removeClass('active is-active');
-      $('[class*="backdrop"], [class*="curtain"], [class*="scrim"]').removeClass('is-active is-open open');
+      $('[class*="modal-backdrop"], [class*="drawer-backdrop"], [class*="dialog-backdrop"], [class*="Dialog-Backdrop"], [class~="backdrop"], [class*="-backdrop"], [class*="curtain"], [class*="scrim"]').not('[class*="backdrop-blur"], [class*="backdrop-filter"], [class*="backdrop-opacity"]').removeClass('is-active is-open open');
+      $('body, html').removeAttr('data-dialog-scroll-disabled').removeAttr('data-scroll-locked');
       $('.staggered-start').removeClass('staggered-start').addClass('staggered-end');
+
+      // Deduplicate repeated overflow trigger buttons in navigation bars (e.g. UnderlineNav measuring clones)
+      $('nav, [role="navigation"], header').find('ul, [role="list"]').each((_, list) => {
+        const seenTexts = new Set<string>();
+        $(list).children().each((_, item) => {
+          const txt = $(item).text().replace(/\s+/g, ' ').trim();
+          if (txt === 'More items' || txt === 'items' || txt === 'More' || txt === '...') {
+            if (seenTexts.has(txt)) {
+              $(item).remove();
+            } else {
+              seenTexts.add(txt);
+            }
+          }
+        });
+      });
     }
 
     // Restore animated/fade-in content elements that were snapshotted in hidden state (opacity: 0)
@@ -1861,11 +1883,17 @@ ${drawerListItems.join('\n')}
     let result = '';
     const rootEl = $.root().children().first();
     const firstTag = rootEl.prop('tagName')?.toLowerCase();
+    const rootId = (rootEl.attr('id') || '').toLowerCase();
+    const rootRole = (rootEl.attr('role') || '').toLowerCase();
+    const rootCls = (rootEl.attr('class') || '').toLowerCase();
     const hasLandmark = [
       'header', 'nav', 'section', 'footer', 'article', 'main',
       'sticky-header', 'site-header', 'custom-header', 'app-header'
     ].includes(firstTag || '') ||
-      (rootEl.attr('class') || '').includes('header-wrapper') ||
+      ['banner', 'navigation'].includes(rootRole) ||
+      ['navbar', 'taskbar', 'masthead'].includes(rootId) ||
+      rootCls.includes('header-wrapper') ||
+      rootCls.includes('site-header') ||
       rootEl.find('> header, > nav').length > 0;
 
     if (!hasLandmark) {
