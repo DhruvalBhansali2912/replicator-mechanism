@@ -920,32 +920,57 @@ ${html}
           }
         } catch {}
 
-        // 5. Probe Submenus & Hover Flyouts
+        // 5. Probe Submenus & Nested Sub-Submenus
         try {
-          const subMenuItems = await page.$$('.has-dropdown, [class*="has-submenu"], .nav-item:has(ul), li:has(> ul.dropdown-menu)');
-          if (subMenuItems.length > 0) {
-            await subMenuItems[0].hover({ timeout: 2000 }).catch(() => {});
-            await page.waitForTimeout(350); // Wait for hover transition
+          const subMenuItems = await page.$$(
+            '.has-dropdown, [class*="has-submenu"], .nav-item:has(ul), li:has(> ul), button[aria-haspopup], [role="button"][aria-haspopup], [data-dropdown]'
+          );
+          for (let i = 0; i < Math.min(subMenuItems.length, 5); i++) {
+            const item = subMenuItems[i];
+            const isVisible = await item.isVisible().catch(() => false);
+            if (!isVisible) continue;
 
-            const isSubmenuVisible = await page.evaluate((item: any) => {
-              const sub = item.querySelector('.dropdown-menu, [class*="sub-menu"], [class*="dropdown"], ul');
-              if (!sub) return true;
+            await item.hover({ timeout: 1500 }).catch(() => {});
+            await page.waitForTimeout(300);
+
+            const probeSub = await page.evaluate((el: any) => {
+              const sub = el.querySelector('.dropdown-menu, [class*="sub-menu"], [class*="dropdown"], [role="menu"], ul') ||
+                          (el.parentElement ? el.parentElement.querySelector('[role="menu"], [class*="dropdown"], [class*="sub-menu"]') : null);
+              if (!sub) return { hasSub: false, visible: true, subSubVisible: true };
               const cs = window.getComputedStyle(sub);
-              const rect = sub.getBoundingClientRect();
-              return rect.height > 10 && cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
-            }, subMenuItems[0]);
+              const r = sub.getBoundingClientRect();
+              const visible = r.height > 10 && cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
 
-            if (!isSubmenuVisible) {
+              let subSubVisible = true;
+              if (visible) {
+                const subSubTrigger = sub.querySelector('[aria-haspopup], .has-submenu, li:has(ul), [class*="arrow"], [class*="chevron"]');
+                if (subSubTrigger) {
+                  subSubTrigger.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
+                  const nestedSub = subSubTrigger.querySelector('ul, [role="menu"], [class*="submenu"]');
+                  if (nestedSub) {
+                    const ncs = window.getComputedStyle(nestedSub);
+                    const nr = nestedSub.getBoundingClientRect();
+                    subSubVisible = nr.height > 5 && ncs.display !== 'none' && ncs.visibility !== 'hidden';
+                  }
+                }
+              }
+              return { hasSub: true, visible, subSubVisible };
+            }, item);
+
+            if (probeSub.hasSub && (!probeSub.visible || !probeSub.subSubVisible)) {
               probeResult.push({
                 type: 'unresponsive_submenu',
-                selector: '.has-dropdown, .nav-item:has(ul)',
+                selector: '.has-dropdown, .nav-item:has(ul), button[aria-haspopup]',
                 tagName: 'li',
                 classes: ['has-dropdown'],
-                details: 'Submenu container hovered but nested flyout did not transition to visible',
+                details: !probeSub.visible
+                  ? 'Submenu container hovered but nested flyout did not transition to visible'
+                  : 'Nested sub-submenu hovered but second-level flyout did not transition to visible',
               });
+              break;
             }
             await page.mouse.move(0, 0);
-            await page.waitForTimeout(200);
+            await page.waitForTimeout(150);
           }
         } catch {}
 

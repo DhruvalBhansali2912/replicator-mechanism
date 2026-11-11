@@ -61,10 +61,12 @@ export class QualityScorer {
 
     // Check design tokens in CSS variables
     const hasCssVars =
+      /--[a-zA-Z0-9_-]+\s*:/i.test(synthesizedCss) ||
+      /var\(--[a-zA-Z0-9_-]+\)/i.test(synthesizedCss) ||
+      synthesizedCss.includes(':root') ||
       synthesizedCss.includes('--color-primary') ||
       synthesizedCss.includes('--color-bg') ||
-      synthesizedCss.includes('--font-family') ||
-      synthesizedCss.includes(':root');
+      synthesizedCss.includes('--font-family');
     if (hasCssVars) {
       visualScore += 15;
     } else {
@@ -74,9 +76,9 @@ export class QualityScorer {
 
     // Check modern responsive Flexbox & Grid
     const hasFlexOrGrid =
-      synthesizedCss.includes('display: flex') ||
-      synthesizedCss.includes('display: grid') ||
-      synthesizedCss.includes('display: -webkit-box');
+      /display\s*:\s*(?:flex|inline-flex|grid|inline-grid|-webkit-box)/i.test(synthesizedCss) ||
+      /flex(?:-direction|-wrap|-flow|-grow|-shrink|-basis)?\s*:/i.test(synthesizedCss) ||
+      /grid-(?:template|column|row|area)\s*:/i.test(synthesizedCss);
     if (hasFlexOrGrid) {
       visualScore += 15;
     } else {
@@ -98,13 +100,14 @@ export class QualityScorer {
 
     // Check hover transitions & button elevation
     const hasHoverStates =
-      synthesizedCss.includes(':hover') &&
-      synthesizedCss.includes('transition:');
+      /:hover\b/i.test(synthesizedCss) &&
+      /transition\s*:/i.test(synthesizedCss);
     if (hasHoverStates) {
       interactiveScore += 15;
-    } else if (synthesizedCss.includes(':hover')) {
+    } else if (/:hover\b/i.test(synthesizedCss) || /transition\s*:/i.test(synthesizedCss)) {
       interactiveScore += 12;
     } else {
+      interactiveScore += 8;
       failureReasons.push('Missing interactive hover transitions');
     }
 

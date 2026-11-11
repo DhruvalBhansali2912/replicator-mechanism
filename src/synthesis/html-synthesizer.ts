@@ -1776,36 +1776,50 @@ ${drawerListItems.join('\n')}
     });
 
     // Ensure referenced SVG symbols (e.g. accordion chevrons, icons, social icons) have definitions in DOM
-    const missingSymbols = new Set<string>();
-    $('use').each((_, el) => {
-      const href = $(el).attr('href') || $(el).attr('xlink:href');
-      if (href && href.startsWith('#')) {
-        const symId = href.slice(1);
-        if ($(`#${symId}`).length === 0) {
-          missingSymbols.add(symId);
+    try {
+      const missingSymbols = new Set<string>();
+      $('use').each((_, el) => {
+        const href = $(el).attr('href') || $(el).attr('xlink:href');
+        if (href && href.startsWith('#')) {
+          const symId = href.slice(1);
+          if (!symId) return;
+          let exists = false;
+          try {
+            exists = $(`[id="${symId.replace(/"/g, '\\"')}"]`).length > 0;
+          } catch {
+            exists = false;
+          }
+          if (!exists) {
+            missingSymbols.add(symId);
+          }
+        }
+      });
+
+      if (missingSymbols.size > 0) {
+        const gatheredSymbols: string[] = [];
+        if (ast.rawHtmlSnapshot) {
+          try {
+            const $snap = cheerio.load(ast.rawHtmlSnapshot);
+            for (const symId of missingSymbols) {
+              let symEl: any = null;
+              try {
+                symEl = $snap(`[id="${symId.replace(/"/g, '\\"')}"]`);
+              } catch {
+                symEl = null;
+              }
+              if (symEl && symEl.length > 0) {
+                gatheredSymbols.push($snap.html(symEl));
+                missingSymbols.delete(symId);
+              }
+            }
+          } catch {}
+        }
+
+        if (gatheredSymbols.length > 0) {
+          $.root().prepend(`\n<svg xmlns="http://www.w3.org/2000/svg" style="display:none;" aria-hidden="true">\n${gatheredSymbols.join('\n')}\n</svg>\n`);
         }
       }
-    });
-
-    if (missingSymbols.size > 0) {
-      const gatheredSymbols: string[] = [];
-      if (ast.rawHtmlSnapshot) {
-        try {
-          const $snap = cheerio.load(ast.rawHtmlSnapshot);
-          for (const symId of missingSymbols) {
-            const symEl = $snap(`#${symId}`);
-            if (symEl.length > 0) {
-              gatheredSymbols.push($snap.html(symEl));
-              missingSymbols.delete(symId);
-            }
-          }
-        } catch {}
-      }
-
-      if (gatheredSymbols.length > 0) {
-        $.root().prepend(`\n<svg xmlns="http://www.w3.org/2000/svg" style="display:none;" aria-hidden="true">\n${gatheredSymbols.join('\n')}\n</svg>\n`);
-      }
-    }
+    } catch {}
 
     // Attach headlessui portal roots and floating menus if present in snapshot
     if (ast.rawHtmlSnapshot) {
