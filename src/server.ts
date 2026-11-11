@@ -1270,6 +1270,21 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
 .authentic-navbar:has(> [class*="container"]):not([class*="bg-"]):not([style*="background"]) {
   background: transparent !important;
 }
+
+/* Universal Mobile Stack & Header Wrapping */
+@media (max-width: 768px) {
+  .prc-Stack-Stack-UQ9k6[data-direction="horizontal"],
+  header [data-direction="horizontal"] {
+    flex-wrap: wrap !important;
+  }
+  [data-testid="top-nav-left"] {
+    flex-wrap: wrap !important;
+    max-width: 100% !important;
+  }
+  [data-testid="top-nav-right"] {
+    margin-left: auto !important;
+  }
+}
 `;
 
           if ($h('#universal-mobile-nav-css').length === 0) {
