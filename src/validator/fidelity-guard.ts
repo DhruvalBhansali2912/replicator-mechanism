@@ -696,6 +696,10 @@ ${html}
     try {
       const browser = await BrowserManager.getBrowser();
       const { context, page } = await BrowserManager.createPage({ viewportWidth: 1440, viewportHeight: 900 });
+      const pageErrors: string[] = [];
+      page.on('pageerror', (err) => {
+        pageErrors.push(err.message || String(err));
+      });
       page.on('dialog', (d) => d.accept().catch(() => {}));
 
       try {
@@ -1114,6 +1118,18 @@ ${html}
           await page.waitForTimeout(300);
         } catch {
           await page.setViewportSize({ width: 1440, height: 900 }).catch(() => {});
+        }
+
+        if (pageErrors.length > 0) {
+          pageErrors.forEach((msg) => {
+            probeResult.push({
+              type: 'runtime_exception',
+              selector: 'script',
+              tagName: 'script',
+              classes: [],
+              details: `Uncaught JavaScript exception during user interaction: ${msg}`,
+            });
+          });
         }
 
         return {

@@ -113,6 +113,34 @@ export class JsSynthesizer {
           sec.style.setProperty('z-index', '100000', 'important');
         }
 
+        // Universal Anchor Positioning for Floating / Anchored / Portal panels
+        if (targetPanel && typeof targetPanel.getBoundingClientRect === 'function') {
+          const tRect = trigger.getBoundingClientRect();
+          const overlayChild = targetPanel.matches('[class*="AnchoredOverlay"], [data-component="AnchoredOverlay"], [class*="Overlay"]')
+            ? targetPanel
+            : targetPanel.querySelector('[class*="AnchoredOverlay"], [data-component="AnchoredOverlay"], [class*="Overlay"]');
+          const isAnchoredOrPortal = targetPanel.hasAttribute('data-interactive-portal') ||
+            !!overlayChild ||
+            targetPanel.matches('[class*="AnchoredOverlay"], [class*="SelectPanel"], [data-component="SelectPanel"], [class*="ActionMenu"], [role="menu"]');
+
+          if (isAnchoredOrPortal && tRect.width > 0 && tRect.height > 0) {
+            const elToPosition = overlayChild || targetPanel;
+            const cs = window.getComputedStyle(elToPosition);
+            if (cs.position === 'fixed' || cs.position === 'absolute' || elToPosition.hasAttribute('data-interactive-portal')) {
+              elToPosition.style.setProperty('position', 'fixed', 'important');
+              elToPosition.style.setProperty('top', Math.min(window.innerHeight - 60, Math.max(8, tRect.bottom + 4)) + 'px', 'important');
+              const panelW = elToPosition.offsetWidth || 240;
+              const idealLeft = Math.max(8, Math.min(tRect.left, window.innerWidth - panelW - 16));
+              elToPosition.style.setProperty('left', idealLeft + 'px', 'important');
+              elToPosition.style.setProperty('z-index', '100002', 'important');
+              elToPosition.style.setProperty('opacity', '1', 'important');
+              elToPosition.style.setProperty('visibility', 'visible', 'important');
+              elToPosition.style.setProperty('pointer-events', 'auto', 'important');
+              elToPosition.removeAttribute('aria-hidden');
+            }
+          }
+        }
+
         function measureAndExpand() {
           if (!targetPanel) return;
           const pRect = targetPanel.getBoundingClientRect();
@@ -539,7 +567,14 @@ export class JsSynthesizer {
         trigger.setAttribute('data-has-recorded-interaction', 'true');
         const isCheckboxOrRadio = trigger.tagName === 'INPUT' && (trigger.type === 'checkbox' || trigger.type === 'radio');
 
+        function getAssociatedPortals() {
+          return Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
+            return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
+          });
+        }
+
         function handleToggleState(shouldBeActive) {
+          const associatedPortals = getAssociatedPortals();
           if (shouldBeActive) {
             // Close all other interactive portals in section for clean mutual exclusivity
             const otherPortals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
@@ -552,12 +587,10 @@ export class JsSynthesizer {
             });
 
             applyMutations(interaction.mutations);
-            const associatedPortals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
-              return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
-            });
             associatedPortals.forEach(function(p) {
               const origDisplay = (p.getAttribute('data-original-display') && p.getAttribute('data-original-display') !== 'none') ? p.getAttribute('data-original-display') : 'block';
               p.removeAttribute('hidden');
+              p.removeAttribute('aria-hidden');
               p.style.setProperty('display', origDisplay, 'important');
               p.style.setProperty('z-index', '99999', 'important');
               p.style.setProperty('visibility', 'visible', 'important');
@@ -572,6 +605,20 @@ export class JsSynthesizer {
                 if (ch.style && ch.style.opacity === '0') ch.style.removeProperty('opacity');
                 if (ch.style && ch.style.pointerEvents === 'none') ch.style.removeProperty('pointer-events');
                 if (ch.hasAttribute('hidden')) ch.removeAttribute('hidden');
+                if (ch.getAttribute('aria-hidden') === 'true') {
+                  ch.setAttribute('data-orig-aria-hidden', 'true');
+                  ch.removeAttribute('aria-hidden');
+                }
+              });
+              // Wire dismiss/close buttons inside the portal
+              p.querySelectorAll('button[aria-label*="close" i], button[aria-label*="dismiss" i], [class*="close-button"], [class*="closeBtn"], [data-action="close"]').forEach(function(closeBtn) {
+                if (!closeBtn.__replicator_has_dismiss) {
+                  closeBtn.__replicator_has_dismiss = true;
+                  closeBtn.addEventListener('click', function(ev) {
+                    if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+                    handleToggleState(false);
+                  });
+                }
               });
             });
             isToggled = true;
@@ -580,9 +627,6 @@ export class JsSynthesizer {
           } else {
             reverseMutations(interaction.mutations, interaction.reverseMutations);
             // Explicitly close all interactive portals associated with this trigger
-            const associatedPortals = Array.from(document.querySelectorAll('[data-interactive-portal]')).filter(function(p) {
-              return p.getAttribute('data-mutation-src') === interaction.triggerSelector;
-            });
             associatedPortals.forEach(function(p) {
               p.style.setProperty('display', 'none', 'important');
               p.style.setProperty('visibility', 'hidden', 'important');
@@ -590,6 +634,10 @@ export class JsSynthesizer {
               p.style.setProperty('pointer-events', 'none', 'important');
               p.setAttribute('data-state', 'closed');
               p.classList.remove('is-open', 'open', 'show', 'active');
+              p.querySelectorAll('[data-orig-aria-hidden="true"]').forEach(function(ch) {
+                ch.setAttribute('aria-hidden', 'true');
+                ch.removeAttribute('data-orig-aria-hidden');
+              });
             });
             isToggled = false;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
@@ -609,6 +657,19 @@ export class JsSynthesizer {
           trigger.__replicator_close = function() {
             clearTimeout(hoverLeaveTimer);
             reverseMutations(interaction.mutations, interaction.reverseMutations);
+            const associatedPortals = getAssociatedPortals();
+            associatedPortals.forEach(function(p) {
+              p.style.setProperty('display', 'none', 'important');
+              p.style.setProperty('visibility', 'hidden', 'important');
+              p.style.setProperty('opacity', '0', 'important');
+              p.style.setProperty('pointer-events', 'none', 'important');
+              p.setAttribute('data-state', 'closed');
+              p.classList.remove('is-open', 'open', 'show', 'active');
+              p.querySelectorAll('[data-orig-aria-hidden="true"]').forEach(function(ch) {
+                ch.setAttribute('aria-hidden', 'true');
+                ch.removeAttribute('data-orig-aria-hidden');
+              });
+            });
             trigger.__replicator_is_toggled = false;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
             if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, false);
@@ -621,7 +682,9 @@ export class JsSynthesizer {
               return t !== trigger && t.__replicator_is_toggled && typeof t.__replicator_close === 'function';
             });
             allActive.forEach(function(other) {
-              other.__replicator_close();
+              if (typeof other.__replicator_close === 'function') {
+                other.__replicator_close();
+              }
             });
             // Also close sibling flyout items in universal flyout controller
             if (typeof navDropdownItems !== 'undefined' && Array.isArray(navDropdownItems)) {
@@ -632,6 +695,31 @@ export class JsSynthesizer {
               });
             }
             applyMutations(interaction.mutations);
+            const associatedPortals = getAssociatedPortals();
+            associatedPortals.forEach(function(p) {
+              const origDisplay = (p.getAttribute('data-original-display') && p.getAttribute('data-original-display') !== 'none') ? p.getAttribute('data-original-display') : 'block';
+              p.removeAttribute('hidden');
+              p.removeAttribute('aria-hidden');
+              p.style.setProperty('display', origDisplay, 'important');
+              p.style.setProperty('z-index', '99999', 'important');
+              p.style.setProperty('visibility', 'visible', 'important');
+              p.style.setProperty('opacity', '1', 'important');
+              p.style.setProperty('pointer-events', 'auto', 'important');
+              p.style.setProperty('content-visibility', 'visible', 'important');
+              p.style.removeProperty('max-height');
+              p.setAttribute('data-state', 'open');
+              p.classList.add('is-open', 'open', 'show', 'active');
+              p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.style && ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
+                if (ch.style && ch.style.opacity === '0') ch.style.removeProperty('opacity');
+                if (ch.style && ch.style.pointerEvents === 'none') ch.style.removeProperty('pointer-events');
+                if (ch.hasAttribute('hidden')) ch.removeAttribute('hidden');
+                if (ch.getAttribute('aria-hidden') === 'true') {
+                  ch.setAttribute('data-orig-aria-hidden', 'true');
+                  ch.removeAttribute('aria-hidden');
+                }
+              });
+            });
             trigger.__replicator_is_toggled = true;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
             if (typeof ensureDropdownSpace === 'function') ensureDropdownSpace(trigger, p, true);

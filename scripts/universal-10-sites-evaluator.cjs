@@ -617,7 +617,12 @@ async function runAutonomous10SiteEvaluator() {
           bodyAttrs
         );
 
+        const clonePageErrors = [];
         const clonePage = await context.newPage();
+        clonePage.on('pageerror', (err) => {
+          clonePageErrors.push(err.message || String(err));
+          console.error(`    ❌ [PAGE_ERROR] ${err.message}`);
+        });
         await clonePage.goto(cloneUrl, { waitUntil: 'load', timeout: 15000 }).catch(() => {});
         await clonePage.waitForTimeout(600);
 
@@ -763,6 +768,11 @@ async function runAutonomous10SiteEvaluator() {
           if (liveMobileDrawer && liveMobileDrawer.hasButton && cloneMobileDrawer && !cloneMobileDrawer.hasButton) {
             interactionScore -= 10;
           }
+        }
+
+        if (clonePageErrors.length > 0) {
+          console.warn(`    ⚠️ Section encountered ${clonePageErrors.length} runtime page errors: ${clonePageErrors.join('; ')}`);
+          interactionScore = Math.max(0, interactionScore - (clonePageErrors.length * 35));
         }
 
         // Final AI Calculated Match
