@@ -3856,7 +3856,6 @@ img.image--hide {
 @media (max-width: 899px) {
   /* Hide desktop center navigation links on mobile */
   .tds-align--center,
-  [class*="align--center"],
   ol.tds-site-nav-items.tds-align--center,
   .dx-nav-item-group.tds-align--center {
     display: none !important;
@@ -4324,6 +4323,13 @@ nav.hamburger-menu.is-open,
   display: none !important;
 }
 ` : ''}
+
+/* Universal Tooltips & Inactive Native Popovers */
+[popover]:not(:popover-open):not(.is-open):not(.open),
+[data-component="Tooltip"]:not(.is-open):not(.open),
+[class*="Tooltip"]:not(.is-open):not(.open) {
+  display: none !important;
+}
 
 /* Universal Dialog & Modal Overlays (W3C Standard) */
 dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),

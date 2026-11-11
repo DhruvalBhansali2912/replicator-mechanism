@@ -1420,7 +1420,6 @@ ${drawerListItems.join('\n')}
 
 @media (max-width: 899px) {
   .tds-align--center,
-  [class*="align--center"],
   ol.tds-site-nav-items.tds-align--center,
   .dx-nav-item-group.tds-align--center {
     display: none !important;

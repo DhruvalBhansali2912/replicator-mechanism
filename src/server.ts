@@ -790,7 +790,6 @@ export function createServer(): express.Application {
 
 @media (max-width: 899px) {
   .tds-align--center,
-  [class*="align--center"],
   ol.tds-site-nav-items.tds-align--center,
   .dx-nav-item-group.tds-align--center {
     display: none !important;
@@ -1233,6 +1232,13 @@ nav.hamburger-menu.is-open,
   display: none !important;
 }
 
+/* Universal Tooltips & Inactive Native Popovers */
+[popover]:not(:popover-open):not(.is-open):not(.open),
+[data-component="Tooltip"]:not(.is-open):not(.open),
+[class*="Tooltip"]:not(.is-open):not(.open) {
+  display: none !important;
+}
+
 /* Universal Dialog & Modal Overlays (W3C Standard) */
 dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
 [role="dialog"][aria-hidden="true"]:not(.is-open):not(.open):not([data-state="open"]) {
@@ -1308,7 +1314,7 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
               const headerEl = $h(
                 'header.tds-site-header, header:not(.section-header), nav, [class*="site-header"]'
               ).first();
-              if (headerEl.length > 0 && $h('.universal-nav-toggle').length === 0) {
+              if (headerEl.length > 0 && $h('.universal-nav-toggle').length === 0 && headerEl.find('button, [role="button"]').length === 0) {
                 headerEl.append(`
 <div class="universal-nav-toggle-wrapper">
   <button class="universal-nav-toggle mobile-menu-btn" aria-label="Toggle navigation" type="button" aria-expanded="false">
@@ -1485,7 +1491,20 @@ ${drawerListItems.join('\n')}
         } catch (_) {}
       }
       if (fs.existsSync(cssPath)) {
-        res.type('text/css').sendFile(cssPath);
+        let css = fs.readFileSync(cssPath, 'utf8');
+        if (!css.includes('[data-component="Tooltip"]') || !css.includes('Universal Tooltips')) {
+          const universalTooltipRule = `
+/* Universal Tooltips & Inactive Native Popovers */
+[popover]:not(:popover-open):not(.is-open):not(.open),
+[data-component="Tooltip"]:not(.is-open):not(.open),
+[class*="Tooltip"]:not(.is-open):not(.open) {
+  display: none !important;
+}
+`;
+          css += universalTooltipRule;
+          try { fs.writeFileSync(cssPath, css, 'utf8'); } catch (_) {}
+        }
+        res.type('text/css').send(css);
         return;
       }
     }
