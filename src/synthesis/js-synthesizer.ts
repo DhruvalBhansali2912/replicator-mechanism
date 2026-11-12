@@ -1936,13 +1936,7 @@ export class JsSynthesizer {
             dAnc = dAnc.parentElement;
           }
 
-          const drawerBackdrop = drawer.matches('[class*="Backdrop"]') ? drawer : (drawer.closest('[class*="Backdrop"]') || (drawer.parentElement && drawer.parentElement.matches('[class*="Backdrop"]') ? drawer.parentElement : null));
-      if (drawerBackdrop) {
-        drawerBackdrop.classList.remove('is-open', 'open');
-        drawerBackdrop.setAttribute('data-state', 'closed');
-        drawerBackdrop.style.setProperty('display', 'none', 'important');
-      }
-      let collapseAnc = drawer;
+          let collapseAnc = drawer;
           while (collapseAnc && collapseAnc !== navRoot && collapseAnc !== document.body) {
             collapseAnc.classList.add('is-open', 'open', 'active', 'show');
             if (collapseAnc.classList.contains('nav-collapse') || collapseAnc.matches('[class*="nav-collapse"], [class*="navbar-collapse"]')) {
