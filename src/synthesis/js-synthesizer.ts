@@ -1934,6 +1934,10 @@ export class JsSynthesizer {
 
   menuBtns.forEach(function(btn) {
     if (btn.hasAttribute('data-menu-bound')) return;
+    if (btn.hasAttribute('onclick') && (btn.getAttribute('onclick') || '').includes('openMobileDrawer')) {
+      btn.setAttribute('data-menu-bound', 'true');
+      return;
+    }
     btn.setAttribute('data-menu-bound', 'true');
     btn.addEventListener('click', function(e) {
       if (btn.tagName === 'A' || btn.getAttribute('href')) {
