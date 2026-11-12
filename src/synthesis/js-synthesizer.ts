@@ -7179,7 +7179,7 @@ export class JsSynthesizer {
           function positionPortal() {
             if (isFullModalOrDrawer) {
               portal.style.setProperty('z-index', '2147483647', 'important');
-              let pAnc = portal.parentElement;
+              let pAnc = (portal.closest('[class*="Backdrop"]') || portal).parentElement;
               while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
                 if (!pAnc.hasAttribute('data-orig-zindex')) {
                   pAnc.setAttribute('data-orig-zindex', pAnc.style.zIndex || '');
@@ -7208,13 +7208,22 @@ export class JsSynthesizer {
             portal.setAttribute('data-state', 'open');
             portal.setAttribute('aria-hidden', 'false');
             portal.classList.add('is-open', 'open');
-            portal.style.display = 'block';
-            portal.style.visibility = 'visible';
+            portal.style.setProperty('display', 'block', 'important');
+            portal.style.setProperty('visibility', 'visible', 'important');
+            const backdrop = portal.matches('[class*="Backdrop"]') ? portal : (portal.closest('[class*="Backdrop"]') || (portal.parentElement && portal.parentElement.matches('[class*="Backdrop"]') ? portal.parentElement : null));
+            if (backdrop) {
+              backdrop.classList.add('is-open', 'open');
+              backdrop.setAttribute('data-state', 'open');
+              backdrop.style.setProperty('display', 'block', 'important');
+              backdrop.style.setProperty('visibility', 'visible', 'important');
+              backdrop.style.setProperty('opacity', '1', 'important');
+            }
             portal.querySelectorAll('[role="dialog"], [class*="Dialog-Dialog"], [class*="Overlay"]').forEach(function(d) {
               d.classList.add('is-open', 'open');
               d.setAttribute('data-state', 'open');
               d.style.setProperty('display', 'flex', 'important');
               d.style.setProperty('visibility', 'visible', 'important');
+              d.style.setProperty('opacity', '1', 'important');
             });
             positionPortal();
           }
@@ -7224,14 +7233,20 @@ export class JsSynthesizer {
             portal.setAttribute('data-state', 'closed');
             portal.setAttribute('aria-hidden', 'true');
             portal.classList.remove('is-open', 'open');
-            portal.style.display = 'none';
+            portal.style.setProperty('display', 'none', 'important');
+            const backdrop = portal.matches('[class*="Backdrop"]') ? portal : (portal.closest('[class*="Backdrop"]') || (portal.parentElement && portal.parentElement.matches('[class*="Backdrop"]') ? portal.parentElement : null));
+            if (backdrop) {
+              backdrop.classList.remove('is-open', 'open');
+              backdrop.setAttribute('data-state', 'closed');
+              backdrop.style.setProperty('display', 'none', 'important');
+            }
             portal.querySelectorAll('[role="dialog"], [class*="Dialog-Dialog"], [class*="Overlay"]').forEach(function(d) {
               d.classList.remove('is-open', 'open');
               d.setAttribute('data-state', 'closed');
               d.style.setProperty('display', 'none', 'important');
             });
             if (isFullModalOrDrawer) {
-              let pAnc = portal.parentElement;
+              let pAnc = (backdrop || portal).parentElement;
               while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
                 if (pAnc.hasAttribute('data-orig-zindex')) {
                   const origZ = pAnc.getAttribute('data-orig-zindex');

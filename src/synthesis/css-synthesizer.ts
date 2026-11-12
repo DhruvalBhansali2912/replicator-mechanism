@@ -4388,9 +4388,14 @@ dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
 }
 
 [data-component="Dialog.Backdrop"].is-open,
+[data-component="Dialog.Backdrop"]:has(.is-open),
 .prc-Dialog-Backdrop-5Nt2U.is-open,
+.prc-Dialog-Backdrop-5Nt2U:has(.is-open),
+[class*="Dialog-Backdrop"]:has(.is-open),
+[class*="Dialog-Backdrop"].is-open,
 [data-component="Dialog"].is-open ~ [class*="Backdrop"],
-[data-interactive-portal].is-open [class*="Backdrop"] {
+[data-interactive-portal].is-open [class*="Backdrop"],
+[data-interactive-portal]:has(.is-open) [class*="Backdrop"] {
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
