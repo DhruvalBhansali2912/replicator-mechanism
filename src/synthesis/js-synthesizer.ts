@@ -113,6 +113,18 @@ export class JsSynthesizer {
           sec.style.setProperty('z-index', '100000', 'important');
         }
 
+        // If targetPanel is inside a backdrop or modal drawer, ensure backdrop is toggled together
+        if (targetPanel) {
+          const backdrop = targetPanel.matches('[class*="Backdrop"]') ? targetPanel : (targetPanel.closest('[class*="Backdrop"]') || (targetPanel.parentElement && targetPanel.parentElement.matches('[class*="Backdrop"]') ? targetPanel.parentElement : null));
+          if (backdrop) {
+            backdrop.classList.add('is-open', 'open');
+            backdrop.setAttribute('data-state', 'open');
+            backdrop.style.setProperty('display', 'block', 'important');
+            backdrop.style.setProperty('visibility', 'visible', 'important');
+            backdrop.style.setProperty('opacity', '1', 'important');
+          }
+        }
+
         // Universal Anchor Positioning for Floating / Anchored / Portal panels
         if (targetPanel && typeof targetPanel.getBoundingClientRect === 'function') {
           const tRect = trigger.getBoundingClientRect();
@@ -174,6 +186,14 @@ export class JsSynthesizer {
         setTimeout(measureAndExpand, 50);
         setTimeout(measureAndExpand, 150);
       } else {
+        if (targetPanel) {
+          const backdrop = targetPanel.matches('[class*="Backdrop"]') ? targetPanel : (targetPanel.closest('[class*="Backdrop"]') || (targetPanel.parentElement && targetPanel.parentElement.matches('[class*="Backdrop"]') ? targetPanel.parentElement : null));
+          if (backdrop) {
+            backdrop.classList.remove('is-open', 'open');
+            backdrop.setAttribute('data-state', 'closed');
+            backdrop.style.setProperty('display', 'none', 'important');
+          }
+        }
         let anc = trigger.parentElement;
         while (anc && anc !== document.body && anc !== document.documentElement) {
           if (anc.hasAttribute('data-orig-zindex')) {
