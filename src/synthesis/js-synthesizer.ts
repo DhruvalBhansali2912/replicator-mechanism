@@ -1471,6 +1471,11 @@ export class JsSynthesizer {
     // Filter toolbars, faceted search, and filter dropdowns belong to the Universal Interactive Controls controller, NOT the site nav flyout controller
     if (item.closest('[class*="filter"], [class*="faceted"], [class*="toolbar"], [class*="sorting"], [class*="refine"]')) return false;
 
+    // Elements that have recorded portal interactions or belong to interactive portals / action menus
+    // are floating anchored popover menus, NOT top-level site navigation mega-menus
+    if (item.hasAttribute('data-has-recorded-interaction') || item.hasAttribute('data-menu-bound') || item.closest('[data-interactive-portal], [class*="ActionMenu"], [data-component*="ActionMenu"]')) return false;
+    if (dd && (dd.closest('[data-interactive-portal], [class*="ActionMenu"], [data-component*="ActionMenu"]') || dd.matches('[class*="ActionList"], [class*="ActionMenu"], [data-component*="ActionMenu"]'))) return false;
+
     // 3. Exclude elements that are inside another dropdown/flyout/menu panel
     const parentPanel = item.parentElement ? item.parentElement.closest('.nav-dropdown-menu, [class*="dropdown-menu"], [class*="l1-menu"], [class*="l2-menu"], [class*="flyout-menu"], [class*="megamenu"], [class*="overlay"]') : null;
     if (parentPanel) {
