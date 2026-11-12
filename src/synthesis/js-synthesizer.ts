@@ -1101,7 +1101,9 @@ export class JsSynthesizer {
     if (cls.includes('back') || cls.includes('submenu') || cls.includes('close') || cls.includes('search')) return false;
     if (parentCls.includes('submenu-trigger') || parentCls.includes('menuback')) return false;
     // Exclude dropdown, popover, and profile menu triggers so they are not hijacked by mobile drawer
-    if (el.hasAttribute('data-tooltip-anchor-id') || el.hasAttribute('data-anchor-id') || el.hasAttribute('data-popover-target') || (el.hasAttribute('aria-haspopup') && !cls.includes('hamburger') && !cls.includes('nav-toggle'))) return false;
+    const isHamburgerOrNav = cls.includes('hamburger') || cls.includes('nav-toggle') || cls.includes('menutoggle') || !!el.querySelector('.octicon-three-bars, [class*="three-bars"], [class*="bars"], [class*="burger"]') || ((el.getAttribute('aria-label') || '').toLowerCase().includes('navigation menu'));
+    if (el.hasAttribute('data-tooltip-anchor-id') || el.hasAttribute('data-anchor-id') || el.hasAttribute('data-popover-target')) return false;
+    if (el.hasAttribute('aria-haspopup') && !isHamburgerOrNav) return false;
     // Exclude top-level or sub-level navigation items
     if (cls.includes('l0-') || cls.includes('l1-') || cls.includes('l2-') || parentCls.includes('l0-') || parentCls.includes('l1-') || parentCls.includes('l2-')) return false;
     if (cls.includes('nav-link') || cls.includes('menu-link') || cls.includes('nav-item') || cls.includes('menu-item')) return false;
@@ -1755,6 +1757,12 @@ export class JsSynthesizer {
         navMenu.classList.remove('w--nav-menu-open');
         navMenu.style.setProperty('display', 'none', 'important');
       }
+      const drawerBackdrop = drawer.matches('[class*="Backdrop"]') ? drawer : (drawer.closest('[class*="Backdrop"]') || (drawer.parentElement && drawer.parentElement.matches('[class*="Backdrop"]') ? drawer.parentElement : null));
+      if (drawerBackdrop) {
+        drawerBackdrop.classList.remove('is-open', 'open');
+        drawerBackdrop.setAttribute('data-state', 'closed');
+        drawerBackdrop.style.setProperty('display', 'none', 'important');
+      }
       let collapseAnc = drawer;
       while (collapseAnc && collapseAnc !== navRoot && collapseAnc !== document.body) {
         collapseAnc.classList.remove('is-open', 'open', 'active', 'show');
@@ -1909,11 +1917,32 @@ export class JsSynthesizer {
             drawer.style.setProperty('height', 'calc(100dvh - 64px)', 'important');
           } else {
             drawer.style.setProperty('display', 'block', 'important');
-            drawer.style.setProperty('z-index', '999990', 'important');
+            drawer.style.setProperty('z-index', '2147483647', 'important');
           }
           drawer.style.setProperty('transform', 'none', 'important');
 
-          let collapseAnc = drawer;
+          const drawerBackdrop = drawer.matches('[class*="Backdrop"]') ? drawer : (drawer.closest('[class*="Backdrop"]') || (drawer.parentElement && drawer.parentElement.matches('[class*="Backdrop"]') ? drawer.parentElement : null));
+          if (drawerBackdrop) {
+            drawerBackdrop.classList.add('is-open', 'open');
+            drawerBackdrop.setAttribute('data-state', 'open');
+            drawerBackdrop.style.setProperty('display', 'block', 'important');
+            drawerBackdrop.style.setProperty('visibility', 'visible', 'important');
+            drawerBackdrop.style.setProperty('opacity', '1', 'important');
+            drawerBackdrop.style.setProperty('z-index', '2147483646', 'important');
+          }
+          let dAnc = (drawerBackdrop || drawer).parentElement;
+          while (dAnc && dAnc !== document.body && dAnc !== document.documentElement) {
+            dAnc.style.setProperty('z-index', '2147483647', 'important');
+            dAnc = dAnc.parentElement;
+          }
+
+          const drawerBackdrop = drawer.matches('[class*="Backdrop"]') ? drawer : (drawer.closest('[class*="Backdrop"]') || (drawer.parentElement && drawer.parentElement.matches('[class*="Backdrop"]') ? drawer.parentElement : null));
+      if (drawerBackdrop) {
+        drawerBackdrop.classList.remove('is-open', 'open');
+        drawerBackdrop.setAttribute('data-state', 'closed');
+        drawerBackdrop.style.setProperty('display', 'none', 'important');
+      }
+      let collapseAnc = drawer;
           while (collapseAnc && collapseAnc !== navRoot && collapseAnc !== document.body) {
             collapseAnc.classList.add('is-open', 'open', 'active', 'show');
             if (collapseAnc.classList.contains('nav-collapse') || collapseAnc.matches('[class*="nav-collapse"], [class*="navbar-collapse"]')) {
