@@ -1066,7 +1066,7 @@ export class JsSynthesizer {
   // Navigation & Dropdown Mega-Menu Controller
   const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header, .masthead, .main-section');
   const allMenuBtnCandidates = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i], button[class*="mobilenav" i], [class*="mobilenav" i], button[class*="mobile-nav" i], [class*="mobile-nav" i], button[class*="mob-nav" i], [class*="mob-nav" i], [class*="MobileNav" i]'
+    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i], button[class*="mobilenav" i], [class*="mobilenav" i], button[class*="mobile-nav" i], [class*="mobile-nav" i], button[class*="mob-nav" i], [class*="mob-nav" i], [class*="MobileNav" i], button:has(.octicon-three-bars), button:has([class*="three-bars"]), [class*="three-bars"]'
   )).map(function(el) {
     return el.closest('button, [role="button"], a, div[tabindex]') || el;
   }) : [];
@@ -1074,7 +1074,7 @@ export class JsSynthesizer {
   // Also collect any triggers containing hamburger/bars icon inside navRoot
   if (navRoot) {
     Array.from(navRoot.querySelectorAll('button, a, [role="button"]')).forEach(function(el) {
-      if (el.querySelector('.fa-bars, [class*="fa-bars"], [class*="fa-navicon"], [class*="burger"], [class*="menu-icon"], svg[class*="menu"], svg[class*="burger"], [class*="mobilenav" i], [class*="mobile-nav" i], [class*="mob-nav" i], [class*="Icon--mobilenav" i]')) {
+      if (el.querySelector('.fa-bars, [class*="fa-bars"], [class*="fa-navicon"], [class*="three-bars"], [class*="octicon-three-bars"], [class*="burger"], [class*="menu-icon"], svg[class*="menu"], svg[class*="burger"], svg[class*="three-bars"], svg.octicon-three-bars, [class*="mobilenav" i], [class*="mobile-nav" i], [class*="mob-nav" i], [class*="Icon--mobilenav" i]')) {
         allMenuBtnCandidates.push(el);
       }
       if (!allMenuBtnCandidates.includes(el)) {
@@ -1082,7 +1082,7 @@ export class JsSynthesizer {
         if (svg) {
           const svgCls = (svg.getAttribute('class') || '').toLowerCase();
           const svgLabel = (svg.getAttribute('aria-label') || '').toLowerCase();
-          if (svgCls.includes('mobilenav') || svgCls.includes('mobile-nav') || svgCls.includes('menu') || svgLabel.includes('navigation') || svgLabel.includes('menu')) {
+          if (svgCls.includes('three-bars') || svgCls.includes('mobilenav') || svgCls.includes('mobile-nav') || svgCls.includes('menu') || svgLabel.includes('navigation') || svgLabel.includes('menu')) {
             allMenuBtnCandidates.push(el);
           }
         }
