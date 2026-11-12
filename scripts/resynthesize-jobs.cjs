@@ -1,16 +1,27 @@
 const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
-const { GroundUpSynthesisEngine } = require('../dist/synthesis/engine.js');
-const { CssPurger } = require('../dist/optimizer/css-purger.js');
-const { FidelityGuard } = require('../dist/validator/fidelity-guard.js');
+let GroundUpSynthesisEngine, CssPurger, FidelityGuard;
+try {
+  ({ GroundUpSynthesisEngine } = require('../dist/synthesis/engine.js'));
+  ({ CssPurger } = require('../dist/optimizer/css-purger.js'));
+  ({ FidelityGuard } = require('../dist/validator/fidelity-guard.js'));
+} catch (e) {
+  ({ GroundUpSynthesisEngine } = require('./dist/synthesis/engine.js'));
+  ({ CssPurger } = require('./dist/optimizer/css-purger.js'));
+  ({ FidelityGuard } = require('./dist/validator/fidelity-guard.js'));
+}
 
 async function resynthesizeJob(jobId) {
   console.log(`\n======================================================`);
   console.log(`Re-synthesizing job [${jobId}]...`);
   console.log(`======================================================`);
 
-  const jobDir = path.join(__dirname, '../storage/jobs', jobId);
+  let storageBase = path.join(__dirname, '../storage/jobs');
+  if (!fs.existsSync(storageBase)) {
+    storageBase = path.join(process.cwd(), 'storage/jobs');
+  }
+  const jobDir = path.join(storageBase, jobId);
   const jobMetaPath = path.join(jobDir, 'job.json');
   if (!fs.existsSync(jobMetaPath)) {
     console.error(`Job metadata not found: ${jobMetaPath}`);
@@ -218,9 +229,21 @@ ${secRes.html}
 }
 
 async function main() {
-  await resynthesizeJob('job_6fee83c77a7e468e');
-  await resynthesizeJob('job_e5d2e10b83114c40');
-  await resynthesizeJob('job_a176cf8c70844901');
+  const cliArgs = process.argv.slice(2).filter(j => !j.startsWith('-') && j !== '-');
+  let jobs = cliArgs;
+  if (jobs.length === 0) {
+    let storageBase = path.join(__dirname, '../storage/jobs');
+    if (!fs.existsSync(storageBase)) {
+      storageBase = path.join(process.cwd(), 'storage/jobs');
+    }
+    if (fs.existsSync(storageBase)) {
+      jobs = fs.readdirSync(storageBase).filter(d => d.startsWith('job_'));
+    }
+  }
+
+  for (const j of jobs) {
+    await resynthesizeJob(j);
+  }
   console.log('\n=== ALL TARGET JOBS RE-SYNTHESIZED SUCCESSFULLY ===\n');
 }
 
