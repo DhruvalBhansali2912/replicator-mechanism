@@ -1,0 +1,1470 @@
+[
+  {
+    "siteId": "github",
+    "siteName": "GitHub",
+    "siteUrl": "https://github.com/securecentricdev/secure-centric-website",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 97.8,
+        "visualStats": {
+          "score": 97.8,
+          "dimensionRatio": 100,
+          "overlapMatch": 97.8,
+          "liveDimensions": "2880x136",
+          "cloneDimensions": "2880x136",
+          "diffPixels": 8631,
+          "totalOverlapPixels": 391680
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 100,
+        "interactionScore": 100,
+        "aiMatchScore": 99.23,
+        "passed": true,
+        "liveMenuTree": {
+          "totalTriggers": 11,
+          "items": [
+            {
+              "triggerLabel": "ProductsPlatformGitHubReposito",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": true,
+              "subItemCount": 8,
+              "subItems": [
+                "GitHubRepository hosting, code",
+                "CopilotAI coding agent for tas",
+                "ActionsCI/CD and automation",
+                "Code QualityQuality analysis, ",
+                "CodespacesCloud development en",
+                "Code SecurityVulnerability det",
+                "Secret ProtectionSecret scanni",
+                "All Features"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "DevelopersLearnDocumentationTr",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Developers",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Training",
+                "Certifications",
+                "Build with Copilot",
+                "Customize Copilot",
+                "Integrations",
+                "Trending repos",
+                "GitHub Sponsors"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "BusinessesBy StageEnterprisesT",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Businesses",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Enterprises",
+                "Team",
+                "Startups",
+                "Nonprofits",
+                "Healthcare",
+                "Financial services",
+                "Manufacturing",
+                "Government"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "ResourcesLearn & ConnectDocume",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Resource center",
+                "Blog",
+                "Events & webinars",
+                "Community Forum",
+                "Customer Stories",
+                "Integrations",
+                "Customer support"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 11,
+          "items": [
+            {
+              "triggerLabel": "ProductsPlatformGitHubReposito",
+              "hasSubmenu": true,
+              "subItemCount": 7,
+              "subItems": [
+                "GitHubRepository hosting, code",
+                "CopilotAI coding agent for tas",
+                "ActionsCI/CD and automation",
+                "Code QualityQuality analysis, ",
+                "CodespacesCloud development en",
+                "Code SecurityVulnerability det",
+                "Secret ProtectionSecret scanni"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": true,
+              "subItemCount": 8,
+              "subItems": [
+                "GitHubRepository hosting, code",
+                "CopilotAI coding agent for tas",
+                "ActionsCI/CD and automation",
+                "Code QualityQuality analysis, ",
+                "CodespacesCloud development en",
+                "Code SecurityVulnerability det",
+                "Secret ProtectionSecret scanni",
+                "All Features"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "DevelopersLearnDocumentationTr",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Training",
+                "Certifications",
+                "Build with Copilot",
+                "Customize Copilot",
+                "Integrations",
+                "Trending repos",
+                "GitHub Sponsors"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Developers",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Training",
+                "Certifications",
+                "Build with Copilot",
+                "Customize Copilot",
+                "Integrations",
+                "Trending repos",
+                "GitHub Sponsors"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "BusinessesBy StageEnterprisesT",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Enterprises",
+                "Team",
+                "Startups",
+                "Nonprofits",
+                "Healthcare",
+                "Financial services",
+                "Manufacturing",
+                "Government"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Businesses",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Enterprises",
+                "Team",
+                "Startups",
+                "Nonprofits",
+                "Healthcare",
+                "Financial services",
+                "Manufacturing",
+                "Government"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "ResourcesLearn & ConnectDocume",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Resource center",
+                "Blog",
+                "Events & webinars",
+                "Community Forum",
+                "Customer Stories",
+                "Integrations",
+                "Customer support"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Resource center",
+                "Blog",
+                "Events & webinars",
+                "Community Forum",
+                "Customer Stories",
+                "Integrations",
+                "Customer support"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "github_navbar_live_resting.png",
+          "cloneResting": "github_navbar_clone_resting.png",
+          "diffResting": "github_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "supabase",
+    "siteName": "Supabase",
+    "siteUrl": "https://supabase.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 96.36,
+        "visualStats": {
+          "score": 96.36,
+          "dimensionRatio": 100,
+          "overlapMatch": 96.4,
+          "liveDimensions": "2880x130",
+          "cloneDimensions": "2880x130",
+          "diffPixels": 13619,
+          "totalOverlapPixels": 374400
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 100,
+        "interactionScore": 80,
+        "aiMatchScore": 94.73,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 15,
+          "items": [
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "DatabaseFully portable Postgre",
+                "AuthenticationUser Management ",
+                "StorageServerless storage for ",
+                "Edge FunctionsDeploy code glob",
+                "ComputePrivate AlphaSandboxes ",
+                "RealtimeSynchronize and broadc",
+                "VectorAI toolkit to manage emb",
+                "CronSchedule and manage recurr"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Developers",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "DatabaseFully portable Postgre",
+                "AuthenticationUser Management ",
+                "StorageServerless storage for ",
+                "Edge FunctionsDeploy code glob",
+                "ComputePrivate AlphaSandboxes ",
+                "RealtimeSynchronize and broadc",
+                "VectorAI toolkit to manage emb",
+                "CronSchedule and manage recurr"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Developers",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Documentation",
+                "Contribute",
+                "Supabase Library",
+                "Changelog",
+                "Support",
+                "Open Source",
+                "Become a Partner",
+                "Partner Catalog"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Solutions",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "DatabaseFully portable Postgre",
+                "AuthenticationUser Management ",
+                "StorageServerless storage for ",
+                "Edge FunctionsDeploy code glob",
+                "ComputePrivate AlphaSandboxes ",
+                "RealtimeSynchronize and broadc",
+                "VectorAI toolkit to manage emb",
+                "CronSchedule and manage recurr"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Solutions",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "AI Builders",
+                "No Code",
+                "Beginners",
+                "Developers",
+                "Postgres Devs",
+                "Vibe Coders",
+                "Hackathon Contestants",
+                "Startups"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Pricing",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "DatabaseFully portable Postgre",
+                "AuthenticationUser Management ",
+                "StorageServerless storage for ",
+                "Edge FunctionsDeploy code glob",
+                "ComputePrivate AlphaSandboxes ",
+                "RealtimeSynchronize and broadc",
+                "VectorAI toolkit to manage emb",
+                "CronSchedule and manage recurr"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Pricing",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "DatabaseFully portable Postgre",
+                "AuthenticationUser Management ",
+                "StorageServerless storage for ",
+                "Edge FunctionsDeploy code glob",
+                "ComputePrivate AlphaSandboxes ",
+                "RealtimeSynchronize and broadc",
+                "VectorAI toolkit to manage emb",
+                "CronSchedule and manage recurr"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 15,
+          "items": [
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Developers",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Developers",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Solutions",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Solutions",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Pricing",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Pricing",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "supabase_navbar_live_resting.png",
+          "cloneResting": "supabase_navbar_clone_resting.png",
+          "diffResting": "supabase_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "linear",
+    "siteName": "Linear",
+    "siteUrl": "https://linear.app/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 98.65,
+        "visualStats": {
+          "score": 98.65,
+          "dimensionRatio": 100,
+          "overlapMatch": 98.6,
+          "liveDimensions": "2880x146",
+          "cloneDimensions": "2880x146",
+          "diffPixels": 5692,
+          "totalOverlapPixels": 420480
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 100,
+        "interactionScore": 80,
+        "aiMatchScore": 95.53,
+        "passed": true,
+        "liveMenuTree": {
+          "totalTriggers": 12,
+          "items": [
+            {
+              "triggerLabel": "ProductResourcesCustomersPrici",
+              "hasSubmenu": true,
+              "subItemCount": 6,
+              "subItems": [
+                "Product",
+                "Resources",
+                "Customers",
+                "Pricing",
+                "Now",
+                "Contact"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "AboutMeet the team and thestor",
+                "CareersCome work with us on th",
+                "DocsLearn how to use everypart",
+                "DevelopersBuild on the Linear ",
+                "Switch to Linear",
+                "For enterprise",
+                "For startups",
+                "Download"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": true,
+              "subItemCount": 8,
+              "subItems": [
+                "AboutMeet the team and thestor",
+                "CareersCome work with us on th",
+                "DocsLearn how to use everypart",
+                "DevelopersBuild on the Linear ",
+                "Switch to Linear",
+                "For enterprise",
+                "For startups",
+                "Download"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Customers",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Pricing",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 12,
+          "items": [
+            {
+              "triggerLabel": "ProductProductPopularFeaturedA",
+              "hasSubmenu": true,
+              "subItemCount": 6,
+              "subItems": [
+                "Product",
+                "Resources",
+                "Customers",
+                "Pricing",
+                "Now",
+                "Contact"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "ProductProductPopularFeaturedA",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Product",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Customers",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Pricing",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "linear_navbar_live_resting.png",
+          "cloneResting": "linear_navbar_clone_resting.png",
+          "diffResting": "linear_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "tailwindcss",
+    "siteName": "Tailwind CSS",
+    "siteUrl": "https://tailwindcss.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 0.77,
+        "visualStats": {
+          "score": 0.77,
+          "dimensionRatio": 14.3,
+          "overlapMatch": 5.4,
+          "liveDimensions": "2880x114",
+          "cloneDimensions": "2880x800",
+          "diffPixels": 310676,
+          "totalOverlapPixels": 328320
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 94,
+        "interactionScore": 80,
+        "aiMatchScore": 60.07,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 1,
+          "items": [
+            {
+              "triggerLabel": "v4.3",
+              "hasSubmenu": true,
+              "subItemCount": 5,
+              "subItems": [
+                "v4.3",
+                "v3.4.17",
+                "v2.2.19",
+                "v1.9.6",
+                "v0.7.4"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 1,
+          "items": [
+            {
+              "triggerLabel": "v4.3",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": true,
+          "opened": true,
+          "itemCount": 8
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "tailwindcss_navbar_live_resting.png",
+          "cloneResting": "tailwindcss_navbar_clone_resting.png",
+          "diffResting": "tailwindcss_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "resend",
+    "siteName": "Resend",
+    "siteUrl": "https://resend.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 98.42,
+        "visualStats": {
+          "score": 98.42,
+          "dimensionRatio": 100,
+          "overlapMatch": 98.4,
+          "liveDimensions": "2880x116",
+          "cloneDimensions": "2880x116",
+          "diffPixels": 5277,
+          "totalOverlapPixels": 334080
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 100,
+        "interactionScore": 100,
+        "aiMatchScore": 99.45,
+        "passed": true,
+        "liveMenuTree": {
+          "totalTriggers": 13,
+          "items": [
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Company",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Company",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Enterprise",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Enterprise",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Help",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Help",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 13,
+          "items": [
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Company",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Company",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Enterprise",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Enterprise",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Help",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Help",
+              "hasSubmenu": true,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": true,
+          "opened": true,
+          "itemCount": 82
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "resend_navbar_live_resting.png",
+          "cloneResting": "resend_navbar_clone_resting.png",
+          "diffResting": "resend_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "cal",
+    "siteName": "Cal.com",
+    "siteUrl": "https://cal.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 50.56,
+        "visualStats": {
+          "score": 50.56,
+          "dimensionRatio": 56.3,
+          "overlapMatch": 89.9,
+          "liveDimensions": "2640x128",
+          "cloneDimensions": "2640x72",
+          "diffPixels": 19237,
+          "totalOverlapPixels": 190080
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 100,
+        "interactionScore": 90,
+        "aiMatchScore": 80.7,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 10,
+          "items": [
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": true,
+              "subItemCount": 6,
+              "subItems": [
+                "9:41BookingsUpcomingToday10:00",
+                "Scheduling LinksShare one link",
+                "Event planningNewPlan any even",
+                "Discover ServicesNewFind and b",
+                "Cal.aiNewAn assistant that sch",
+                "NewCal.com launches v6.9.5Lear"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Use cases",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Use cases",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Recurring eventsBook a series ",
+                "Requires confirmationApprove b",
+                "Instant meetingsTalk to whoeve",
+                "Out of officeRedirect bookings",
+                "Dynamic group linksTwo people,",
+                "SeatsSeveral people in one slo",
+                "Booking questionsAsk what you ",
+                "Buffers & limitsBreathing room"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 10,
+          "items": [
+            {
+              "triggerLabel": "ProductsEnglish (US)EspañolFra",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": true,
+              "subItemCount": 7,
+              "subItems": [
+                "English (US)",
+                "Español",
+                "Français",
+                "Deutsch",
+                "Italiano",
+                "日本語",
+                "Português"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Use cases",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Use cases",
+              "hasSubmenu": true,
+              "subItemCount": 7,
+              "subItems": [
+                "English (US)",
+                "Español",
+                "Français",
+                "Deutsch",
+                "Italiano",
+                "日本語",
+                "Português"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Features",
+              "hasSubmenu": true,
+              "subItemCount": 7,
+              "subItems": [
+                "English (US)",
+                "Español",
+                "Français",
+                "Deutsch",
+                "Italiano",
+                "日本語",
+                "Português"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": false,
+              "subItemCount": 0,
+              "subItems": [],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": true,
+              "subItemCount": 7,
+              "subItems": [
+                "English (US)",
+                "Español",
+                "Français",
+                "Deutsch",
+                "Italiano",
+                "日本語",
+                "Português"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "cal_navbar_live_resting.png",
+          "cloneResting": "cal_navbar_clone_resting.png",
+          "diffResting": "cal_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "posthog",
+    "siteName": "PostHog",
+    "siteUrl": "https://posthog.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 2.73,
+        "visualStats": {
+          "score": 2.73,
+          "dimensionRatio": 34.9,
+          "overlapMatch": 7.8,
+          "liveDimensions": "1024x110",
+          "cloneDimensions": "2880x108",
+          "diffPixels": 101946,
+          "totalOverlapPixels": 110592
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 100,
+        "interactionScore": 100,
+        "aiMatchScore": 65.96,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 0,
+          "items": []
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 0,
+          "items": []
+        },
+        "liveMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "posthog_navbar_live_resting.png",
+          "cloneResting": "posthog_navbar_clone_resting.png",
+          "diffResting": "posthog_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "raycast",
+    "siteName": "Raycast",
+    "siteUrl": "https://raycast.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 21.26,
+        "visualStats": {
+          "score": 21.26,
+          "dimensionRatio": 24.2,
+          "overlapMatch": 88,
+          "liveDimensions": "1260x84",
+          "cloneDimensions": "2880x152",
+          "diffPixels": 12753,
+          "totalOverlapPixels": 105840
+        },
+        "domMatchScore": 100,
+        "stylesMatchScore": 85,
+        "interactionScore": 100,
+        "aiMatchScore": 69.44,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 0,
+          "items": []
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 0,
+          "items": []
+        },
+        "liveMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "raycast_navbar_live_resting.png",
+          "cloneResting": "raycast_navbar_clone_resting.png",
+          "diffResting": "raycast_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "vercel",
+    "siteName": "Vercel",
+    "siteUrl": "https://vercel.com/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 50.29,
+        "visualStats": {
+          "score": 50.29,
+          "dimensionRatio": 53.1,
+          "overlapMatch": 94.7,
+          "liveDimensions": "2880x128",
+          "cloneDimensions": "2880x68",
+          "diffPixels": 10454,
+          "totalOverlapPixels": 195840
+        },
+        "domMatchScore": 89,
+        "stylesMatchScore": 100,
+        "interactionScore": 100,
+        "aiMatchScore": 79.85,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 2,
+          "items": [
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "AI SDK",
+                "AI Gateway",
+                "Sandbox",
+                "Passport",
+                "Connect",
+                "eve",
+                "Security",
+                "Content Delivery"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Docs",
+                "About",
+                "Blog",
+                "Changelog",
+                "Knowledge Base",
+                "AI Apps",
+                "Web Apps",
+                "Marketing Sites"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 2,
+          "items": [
+            {
+              "triggerLabel": "Products",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "AI SDK",
+                "AI Gateway",
+                "Sandbox",
+                "Passport",
+                "Connect",
+                "eve",
+                "Security",
+                "Content Delivery"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            },
+            {
+              "triggerLabel": "Resources",
+              "hasSubmenu": true,
+              "subItemCount": 10,
+              "subItems": [
+                "Docs",
+                "About",
+                "Blog",
+                "Changelog",
+                "Knowledge Base",
+                "AI Apps",
+                "Web Apps",
+                "Marketing Sites"
+              ],
+              "subSubItemCount": 0,
+              "subSubItems": []
+            }
+          ]
+        },
+        "liveMobileDrawer": {
+          "hasButton": true,
+          "opened": true,
+          "itemCount": 71
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "vercel_navbar_live_resting.png",
+          "cloneResting": "vercel_navbar_clone_resting.png",
+          "diffResting": "vercel_navbar_diff_resting.png"
+        }
+      }
+    ]
+  },
+  {
+    "siteId": "astro",
+    "siteName": "Astro",
+    "siteUrl": "https://astro.build/",
+    "sections": [
+      {
+        "key": "navbar",
+        "archetype": "navbar",
+        "visualScore": 44.83,
+        "visualStats": {
+          "score": 44.83,
+          "dimensionRatio": 65,
+          "overlapMatch": 69,
+          "liveDimensions": "2880x160",
+          "cloneDimensions": "2880x104",
+          "diffPixels": 92950,
+          "totalOverlapPixels": 299520
+        },
+        "domMatchScore": 98,
+        "stylesMatchScore": 100,
+        "interactionScore": 100,
+        "aiMatchScore": 80.19,
+        "passed": false,
+        "liveMenuTree": {
+          "totalTriggers": 0,
+          "items": []
+        },
+        "cloneMenuTree": {
+          "totalTriggers": 0,
+          "items": []
+        },
+        "liveMobileDrawer": {
+          "hasButton": false,
+          "opened": false,
+          "itemCount": 0
+        },
+        "cloneMobileDrawer": {
+          "hasButton": true,
+          "opened": false,
+          "itemCount": 0
+        },
+        "proofs": {
+          "liveResting": "astro_navbar_live_resting.png",
+          "cloneResting": "astro_navbar_clone_resting.png",
+          "diffResting": "astro_navbar_diff_resting.png"
+        }
+      }
+    ]
+  }
+]

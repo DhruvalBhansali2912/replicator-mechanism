@@ -310,6 +310,73 @@ h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [clas
   display: flex !important;
 }
 
+/* Universal ActionList & NavList Dialog/Dropdown Alignment */
+[role="dialog"].is-open [class*="ActionListItem"],
+[role="dialog"].is-open .prc-ActionList-ActionListItem-So4vC,
+[data-component="ActionList.Item"] {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+[role="dialog"].is-open [class*="ActionListContent"],
+[role="dialog"].is-open .prc-ActionList-ActionListContent-KBb8- {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 6px 8px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  text-decoration: none !important;
+  color: #1f2328 !important;
+}
+
+[role="dialog"].is-open [class*="LeadingVisual"],
+[role="dialog"].is-open .prc-ActionList-LeadingVisual-NBr28 {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  margin-right: 8px !important;
+  flex-shrink: 0 !important;
+  color: #656d76 !important;
+}
+
+[role="dialog"].is-open [class*="ActionListSubContent"],
+[role="dialog"].is-open .prc-ActionList-ActionListSubContent-gKsFp {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+[role="dialog"].is-open [class*="ItemLabel"],
+[role="dialog"].is-open .prc-ActionList-ItemLabel-81ohH {
+  display: inline-block !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: #1f2328 !important;
+}
+
+[role="dialog"].is-open [class*="Divider"],
+[role="dialog"].is-open .prc-ActionList-Divider-taVfb {
+  display: block !important;
+  width: 100% !important;
+  height: 1px !important;
+  background-color: #d1d9e0 !important;
+  margin: 8px 0 !important;
+}
+
 /* Universal Lenis & Virtual Smooth Scroll Normalization */
 html.lenis, html.lenis body, html.lenis-stopped, body.lenis-stopped {
   height: auto !important;
