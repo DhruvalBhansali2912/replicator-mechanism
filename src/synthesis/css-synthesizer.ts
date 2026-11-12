@@ -1959,6 +1959,8 @@ ${this.getUniversalInteractiveRules(ast)}
     // Universal Off-Canvas Drawer & Overlay Resting State (Never push document flow)
     scopedCss += '\n#site-menu, [id*="site-menu"], [class*="site-menu"]:not([class*="mobile-nav-drawer"]):not([class*="drawer"]), [class*="menu-drawer"], [class*="offcanvas"], [class*="off-canvas"] { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; pointer-events: none !important; visibility: hidden !important; opacity: 0 !important; z-index: 10000 !important; }\n';
     scopedCss += '\n#site-menu.is-active, #site-menu.open, [class*="site-menu"].is-active, [class*="site-menu"].open, .mobile-nav-drawer.open, .mobile-nav-backdrop.open, [class*="mobile-nav-drawer"].open, [class*="drawer"].open, [class*="drawer"].is-active { pointer-events: auto !important; visibility: visible !important; opacity: 1 !important; }\n';
+    scopedCss += '\n.mobile-nav-backdrop { position: fixed !important; inset: 0 !important; background-color: rgba(3, 6, 18, 0.75) !important; backdrop-filter: blur(4px) !important; -webkit-backdrop-filter: blur(4px) !important; z-index: 99990 !important; opacity: 0; visibility: hidden; transition: opacity 0.25s, visibility 0.25s !important; }\n';
+    scopedCss += '\n.mobile-nav-backdrop.open, .mobile-nav-backdrop.is-open { opacity: 1 !important; visibility: visible !important; display: block !important; pointer-events: auto !important; }\n';
 
     // Universal Container Query Root & Component Isolation
     scopedCss += '\nhtml, body, .container, [class*="nav-wrapper"], [class*="navbar"], header, [class*="holder"], [class*="scope"] { container-type: inline-size; }\n';

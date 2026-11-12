@@ -1095,7 +1095,15 @@ export class JsSynthesizer {
   // Expose global drawer controls if referenced in inline handlers or page scripts
   window.openMobileDrawer = function() {
     const d = document.querySelector('.mobile-nav-drawer, #mobile-nav-drawer, [class*="mobile-nav-drawer"]');
-    const b = document.querySelector('.mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"], [class*="drawer-backdrop"]');
+    let b = document.querySelector('.mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"], [class*="drawer-backdrop"]');
+    if (!b) {
+      b = document.createElement('div');
+      b.className = 'mobile-nav-backdrop';
+      b.id = 'mobile-drawer-backdrop';
+      b.setAttribute('onclick', 'window.closeMobileDrawer()');
+      b.addEventListener('click', function() { if (typeof window.closeMobileDrawer === 'function') window.closeMobileDrawer(); });
+      document.body.appendChild(b);
+    }
     if (d) {
       d.classList.add('open', 'is-open', 'show', 'active');
       d.style.setProperty('display', 'flex', 'important');
