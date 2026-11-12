@@ -3295,9 +3295,9 @@ a.tile-link, [class*="tile-link"], [class*="overlay-link"] {
 }
 
 @media (min-width: 834px) {
-  header nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]),
-  nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]),
-  nav[role="navigation"]:not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]),
+  header nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]):not([class*="social"]):not([class*="share"]),
+  nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]):not([class*="social"]):not([class*="share"]),
+  nav[role="navigation"]:not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]):not([class*="social"]):not([class*="share"]),
   [role="menubar"] {
     display: flex;
     flex-direction: row;
@@ -3305,9 +3305,9 @@ a.tile-link, [class*="tile-link"], [class*="overlay-link"] {
     list-style: none;
   }
   
-  header nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]) > li,
-  nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]) > li,
-  nav[role="navigation"]:not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]) > li,
+  header nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]):not([class*="social"]):not([class*="share"]) > li,
+  nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]):not([class*="social"]):not([class*="share"]) > li,
+  nav[role="navigation"]:not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]):not([class*="social"]):not([class*="share"]) > li,
   [role="menubar"] > [role="menuitem"] {
     display: inline-flex;
     align-items: center;
