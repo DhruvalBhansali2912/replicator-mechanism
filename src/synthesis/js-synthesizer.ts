@@ -1117,6 +1117,12 @@ export class JsSynthesizer {
       b.style.setProperty('display', 'block', 'important');
       b.style.setProperty('visibility', 'visible', 'important');
       b.style.setProperty('opacity', '1', 'important');
+      b.style.setProperty('position', 'fixed', 'important');
+      b.style.setProperty('top', '0', 'important');
+      b.style.setProperty('left', '0', 'important');
+      b.style.setProperty('width', '100vw', 'important');
+      b.style.setProperty('height', '100vh', 'important');
+      b.style.setProperty('z-index', '99990', 'important');
       b.style.setProperty('pointer-events', 'auto', 'important');
     }
   };
