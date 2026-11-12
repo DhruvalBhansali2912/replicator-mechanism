@@ -198,7 +198,8 @@ export class GroundUpSynthesisEngine {
         }
         htmlAttrs = hAttr;
 
-        const bodyClass = snapBody.attr('class') || '';
+        const rawBodyClass = snapBody.attr('class') || '';
+        const bodyClass = rawBodyClass.replace(/\b(admin-bar|logged-in)\b/g, '').trim().replace(/\s+/g, ' ');
         const bodyStyle = snapBody.attr('style') || '';
         let bAttr = '';
         if (bodyClass) bAttr += ` class="${bodyClass}"`;

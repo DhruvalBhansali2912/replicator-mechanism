@@ -92,7 +92,10 @@ export class ReconstructionWorker {
         const snapHtml = $snap('html');
         const snapBody = $snap('body');
         const hCls = snapHtml.attr('class');
-        const bCls = snapBody.attr('class');
+        let bCls = snapBody.attr('class');
+        if (bCls) {
+          bCls = bCls.replace(/\b(admin-bar|logged-in)\b/g, '').trim().replace(/\s+/g, ' ');
+        }
         if (hCls) htmlAttrs += ` class="${hCls}"`;
         if (bCls) bodyAttrs += ` class="${bCls}"`;
 

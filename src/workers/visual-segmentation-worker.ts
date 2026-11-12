@@ -24,6 +24,11 @@ export class VisualSegmentationWorker {
 
   public async execute(html: string, sourceUrl?: string): Promise<VisualSegmentationResult> {
     const $ = cheerio.load(html);
+
+    // Universal CMS Admin Bar & Debug Toolbar Sanitization (e.g. WordPress, Drupal, Shopify, debug bars)
+    $('#wpadminbar, #admin-bar, [id*="adminbar"]:not(body), .quicklinks#wp-toolbar, link[href*="admin-bar"], style#admin-bar-inline-css').remove();
+    $('body').removeClass('admin-bar logged-in');
+
     const candidateNodes: { selector: string; tagName: string; html: string; rect: any }[] = [];
     const candidateElements: any[] = [];
     const seenElements = new Set<any>();
@@ -89,11 +94,13 @@ export class VisualSegmentationWorker {
         return;
       }
 
-      // Exclude off-canvas menus, mobile drawers, preloaders, curtains, popups, cookie banners
+      // Exclude off-canvas menus, mobile drawers, preloaders, curtains, popups, cookie banners, CMS admin bars
       if (
         id.includes('site-menu') || id.includes('mobile-nav') || id.includes('mobile-menu') || id.includes('drawer') || id.includes('offcanvas') || id.includes('off-canvas') ||
         cls.includes('site-menu') || cls.includes('mobile-nav') || cls.includes('mobile-menu') || cls.includes('drawer') || cls.includes('offcanvas') || cls.includes('off-canvas') ||
-        cls.includes('preloader') || cls.includes('curtain') || cls.includes('loader') || cls.includes('intro-overlay') || cls.includes('cookie') || cls.includes('alert-message') || cls.includes('toast') || cls.includes('popup')
+        cls.includes('preloader') || cls.includes('curtain') || cls.includes('loader') || cls.includes('intro-overlay') || cls.includes('cookie') || cls.includes('alert-message') || cls.includes('toast') || cls.includes('popup') ||
+        (id.includes('admin') && !id.includes('administrator')) || id.includes('wp-toolbar') || id.includes('toolbar') || id.includes('debugbar') ||
+        cls.includes('admin-bar') || cls.includes('adminbar') || cls.includes('wp-toolbar') || cls.includes('quicklinks') || cls.includes('skip-link')
       ) {
         return;
       }
@@ -158,7 +165,8 @@ export class VisualSegmentationWorker {
 
     // 1. Headers / Banners / Navigation Landmarks (exclude card headers inside sections)
     let headerAdded = false;
-    $('header:not(section header):not(article header):not(li header):not(footer header), [role="banner"], .page-header, [class*="site-header"], nav:not(header nav):not(footer nav):not(section nav), [role="navigation"]:not(header [role="navigation"]):not(footer [role="navigation"]):not(section [role="navigation"])').each((_, el) => {
+    // Priority A: Explicit semantic header landmarks and primary site headers
+    $('header:not(section header):not(article header):not(li header):not(footer header), [role="banner"], .page-header, [class*="site-header"], [class*="site_header"], [class*="navbar"]').each((_, el) => {
       if (headerAdded) return;
       const countBefore = candidateNodes.length;
       addCandidate(el);
@@ -166,6 +174,18 @@ export class VisualSegmentationWorker {
         headerAdded = true;
       }
     });
+
+    // Priority B: Standalone navigation if no explicit header was found
+    if (!headerAdded) {
+      $('nav:not(header nav):not(footer nav):not(section nav), [role="navigation"]:not(header [role="navigation"]):not(footer [role="navigation"]):not(section [role="navigation"])').each((_, el) => {
+        if (headerAdded) return;
+        const countBefore = candidateNodes.length;
+        addCandidate(el);
+        if (candidateNodes.length > countBefore) {
+          headerAdded = true;
+        }
+      });
+    }
 
     // 2. Main content rows and sections
     // Detect builder / layout rows and semantic sections across platforms (AEM, Next.js, Webflow, Shopify, WordPress, standard HTML5)

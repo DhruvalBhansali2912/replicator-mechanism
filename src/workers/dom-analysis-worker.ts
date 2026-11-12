@@ -23,6 +23,10 @@ export class DOMAnalysisWorker {
     // Remove tracking, telemetry, ad scripts and empty comments
     $('script[src*="analytics"], script[src*="googletagmanager"], script[src*="facebook"], noscript, iframe').remove();
 
+    // Universal CMS Admin Bar & Debug Toolbar Sanitization (e.g. WordPress, Drupal, Shopify, debug bars)
+    $('#wpadminbar, #admin-bar, [id*="adminbar"]:not(body), .quicklinks#wp-toolbar, link[href*="admin-bar"], style#admin-bar-inline-css').remove();
+    $('body').removeClass('admin-bar logged-in');
+
     let totalNodes = 0;
     let maxDepth = 0;
     const semanticTagsCount: Record<string, number> = {};

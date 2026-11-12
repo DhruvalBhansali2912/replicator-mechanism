@@ -1220,7 +1220,9 @@ export class HtmlSynthesizer {
                 }
               }
 
-              if (true) {
+              const isOverlayOrPortal = $rootNode.is('[role="dialog"], [role="menu"], [role="listbox"], dialog, [data-component*="Portal"], [data-component*="Dialog"], [data-component*="Overlay"], [data-component*="Menu"], [class*="Overlay"], [class*="Backdrop"], [class*="modal"], [class*="drawer"], [class*="popup"], [class*="dropdown-menu"], [class*="sub-menu"], [class*="submenu"], [class*="menu-wrap"]') || $rootNode.find('[role="dialog"], dialog, [class*="Overlay"], [class*="Dialog"], [role="menu"]').length > 0;
+
+              if (isOverlayOrPortal) {
                 $rootNode.attr('data-mutation-id', mutKey);
                 $rootNode.attr('data-mutation-src', interaction.triggerSelector);
                 $rootNode.attr('data-portal-for', interaction.triggerSelector);
@@ -1235,24 +1237,26 @@ export class HtmlSynthesizer {
                 }
                 const cleanedStyle = curStyle.replace(/display:\s*[^;!]+(!important)?/gi, '').trim();
                 $rootNode.attr('style', (cleanedStyle ? cleanedStyle + '; ' : '') + 'display: none !important;');
-
-                let appended = false;
-                if (m.targetSelector) {
-                  const $target = $(m.targetSelector).first();
-                  if ($target.length > 0) {
-                    $target.append('\n' + $mut.html());
-                    appended = true;
-                  }
-                }
-                if (!appended && interaction.triggerSelector) {
-                  const $trig = $(interaction.triggerSelector).first();
-                  if ($trig.length > 0 && $trig.parent().length > 0) {
-                    $trig.parent().append('\n' + $mut.html());
-                    appended = true;
-                  }
-                }
-                // Do not blindly append unanchored fragments to root if neither target nor trigger exists in section!
+              } else {
+                $rootNode.attr('data-mutation-id', mutKey);
               }
+
+              let appended = false;
+              if (m.targetSelector) {
+                const $target = $(m.targetSelector).first();
+                if ($target.length > 0) {
+                  $target.append('\n' + $mut.html());
+                  appended = true;
+                }
+              }
+              if (!appended && interaction.triggerSelector) {
+                const $trig = $(interaction.triggerSelector).first();
+                if ($trig.length > 0 && $trig.parent().length > 0) {
+                  $trig.parent().append('\n' + $mut.html());
+                  appended = true;
+                }
+              }
+              // Do not blindly append unanchored fragments to root if neither target nor trigger exists in section!
             }
           });
         }

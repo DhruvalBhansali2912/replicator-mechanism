@@ -151,7 +151,23 @@ export function resolveTargetSectionFromSnapshot(
       const $el = $snap(el);
       const tag = el.tagName.toLowerCase();
       const cls = ($el.attr('class') || '').toLowerCase();
+      const id = ($el.attr('id') || '').toLowerCase();
       const style = ($el.attr('style') || '').toLowerCase();
+
+      // Reject CMS admin bars, debug toolbars, skip-links
+      if (
+        (id.includes('admin') && !id.includes('administrator')) ||
+        id.includes('toolbar') ||
+        id.includes('debug') ||
+        cls.includes('admin-bar') ||
+        cls.includes('adminbar') ||
+        cls.includes('wp-toolbar') ||
+        cls.includes('quicklinks') ||
+        cls.includes('skip-link') ||
+        cls.includes('screen-reader')
+      ) {
+        return;
+      }
 
       // Reject hidden headers
       if (

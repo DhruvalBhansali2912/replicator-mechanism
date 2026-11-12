@@ -775,6 +775,9 @@ export class JsSynthesizer {
               p.setAttribute('data-state', 'open');
               p.classList.add('is-open', 'open', 'show', 'active');
               p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.matches && ch.matches('[data-component="Tooltip"], [class*="Tooltip"], [popover="auto"]:not([role="dialog"]):not([role="menu"])')) {
+                  return;
+                }
                 if (ch.style && ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
                 if (ch.style && ch.style.opacity === '0') ch.style.removeProperty('opacity');
                 if (ch.style && ch.style.pointerEvents === 'none') ch.style.removeProperty('pointer-events');
@@ -786,7 +789,8 @@ export class JsSynthesizer {
                 if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
                   ch.classList.add('is-open', 'open');
                   ch.setAttribute('data-state', 'open');
-                  ch.style.setProperty('display', 'block', 'important');
+                  const dDisp = (ch.matches('[role="dialog"], [class*="Dialog-Dialog"], [class*="Backdrop"]') ? 'flex' : 'block');
+                  ch.style.setProperty('display', dDisp, 'important');
                   ch.style.setProperty('visibility', 'visible', 'important');
                   ch.style.setProperty('opacity', '1', 'important');
                   if (ch.matches('[class*="Overlay"]:not([class*="Backdrop"]):not([class*="Dialog-Dialog"])')) {
@@ -913,6 +917,7 @@ export class JsSynthesizer {
 
           function openHoverState() {
             clearTimeout(hoverLeaveTimer);
+            const associatedPortals = getAssociatedPortals();
             // Close any other active recorded hover triggers immediately to prevent overlapping menus
             const allActive = Array.from(document.querySelectorAll('[data-has-recorded-interaction="true"]')).filter(function(t) {
               return t !== trigger && t.__replicator_is_toggled && typeof t.__replicator_close === 'function';
@@ -954,6 +959,9 @@ export class JsSynthesizer {
               p.setAttribute('data-state', 'open');
               p.classList.add('is-open', 'open', 'show', 'active');
               p.querySelectorAll('*').forEach(function(ch) {
+                if (ch.matches && ch.matches('[data-component="Tooltip"], [class*="Tooltip"], [popover="auto"]:not([role="dialog"]):not([role="menu"])')) {
+                  return;
+                }
                 if (ch.style && ch.style.visibility === 'hidden') ch.style.removeProperty('visibility');
                 if (ch.style && ch.style.opacity === '0') ch.style.removeProperty('opacity');
                 if (ch.style && ch.style.pointerEvents === 'none') ch.style.removeProperty('pointer-events');
@@ -965,7 +973,8 @@ export class JsSynthesizer {
                 if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
                   ch.classList.add('is-open', 'open');
                   ch.setAttribute('data-state', 'open');
-                  ch.style.setProperty('display', 'block', 'important');
+                  const dDisp = (ch.matches('[role="dialog"], [class*="Dialog-Dialog"], [class*="Backdrop"]') ? 'flex' : 'block');
+                  ch.style.setProperty('display', dDisp, 'important');
                   ch.style.setProperty('visibility', 'visible', 'important');
                   ch.style.setProperty('opacity', '1', 'important');
                   if (ch.matches('[class*="Overlay"]:not([class*="Backdrop"]):not([class*="Dialog-Dialog"])')) {

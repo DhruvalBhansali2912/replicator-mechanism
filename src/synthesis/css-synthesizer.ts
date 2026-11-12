@@ -4352,6 +4352,14 @@ dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
   opacity: 0 !important;
 }
 
+/* Universal Tooltips: Never display resting or active tooltips unless explicitly hovered */
+[data-component="Tooltip"]:not(:hover),
+[class*="Tooltip"]:not(:hover),
+span[popover]:not([role="dialog"]):not([role="menu"]):not(:hover) {
+  display: none !important;
+  pointer-events: none !important;
+}
+
 /* Universal ActionList & Modal Drawer Vertical Stacking Resilience */
 [data-component="Dialog"].is-open,
 [role="dialog"].is-open,
@@ -4369,6 +4377,8 @@ dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
+  animation: none !important;
+  transform: none !important;
 }
 
 [data-component="Dialog"].is-open [data-component="Stack"],
@@ -4446,8 +4456,11 @@ dialog nav > ul > li,
   box-sizing: border-box !important;
 }
 
-[role="dialog"].is-open [class*="ActionListContent"],
-[role="dialog"].is-open .prc-ActionList-ActionListContent-KBb8- {
+[role="dialog"] [class*="ActionListContent"],
+[role="dialog"] .prc-ActionList-ActionListContent-KBb8-,
+dialog [class*="ActionListContent"],
+[data-component="Dialog"] [class*="ActionListContent"],
+[class*="Dialog-Dialog"] [class*="ActionListContent"] {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -4459,8 +4472,11 @@ dialog nav > ul > li,
   color: #1f2328 !important;
 }
 
-[role="dialog"].is-open [class*="LeadingVisual"],
-[role="dialog"].is-open .prc-ActionList-LeadingVisual-NBr28 {
+[role="dialog"] [class*="LeadingVisual"],
+[role="dialog"] .prc-ActionList-LeadingVisual-NBr28,
+dialog [class*="LeadingVisual"],
+[data-component="Dialog"] [class*="LeadingVisual"],
+[class*="Dialog-Dialog"] [class*="LeadingVisual"] {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -4472,8 +4488,11 @@ dialog nav > ul > li,
   color: #656d76 !important;
 }
 
-[role="dialog"].is-open [class*="ActionListSubContent"],
-[role="dialog"].is-open .prc-ActionList-ActionListSubContent-gKsFp {
+[role="dialog"] [class*="ActionListSubContent"],
+[role="dialog"] .prc-ActionList-ActionListSubContent-gKsFp,
+dialog [class*="ActionListSubContent"],
+[data-component="Dialog"] [class*="ActionListSubContent"],
+[class*="Dialog-Dialog"] [class*="ActionListSubContent"] {
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -4482,8 +4501,11 @@ dialog nav > ul > li,
   min-width: 0 !important;
 }
 
-[role="dialog"].is-open [class*="ItemLabel"],
-[role="dialog"].is-open .prc-ActionList-ItemLabel-81ohH {
+[role="dialog"] [class*="ItemLabel"],
+[role="dialog"] .prc-ActionList-ItemLabel-81ohH,
+dialog [class*="ItemLabel"],
+[data-component="Dialog"] [class*="ItemLabel"],
+[class*="Dialog-Dialog"] [class*="ItemLabel"] {
   display: inline-block !important;
   width: auto !important;
   white-space: nowrap !important;
@@ -4495,13 +4517,25 @@ dialog nav > ul > li,
   color: #1f2328 !important;
 }
 
-[role="dialog"].is-open [class*="Divider"],
-[role="dialog"].is-open .prc-ActionList-Divider-taVfb {
+[role="dialog"] [class*="Divider"],
+[role="dialog"] .prc-ActionList-Divider-taVfb,
+dialog [class*="Divider"],
+[data-component="Dialog"] [class*="Divider"],
+[class*="Dialog-Dialog"] [class*="Divider"] {
   display: block !important;
   width: 100% !important;
   height: 1px !important;
   background-color: #d1d9e0 !important;
   margin: 8px 0 !important;
+}
+
+[role="dialog"] .prc-Dialog-DialogOverflowWrapper-JvHzz,
+[role="dialog"] [data-component="ScrollableRegion"],
+[role="dialog"] [data-component="NavList"],
+[role="dialog"] nav,
+[role="dialog"] .p-2 {
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 dialog[open],
@@ -4513,10 +4547,27 @@ dialog.open,
 [role="dialog"][data-state="open"],
 [data-interactive-portal].is-open [role="dialog"],
 [data-interactive-portal][data-state="open"] [role="dialog"],
-[data-interactive-portal].is-open [class*="Overlay"],
-[data-interactive-portal][data-state="open"] [class*="Overlay"],
+[data-interactive-portal].is-open [data-component="Dialog"],
+[data-interactive-portal][data-state="open"] [data-component="Dialog"],
+[data-interactive-portal].is-open [class*="Dialog-Dialog"],
+[data-interactive-portal][data-state="open"] [class*="Dialog-Dialog"] {
+  display: flex !important;
+  flex-direction: column !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
 [data-interactive-portal].is-open [class*="Backdrop"],
 [data-interactive-portal][data-state="open"] [class*="Backdrop"] {
+  display: flex !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+[data-interactive-portal].is-open [class*="Overlay"]:not([class*="Backdrop"]):not([class*="Dialog-Dialog"]),
+[data-interactive-portal][data-state="open"] [class*="Overlay"]:not([class*="Backdrop"]):not([class*="Dialog-Dialog"]) {
   display: block !important;
   pointer-events: auto !important;
   visibility: visible !important;

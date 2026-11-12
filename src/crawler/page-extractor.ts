@@ -1038,7 +1038,38 @@ export class PageExtractor {
 
       // 1. Locate Header / Nav landmarks
       const candidateElements: Element[] = [];
-      const allHeaders = Array.from(document.querySelectorAll('header, [role="banner"], nav, [role="navigation"], [class*="header"]'));
+      const allHeaders = Array.from(document.querySelectorAll('header, [role="banner"], nav, [role="navigation"], [class*="header"]')).filter((el) => {
+        const id = (el.id || '').toLowerCase();
+        const cls = (typeof (el as any).className === 'string' ? (el as any).className : '').toLowerCase();
+        if (
+          (id.includes('admin') && !id.includes('administrator')) ||
+          id.includes('toolbar') ||
+          id.includes('debug') ||
+          cls.includes('admin-bar') ||
+          cls.includes('adminbar') ||
+          cls.includes('wp-toolbar') ||
+          cls.includes('quicklinks') ||
+          cls.includes('skip-link') ||
+          cls.includes('screen-reader')
+        ) {
+          return false;
+        }
+        return true;
+      });
+
+      // Prioritize semantic <header>, [role="banner"], and primary site headers over generic nav/navigation
+      allHeaders.sort((a, b) => {
+        const aTag = a.tagName.toLowerCase();
+        const bTag = b.tagName.toLowerCase();
+        const aCls = (typeof (a as any).className === 'string' ? (a as any).className : '').toLowerCase();
+        const bCls = (typeof (b as any).className === 'string' ? (b as any).className : '').toLowerCase();
+        const aIsHeader = aTag === 'header' || a.getAttribute('role') === 'banner' || aCls.includes('site-header');
+        const bIsHeader = bTag === 'header' || b.getAttribute('role') === 'banner' || bCls.includes('site-header');
+        if (aIsHeader && !bIsHeader) return -1;
+        if (!aIsHeader && bIsHeader) return 1;
+        return 0;
+      });
+
       const header = allHeaders.find((el) => {
         const r = el.getBoundingClientRect();
         return isElementVisible(el) && r.top <= 80 && (r.height >= 20 || (el as HTMLElement).scrollHeight >= 20);
