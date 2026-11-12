@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { execSync } from 'child_process';
 
 // In-memory cache of fetched SVG sprite contents to avoid redundant network requests across requests
 const spriteCache = new Map<string, string>();
@@ -67,17 +68,33 @@ export async function inlineSvgSprites(html: string, baseUrl?: string): Promise<
 
       let svgContent = spriteCache.get(resolvedUrl);
       if (!svgContent) {
-        const resp = await axios.get(resolvedUrl, {
-          timeout: 10000,
-          responseType: 'text',
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            Accept: 'image/svg+xml,image/*,*/*;q=0.8',
-          },
-        });
-        if (resp.data && typeof resp.data === 'string' && resp.data.includes('<')) {
-          svgContent = resp.data;
+        try {
+          const resp = await axios.get(resolvedUrl, {
+            timeout: 10000,
+            responseType: 'text',
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              Accept: 'image/svg+xml,image/*,*/*;q=0.8',
+            },
+          });
+          if (resp.data && typeof resp.data === 'string' && resp.data.includes('<')) {
+            svgContent = resp.data;
+          }
+        } catch (_) {
+          // Fallback to curl which matches system TLS and avoids WAF/TLS fingerprint blocks
+          try {
+            const cleanUrl = resolvedUrl.replace(/"/g, '\\"');
+            const stdout = execSync(`curl -sL --max-time 10 "${cleanUrl}"`, { encoding: 'utf8' });
+            if (stdout && stdout.includes('<')) {
+              svgContent = stdout;
+            }
+          } catch (curlErr: any) {
+            console.warn('[SVG Sprite Inliner] Curl fallback also failed:', curlErr?.message);
+          }
+        }
+
+        if (svgContent) {
           spriteCache.set(resolvedUrl, svgContent);
         }
       }
