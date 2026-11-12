@@ -211,6 +211,7 @@ dialog.is-open, dialog[open], [role="dialog"].is-open, [class*="Dialog-Backdrop"
 (function() {
   const triggers = document.querySelectorAll('${defect.selector}, [aria-haspopup], [id*="menu-button"], [id*="listbox-button"], [class*="l0-menu-toggle-btn"]');
   triggers.forEach(function(btn) {
+    if (btn.hasAttribute('data-has-recorded-interaction') || btn.hasAttribute('data-menu-bound')) return;
     btn.style.pointerEvents = 'auto';
     btn.style.cursor = 'pointer';
 
@@ -556,6 +557,7 @@ a[class*="rounded-full"].active, a[class*="rounded-full"].is-active {
 
   if (triggers.length > 0 && drawer) {
     triggers.forEach(function(btn) {
+      if (btn.hasAttribute('data-has-recorded-interaction') || btn.hasAttribute('data-menu-bound')) return;
       btn.style.pointerEvents = 'auto';
       btn.style.cursor = 'pointer';
       btn.addEventListener('click', function(e) {
