@@ -1529,7 +1529,7 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
             }
           });
 
-          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, .hamburger-menu').length === 0) {
+          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, .hamburger-menu, [class*="mobile-nav-drawer"], [class*="menu-drawer"], [class*="nav-drawer"]').length === 0) {
             // First check if htmlSnapshot has authentic hamburger menu
             if (jobData?.options?.htmlSnapshot) {
               try {
@@ -1550,7 +1550,7 @@ header.site-header:has(> [class*="container"]):not([class*="bg-"]):not([style*="
               } catch (_) {}
             }
 
-          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"]').length === 0) {
+          if ($h('.universal-mobile-menu-drawer, nav.hamburger-menu, [class*="hamburger-menu"], [class*="mobile-nav-drawer"], [class*="menu-drawer"], [class*="nav-drawer"]').length === 0) {
               const drawerListItems: string[] = [];
               const seenLabels = new Set<string>();
 

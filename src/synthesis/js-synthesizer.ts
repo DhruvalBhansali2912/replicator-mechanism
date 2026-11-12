@@ -1092,9 +1092,51 @@ export class JsSynthesizer {
     if (isNavigationSection) {
       scripts.push(`
   // Navigation & Dropdown Mega-Menu Controller
+  // Expose global drawer controls if referenced in inline handlers or page scripts
+  window.openMobileDrawer = function() {
+    const d = document.querySelector('.mobile-nav-drawer, #mobile-nav-drawer, [class*="mobile-nav-drawer"]');
+    const b = document.querySelector('.mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"], [class*="drawer-backdrop"]');
+    if (d) {
+      d.classList.add('open', 'is-open', 'show', 'active');
+      d.style.setProperty('display', 'flex', 'important');
+      d.style.setProperty('visibility', 'visible', 'important');
+      d.style.setProperty('opacity', '1', 'important');
+      d.style.setProperty('transform', 'translateX(0px)', 'important');
+      d.style.setProperty('pointer-events', 'auto', 'important');
+    }
+    if (b) {
+      b.classList.add('open', 'is-open', 'show', 'active');
+      b.style.setProperty('display', 'block', 'important');
+      b.style.setProperty('visibility', 'visible', 'important');
+      b.style.setProperty('opacity', '1', 'important');
+      b.style.setProperty('pointer-events', 'auto', 'important');
+    }
+  };
+  window.closeMobileDrawer = function() {
+    const d = document.querySelector('.mobile-nav-drawer, #mobile-nav-drawer, [class*="mobile-nav-drawer"]');
+    const b = document.querySelector('.mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"], [class*="drawer-backdrop"]');
+    if (d) {
+      d.classList.remove('open', 'is-open', 'show', 'active');
+      d.style.removeProperty('transform');
+    }
+    if (b) {
+      b.classList.remove('open', 'is-open', 'show', 'active');
+      b.style.setProperty('display', 'none', 'important');
+    }
+  };
+
+  document.querySelectorAll('.mobile-drawer-close, [class*="mobile-drawer-close"], .mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"]').forEach(function(cBtn) {
+    if (!cBtn.hasAttribute('data-drawer-close-bound')) {
+      cBtn.setAttribute('data-drawer-close-bound', 'true');
+      cBtn.addEventListener('click', function(e) {
+        if (typeof window.closeMobileDrawer === 'function') window.closeMobileDrawer();
+      });
+    }
+  });
+
   const navRoot = document.querySelector('#${ast.id}') || document.querySelector('header, nav, [role="navigation"], .site-header, .masthead, .main-section');
   const allMenuBtnCandidates = navRoot ? Array.from(navRoot.querySelectorAll(
-    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i], button[class*="mobilenav" i], [class*="mobilenav" i], button[class*="mobile-nav" i], [class*="mobile-nav" i], button[class*="mob-nav" i], [class*="mob-nav" i], [class*="MobileNav" i], button:has(.octicon-three-bars), button:has([class*="three-bars"]), [class*="three-bars"]'
+    '.universal-nav-toggle, button[class*="menutrigger"], button[class*="hamburger"], [class*="hamburger"], [class*="burger"], button[class*="nav-toggle"], [class*="nav-toggle"] button, [class*="menu-toggle"] button, button[class*="menu-toggle"], [class*="mobile-menu-btn" i], button[class*="mobile-menu-btn" i], [class*="menutrigger"] button, button[aria-controls*="nav" i], button[aria-controls*="menu" i], button[aria-label*="menu" i], button[aria-label="Open Menu" i], button[aria-label="Toggle navigation" i], [data-action="toggle-nav"], div[class*="button"][tabindex], [role="button"][class*="menu"], [class*="icon-bar"], .hdrmobmenu, #nav-container .button, a[href*="popup"], a[href*="elementor-action"], [data-elementor-open-popup], .elementor-icon, [class*="menu-btn"], [class*="nav-btn"], .menu-button, [data-menu-toggle], [data-interaction-click-trigger="hamburger-menu"], [title*="menu" i], button[class*="mobilenav" i], [class*="mobilenav" i], button[class*="mobile-nav" i], [class*="mobile-nav" i], button[class*="mob-nav" i], [class*="mob-nav" i], [class*="MobileNav" i], button:has(.octicon-three-bars), button:has([class*="three-bars"]), [class*="three-bars"], .nav-mobile-toggle, [class*="nav-mobile-toggle"]'
   )).map(function(el) {
     return el.closest('button, [role="button"], a, div[tabindex]') || el;
   }) : [];
@@ -1190,9 +1232,6 @@ export class JsSynthesizer {
     return true;
   }
 
-  if (!drawer) {
-    drawer = (navRoot ? navRoot.querySelector('.universal-mobile-menu-drawer') : null) || document.querySelector('.universal-mobile-menu-drawer');
-  }
   if (!drawer && navRoot) {
     drawer = navRoot.querySelector(
       '[class*="gnb"][class*="container"], #nav-content, #nav-main, [class*="nav-collapse"], [class*="navbar-collapse"], [class*="header_sidebar_menu"], [class*="mobile-nav-drawer"], [class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button), [class*="menu-drawer"], [class*="mobile-nav"], [class*="nav-drawer"], [class*="nav-sections"], [class*="navigation-menu__content"], [class*="navigation-menu-content"], [role="dialog"]:not([class*="search"]):not([class*="video"]), [role="navigation"]:not(header > nav)'
@@ -1200,14 +1239,14 @@ export class JsSynthesizer {
   }
   if (!drawer) {
     const drawerSelectors = [
-      '.universal-mobile-menu-drawer',
+      '[class*="mobile-nav-drawer"]',
+      '#mobile-nav-drawer',
       'nav.hamburger-menu',
       '[class*="hamburger-menu"]',
       '[class*="content-drawer"]',
       '[data-elementor-type="popup"]',
       '[class*="location-popup"]',
       '[id*="elementor-popup"]',
-      '[class*="mobile-nav-drawer"]',
       '[class*="mobile-menu"]:not([class*="btn"]):not([class*="toggle"]):not(button)',
       '[class*="menu-drawer"]',
       '[class*="mobile-nav"]',
@@ -1223,7 +1262,8 @@ export class JsSynthesizer {
       '#nav-content',
       '[class*="navigation-menu__content"]',
       '[class*="navigation-menu-content"]',
-      '[role="dialog"]:not([class*="search"]):not([class*="video"])'
+      '[role="dialog"]:not([class*="search"]):not([class*="video"])',
+      '.universal-mobile-menu-drawer'
     ];
     for (let i = 0; i < drawerSelectors.length; i++) {
       const match = (navRoot ? navRoot.querySelector(drawerSelectors[i]) : null) || document.querySelector(drawerSelectors[i]);
@@ -1796,6 +1836,15 @@ export class JsSynthesizer {
         drawerBackdrop.setAttribute('data-state', 'closed');
         drawerBackdrop.style.setProperty('display', 'none', 'important');
       }
+      if (drawer && (drawer.classList.contains('mobile-nav-drawer') || drawer.matches('[class*="mobile-nav-drawer"]'))) {
+        drawer.classList.remove('open', 'is-open', 'show', 'active');
+        drawer.style.removeProperty('transform');
+      }
+      const mbBackdrop = document.querySelector('.mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"], [class*="drawer-backdrop"]');
+      if (mbBackdrop) {
+        mbBackdrop.classList.remove('open', 'is-open', 'show', 'active');
+        mbBackdrop.style.setProperty('display', 'none', 'important');
+      }
       let collapseAnc = drawer;
       while (collapseAnc && collapseAnc !== navRoot && collapseAnc !== document.body) {
         collapseAnc.classList.remove('is-open', 'open', 'active', 'show');
@@ -1936,7 +1985,11 @@ export class JsSynthesizer {
           drawer.style.setProperty('visibility', 'visible', 'important');
           drawer.style.setProperty('opacity', '1', 'important');
           drawer.style.setProperty('pointer-events', 'auto', 'important');
-          if (drawer.classList.contains('universal-mobile-menu-drawer')) {
+          if (drawer.classList.contains('mobile-nav-drawer') || drawer.matches('[class*="mobile-nav-drawer"]')) {
+            drawer.style.setProperty('display', 'flex', 'important');
+            drawer.style.setProperty('transform', 'translateX(0px)', 'important');
+            drawer.style.setProperty('z-index', '2147483647', 'important');
+          } else if (drawer.classList.contains('universal-mobile-menu-drawer')) {
             drawer.style.setProperty('display', 'flex', 'important');
             drawer.style.setProperty('z-index', '2147483647', 'important');
           } else if (drawer.classList.contains('col-full-nav')) {
@@ -1952,7 +2005,17 @@ export class JsSynthesizer {
             drawer.style.setProperty('display', 'block', 'important');
             drawer.style.setProperty('z-index', '2147483647', 'important');
           }
-          drawer.style.setProperty('transform', 'none', 'important');
+          if (!drawer.classList.contains('mobile-nav-drawer') && !drawer.matches('[class*="mobile-nav-drawer"]')) {
+            drawer.style.setProperty('transform', 'none', 'important');
+          }
+          const mbBackdrop = document.querySelector('.mobile-nav-backdrop, #mobile-drawer-backdrop, [class*="mobile-nav-backdrop"], [class*="drawer-backdrop"]');
+          if (mbBackdrop) {
+            mbBackdrop.classList.add('open', 'is-open', 'show', 'active');
+            mbBackdrop.style.setProperty('display', 'block', 'important');
+            mbBackdrop.style.setProperty('visibility', 'visible', 'important');
+            mbBackdrop.style.setProperty('opacity', '1', 'important');
+            mbBackdrop.style.setProperty('pointer-events', 'auto', 'important');
+          }
 
           const drawerBackdrop = drawer.matches('[class*="Backdrop"]') ? drawer : (drawer.closest('[class*="Backdrop"]') || (drawer.parentElement && drawer.parentElement.matches('[class*="Backdrop"]') ? drawer.parentElement : null));
           if (drawerBackdrop) {
@@ -3676,22 +3739,24 @@ export class JsSynthesizer {
         inactiveUniqueClasses = inactClasses.filter(function(c) { return !actClasses.includes(c); });
       }
 
+      const groupSection = group.closest('section, [class*="section"], [class*="tab-container"], [role="region"], [class*="container"]') || group.parentElement || group;
+
       // Locate matching tab panes
       let panes = [];
       const hasDirectControls = tabs.some(function(t) {
         const id = t.getAttribute('aria-controls') || t.getAttribute('data-target') || (t.getAttribute('href') || '').replace(/^#/, '');
-        return id && (tabScope.querySelector('#' + CSS.escape(id)) || document.getElementById(id));
+        return id && (groupSection.querySelector('#' + CSS.escape(id)) || document.getElementById(id));
       });
       
       if (hasDirectControls) {
         panes = tabs.map(function(t) {
           const id = t.getAttribute('aria-controls') || t.getAttribute('data-target') || (t.getAttribute('href') || '').replace(/^#/, '');
-          return id ? (tabScope.querySelector('#' + CSS.escape(id)) || document.getElementById(id)) : null;
+          return id ? (groupSection.querySelector('#' + CSS.escape(id)) || document.getElementById(id)) : null;
         }).filter(Boolean);
       }
 
       if (panes.length === 0) {
-        const paneCandidates = Array.from(tabScope.querySelectorAll(
+        const paneCandidates = Array.from(groupSection.querySelectorAll(
           '[role="tabpanel"], [class*="tab__pane"], [class*="tab-pane"], [class*="tab-content"], [data-tab-pane], [data-tab-pane-index], [class*="tab_panel"]'
         )).filter(function(p) {
           return !group.contains(p);
@@ -3708,15 +3773,16 @@ export class JsSynthesizer {
         }
       }
 
-      // If no separate tabpane containers exist, find content cards / items to filter by category
+      // If no separate tabpane containers exist, only filter content cards if this group is explicitly a filter toolbar
       let cards = [];
-      if (panes.length <= 1) {
-        const cardCandidates = Array.from(tabScope.querySelectorAll(
-          '[class*="card"]:not([class*="filter"]):not([class*="tab"]), [class*="item"]:not([class*="filter"]):not([class*="tab"]):not(li:has(> button)), [class*="carousel-responsive"], [class*="grid"] > div, [class*="list"] > li'
+      const isFilterGroup = !!(group.closest('[class*="filter"], [class*="category"]') || group.matches('[class*="filter"], [class*="category"]'));
+      if (panes.length <= 1 && isFilterGroup) {
+        const cardCandidates = Array.from(groupSection.querySelectorAll(
+          '[class*="card"]:not([class*="filter"]):not([class*="tab"]), [class*="item"]:not([class*="filter"]):not([class*="tab"]):not(li:has(> button)), [class*="carousel-responsive"]'
         )).filter(function(c) {
           if (group.contains(c)) return false;
-          // Never treat navigation items, filter toolbars, menus, drawers, or pagination as content cards
-          if (c.closest('header, nav, [role="navigation"], [class*="nav-"], [class*="filter"], [class*="breadcrumb"], [class*="menu"], [class*="pagination"], [class*="drawer"]')) {
+          // Never treat navigation items, filter toolbars, menus, drawers, heroes, or pagination as content cards
+          if (c.closest('header, nav, [role="navigation"], [class*="hero"], [class*="banner"], [class*="nav-"], [class*="filter"], [class*="breadcrumb"], [class*="menu"], [class*="pagination"], [class*="drawer"]')) {
             return false;
           }
           return true;
@@ -3732,7 +3798,7 @@ export class JsSynthesizer {
         const targetTab = tabs[targetIdx];
         if (!targetTab) return;
         const directId = targetTab.getAttribute('aria-controls') || targetTab.getAttribute('data-target') || (targetTab.getAttribute('href') || '').replace(/^#/, '');
-        const targetPane = directId ? (tabScope.querySelector('#' + CSS.escape(directId)) || document.getElementById(directId)) : null;
+        const targetPane = directId ? (groupSection.querySelector('#' + CSS.escape(directId)) || document.getElementById(directId)) : null;
 
         // Animate pill indicator / sliding underline if present
         const targetItem = targetTab.closest('.tabnav-item, .tab-item, li') || targetTab;
@@ -3952,7 +4018,7 @@ export class JsSynthesizer {
             }
           });
           try { window.dispatchEvent(new Event('resize')); } catch (_) {}
-        } else if (cards.length > 0) {
+        } else if (cards.length > 0 && isFilterGroup) {
           // Filter cards by category keyword
           const targetTab = tabs[targetIdx];
           const filterText = (targetTab.textContent || '').trim().toLowerCase();
