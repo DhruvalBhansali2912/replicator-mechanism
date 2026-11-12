@@ -598,12 +598,21 @@ export class JsSynthesizer {
             });
 
             applyMutations(interaction.mutations);
+            /* replicator_portal_elevation_v2 */
             associatedPortals.forEach(function(p) {
               const origDisplay = (p.getAttribute('data-original-display') && p.getAttribute('data-original-display') !== 'none') ? p.getAttribute('data-original-display') : 'block';
               p.removeAttribute('hidden');
               p.removeAttribute('aria-hidden');
               p.style.setProperty('display', origDisplay, 'important');
-              p.style.setProperty('z-index', '99999', 'important');
+              p.style.setProperty('z-index', '2147483647', 'important');
+              let pAnc = p.parentElement;
+              while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
+                if (!pAnc.hasAttribute('data-orig-zindex')) {
+                  pAnc.setAttribute('data-orig-zindex', pAnc.style.zIndex || '');
+                }
+                pAnc.style.setProperty('z-index', '2147483647', 'important');
+                pAnc = pAnc.parentElement;
+              }
               p.style.setProperty('visibility', 'visible', 'important');
               p.style.setProperty('opacity', '1', 'important');
               p.style.setProperty('pointer-events', 'auto', 'important');
@@ -629,7 +638,7 @@ export class JsSynthesizer {
                 }
               });
               // Wire dismiss/close buttons inside the portal
-              p.querySelectorAll('button[aria-label*="close" i], button[aria-label*="dismiss" i], [class*="close-button"], [class*="closeBtn"], [data-action="close"]').forEach(function(closeBtn) {
+              p.querySelectorAll('button[aria-label*="close" i], button[aria-label*="dismiss" i], [class*="close-button"], [class*="closeBtn"], [data-action="close"], button:has(svg.octicon-x), [data-component="Dialog.CloseButton"]').forEach(function(closeBtn) {
                 if (!closeBtn.__replicator_has_dismiss) {
                   closeBtn.__replicator_has_dismiss = true;
                   closeBtn.addEventListener('click', function(ev) {
@@ -638,6 +647,18 @@ export class JsSynthesizer {
                   });
                 }
               });
+              // Wire backdrop click to dismiss if clicked outside dialog
+              if (p.matches('[class*="Backdrop"], [data-component*="Backdrop"]')) {
+                if (!p.__replicator_has_backdrop_dismiss) {
+                  p.__replicator_has_backdrop_dismiss = true;
+                  p.addEventListener('click', function(ev) {
+                    if (ev.target === p) {
+                      ev.stopPropagation();
+                      handleToggleState(false);
+                    }
+                  });
+                }
+              }
             });
             isToggled = true;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);
@@ -652,6 +673,16 @@ export class JsSynthesizer {
               p.style.setProperty('pointer-events', 'none', 'important');
               p.setAttribute('data-state', 'closed');
               p.classList.remove('is-open', 'open', 'show', 'active');
+              let pAnc = p.parentElement;
+              while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
+                if (pAnc.hasAttribute('data-orig-zindex')) {
+                  const origZ = pAnc.getAttribute('data-orig-zindex');
+                  if (origZ) pAnc.style.setProperty('z-index', origZ);
+                  else pAnc.style.removeProperty('z-index');
+                  pAnc.removeAttribute('data-orig-zindex');
+                }
+                pAnc = pAnc.parentElement;
+              }
               p.querySelectorAll('*').forEach(function(ch) {
                 if (ch.matches && ch.matches('[role="dialog"], [class*="Overlay"], [class*="Backdrop"], [class*="Dialog"]')) {
                   ch.classList.remove('is-open', 'open');
@@ -738,7 +769,15 @@ export class JsSynthesizer {
               p.removeAttribute('hidden');
               p.removeAttribute('aria-hidden');
               p.style.setProperty('display', origDisplay, 'important');
-              p.style.setProperty('z-index', '99999', 'important');
+              p.style.setProperty('z-index', '2147483647', 'important');
+              let pAnc = p.parentElement;
+              while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
+                if (!pAnc.hasAttribute('data-orig-zindex')) {
+                  pAnc.setAttribute('data-orig-zindex', pAnc.style.zIndex || '');
+                }
+                pAnc.style.setProperty('z-index', '2147483647', 'important');
+                pAnc = pAnc.parentElement;
+              }
               p.style.setProperty('visibility', 'visible', 'important');
               p.style.setProperty('opacity', '1', 'important');
               p.style.setProperty('pointer-events', 'auto', 'important');
@@ -763,6 +802,26 @@ export class JsSynthesizer {
                   ch.style.setProperty('opacity', '1', 'important');
                 }
               });
+              p.querySelectorAll('button[aria-label*="close" i], button[aria-label*="dismiss" i], [class*="close-button"], [class*="closeBtn"], [data-action="close"], button:has(svg.octicon-x), [data-component="Dialog.CloseButton"]').forEach(function(closeBtn) {
+                if (!closeBtn.__replicator_has_dismiss) {
+                  closeBtn.__replicator_has_dismiss = true;
+                  closeBtn.addEventListener('click', function(ev) {
+                    if (ev && typeof ev.stopPropagation === 'function') ev.stopPropagation();
+                    if (typeof trigger.__replicator_close === 'function') trigger.__replicator_close();
+                  });
+                }
+              });
+              if (p.matches('[class*="Backdrop"], [data-component*="Backdrop"]')) {
+                if (!p.__replicator_has_backdrop_dismiss) {
+                  p.__replicator_has_backdrop_dismiss = true;
+                  p.addEventListener('click', function(ev) {
+                    if (ev.target === p) {
+                      ev.stopPropagation();
+                      if (typeof trigger.__replicator_close === 'function') trigger.__replicator_close();
+                    }
+                  });
+                }
+              }
             });
             trigger.__replicator_is_toggled = true;
             const p = associatedPortals[0] || (typeof resolveDropdownPanel === 'function' ? resolveDropdownPanel(trigger) : null);

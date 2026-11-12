@@ -3294,9 +3294,9 @@ a.tile-link, [class*="tile-link"], [class*="overlay-link"] {
 }
 
 @media (min-width: 834px) {
-  header nav > ul,
-  nav > ul,
-  nav[role="navigation"] > ul,
+  header nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]),
+  nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]),
+  nav[role="navigation"]:not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]),
   [role="menubar"] {
     display: flex;
     flex-direction: row;
@@ -3304,9 +3304,9 @@ a.tile-link, [class*="tile-link"], [class*="overlay-link"] {
     list-style: none;
   }
   
-  header nav > ul > li,
-  nav > ul > li,
-  nav[role="navigation"] > ul > li,
+  header nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]) > li,
+  nav:not([data-component="NavList"]):not([class*="NavList"]):not([class*="ActionList"]):not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]) > li,
+  nav[role="navigation"]:not([role="dialog"] *):not(dialog *) > ul:not([data-component="ActionList"]):not([class*="ActionList"]) > li,
   [role="menubar"] > [role="menuitem"] {
     display: inline-flex;
     align-items: center;
@@ -4333,9 +4333,167 @@ nav.hamburger-menu.is-open,
 
 /* Universal Dialog & Modal Overlays (W3C Standard) */
 dialog:not([open]):not(.is-open):not(.open):not([data-state="open"]),
-[role="dialog"][aria-hidden="true"]:not(.is-open):not(.open):not([data-state="open"]) {
+[role="dialog"][aria-hidden="true"]:not(.is-open):not(.open):not([data-state="open"]),
+[role="dialog"]:not(.is-open):not(.open):not([open]):not([data-state="open"]) {
   display: none !important;
   pointer-events: none !important;
+}
+
+/* Inactive Overlays & Panels must never leak into document flow */
+.prc-Overlay-Overlay-jfs-T:not(.is-open):not(.open),
+.prc-SelectPanel-Overlay-tEbxh:not(.is-open):not(.open),
+[data-component="AnchoredOverlay"]:not(.is-open):not(.open):not([data-state="open"]) {
+  display: none !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Universal ActionList & Modal Drawer Vertical Stacking Resilience */
+[data-component="Dialog"].is-open,
+[role="dialog"].is-open,
+.prc-Dialog-Dialog-G8cDF.is-open {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  bottom: 0 !important;
+  width: 320px !important;
+  max-width: 85vw !important;
+  height: 100vh !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 8px 24px rgba(140, 149, 159, 0.2) !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+[data-component="Dialog"].is-open [data-component="Stack"],
+.prc-Dialog-Dialog-G8cDF.is-open [data-component="Stack"] {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px !important;
+  background: #ffffff !important;
+  flex-shrink: 0 !important;
+}
+
+[data-component="Dialog"].is-open [data-component="ScrollableRegion"],
+.prc-Dialog-Dialog-G8cDF.is-open [data-component="ScrollableRegion"] {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  background: #ffffff !important;
+  padding: 0 8px 16px 8px !important;
+}
+
+[data-component="Dialog.Backdrop"].is-open,
+.prc-Dialog-Backdrop-5Nt2U.is-open,
+[data-component="Dialog"].is-open ~ [class*="Backdrop"],
+[data-interactive-portal].is-open [class*="Backdrop"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background-color: rgba(31, 35, 40, 0.4) !important;
+  z-index: 2147483646 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Sidebar / Drawer Navigation lists MUST be vertical flex columns */
+[role="dialog"] nav > ul,
+dialog nav > ul,
+[data-component="NavList"] > ul,
+[data-component="ActionList"],
+[class*="ActionList-ActionList"],
+.prc-ActionList-ActionList-rPFF2,
+.prc-ActionList-GroupList-V5B3- {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+[role="dialog"] nav > ul > li,
+dialog nav > ul > li,
+[data-component="NavList"] > ul > li,
+[data-component="ActionList"] > li,
+[class*="ActionList-Group"],
+.prc-ActionList-Group-lMIPQ {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+[role="dialog"] [class*="ActionListItem"],
+.prc-ActionList-ActionListItem-So4vC,
+[data-component="ActionList.Item"] {
+  display: block !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+[role="dialog"].is-open [class*="ActionListContent"],
+[role="dialog"].is-open .prc-ActionList-ActionListContent-KBb8- {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 6px 8px !important;
+  border-radius: 6px !important;
+  box-sizing: border-box !important;
+  text-decoration: none !important;
+  color: #1f2328 !important;
+}
+
+[role="dialog"].is-open [class*="LeadingVisual"],
+[role="dialog"].is-open .prc-ActionList-LeadingVisual-NBr28 {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 16px !important;
+  min-width: 16px !important;
+  height: 16px !important;
+  margin-right: 8px !important;
+  flex-shrink: 0 !important;
+  color: #656d76 !important;
+}
+
+[role="dialog"].is-open [class*="ActionListSubContent"],
+[role="dialog"].is-open .prc-ActionList-ActionListSubContent-gKsFp {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  flex: 1 1 auto !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+[role="dialog"].is-open [class*="ItemLabel"],
+[role="dialog"].is-open .prc-ActionList-ItemLabel-81ohH {
+  display: inline-block !important;
+  width: auto !important;
+  white-space: nowrap !important;
+  word-break: normal !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  color: #1f2328 !important;
+}
+
+[role="dialog"].is-open [class*="Divider"],
+[role="dialog"].is-open .prc-ActionList-Divider-taVfb {
+  display: block !important;
+  width: 100% !important;
+  height: 1px !important;
+  background-color: #d1d9e0 !important;
+  margin: 8px 0 !important;
 }
 
 dialog[open],
