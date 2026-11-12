@@ -1869,6 +1869,37 @@ dialog nav > ul > li,
           css += universalActionListRule;
           try { fs.writeFileSync(cssPath, css, 'utf8'); } catch (_) {}
         }
+
+        if (!css.includes('Universal Off-Canvas Drawer Children Normalization')) {
+          css = css.replace(
+            /\[class\*="drawer"\]:not\(\[class\*="cart"\]\):not\(\[class\*="product"\]\)/g,
+            '[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="-header"]):not([class*="-links"]):not([class*="-item"]):not([class*="-close"]):not([class*="-btn"]):not([class*="-inner"]):not([class*="-body"]):not([class*="-title"]):not([class*="-nav"]):not([class*="-backdrop"]):not(.open):not(.is-open)'
+          );
+          const drawerNormRule = `
+/* Universal Off-Canvas Drawer Children Normalization */
+.mobile-nav-drawer.open *,
+.mobile-nav-drawer.is-open *,
+[class*="mobile-nav-drawer"].open *,
+[class*="mobile-nav-drawer"].is-open *,
+[class*="drawer"].open *,
+[class*="drawer"].is-open * {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.mobile-drawer-header, [class*="drawer-header"],
+.mobile-drawer-links, [class*="drawer-links"],
+.mobile-drawer-close, [class*="drawer-close"] {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
+}
+`;
+          css += drawerNormRule;
+          try { fs.writeFileSync(cssPath, css, 'utf8'); } catch (_) {}
+        }
         res.type('text/css').send(css);
         return;
       }

@@ -262,21 +262,52 @@ h1 [aria-hidden="true"], h2 [aria-hidden="true"], h3 [aria-hidden="true"], [clas
 }
 
 /* Universal Off-Canvas Drawer & Overlay Resting State */
-#site-menu, [id*="site-menu"], [class*="site-menu"], [class*="mobile-nav-drawer"], [class*="menu-drawer"], [class*="drawer"]:not([class*="cart"]):not([class*="product"]), [class*="offcanvas"], [class*="off-canvas"] {
+#site-menu,
+[id*="site-menu"],
+[class*="site-menu"]:not([class*="-header"]):not([class*="-links"]):not([class*="-item"]):not([class*="-close"]):not([class*="-btn"]):not([class*="-inner"]),
+[class*="menu-drawer"]:not([class*="-header"]):not([class*="-links"]):not([class*="-item"]):not([class*="-close"]):not([class*="-btn"]):not([class*="-inner"]),
+.mobile-nav-drawer:not(.open):not(.is-open),
+[class*="drawer"]:not([class*="cart"]):not([class*="product"]):not([class*="-header"]):not([class*="-links"]):not([class*="-item"]):not([class*="-close"]):not([class*="-btn"]):not([class*="-inner"]):not([class*="-body"]):not([class*="-title"]):not([class*="-nav"]):not([class*="-backdrop"]):not(.open):not(.is-open),
+[class*="offcanvas"]:not([class*="-header"]):not([class*="-links"]):not([class*="-item"]):not([class*="-close"]):not([class*="-btn"]):not([class*="-inner"]):not(.open):not(.is-open),
+[class*="off-canvas"]:not([class*="-header"]):not([class*="-links"]):not([class*="-item"]):not([class*="-close"]):not([class*="-btn"]):not([class*="-inner"]):not(.open):not(.is-open) {
   position: fixed !important;
   top: 0 !important;
-  left: 0 !important;
-  width: 100vw !important;
-  height: 100vh !important;
   pointer-events: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   z-index: 10000 !important;
 }
-#site-menu.is-active, #site-menu.open, [class*="site-menu"].is-active, [class*="site-menu"].open {
+#site-menu.is-active, #site-menu.open,
+[class*="site-menu"].is-active, [class*="site-menu"].open,
+.mobile-nav-drawer.open, .mobile-nav-drawer.is-open,
+.mobile-nav-backdrop.open, .mobile-nav-backdrop.is-open,
+[class*="mobile-nav-drawer"].open, [class*="mobile-nav-drawer"].is-open,
+[class*="drawer"].open, [class*="drawer"].is-open,
+[class*="drawer"].is-active, [class*="drawer"].active {
   pointer-events: auto !important;
   visibility: visible !important;
   opacity: 1 !important;
+}
+
+/* Ensure drawer internal layout and items remain visible when drawer is active */
+.mobile-nav-drawer.open *,
+.mobile-nav-drawer.is-open *,
+[class*="mobile-nav-drawer"].open *,
+[class*="mobile-nav-drawer"].is-open *,
+[class*="drawer"].open *,
+[class*="drawer"].is-open * {
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.mobile-drawer-header, [class*="drawer-header"],
+.mobile-drawer-links, [class*="drawer-links"],
+.mobile-drawer-close, [class*="drawer-close"] {
+  position: static !important;
+  width: auto !important;
+  height: auto !important;
+  display: flex !important;
 }
 
 /* Universal Lenis & Virtual Smooth Scroll Normalization */

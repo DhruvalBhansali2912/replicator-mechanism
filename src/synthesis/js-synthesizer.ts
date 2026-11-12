@@ -1245,6 +1245,21 @@ export class JsSynthesizer {
       d.style.setProperty('opacity', '1', 'important');
       d.style.setProperty('transform', 'translateX(0px)', 'important');
       d.style.setProperty('pointer-events', 'auto', 'important');
+      d.querySelectorAll('*').forEach(function(ch) {
+        if (ch.style) {
+          ch.style.removeProperty('visibility');
+          ch.style.removeProperty('opacity');
+          ch.style.removeProperty('pointer-events');
+        }
+      });
+      d.querySelectorAll('.mobile-drawer-header, [class*="drawer-header"], .mobile-drawer-links, [class*="drawer-links"], .mobile-drawer-close, [class*="drawer-close"]').forEach(function(ch) {
+        ch.style.setProperty('visibility', 'visible', 'important');
+        ch.style.setProperty('opacity', '1', 'important');
+        ch.style.setProperty('position', 'static', 'important');
+        ch.style.setProperty('width', 'auto', 'important');
+        ch.style.setProperty('height', 'auto', 'important');
+        ch.style.setProperty('pointer-events', 'auto', 'important');
+      });
     }
     if (b) {
       b.classList.add('open', 'is-open', 'show', 'active');
