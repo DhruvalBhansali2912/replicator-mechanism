@@ -655,6 +655,20 @@ export class JsSynthesizer {
                   ch.style.setProperty('display', 'block', 'important');
                   ch.style.setProperty('visibility', 'visible', 'important');
                   ch.style.setProperty('opacity', '1', 'important');
+                  if (ch.matches('[class*="Overlay"]:not([class*="Backdrop"]):not([class*="Dialog-Dialog"])')) {
+                    try {
+                      const tRect = trigger.getBoundingClientRect();
+                      ch.style.setProperty('position', 'fixed', 'important');
+                      ch.style.setProperty('top', (tRect.bottom + 6) + 'px', 'important');
+                      const oWidth = ch.offsetWidth || 260;
+                      const targetLeft = Math.min(window.innerWidth - oWidth - 16, Math.max(8, tRect.left));
+                      ch.style.setProperty('left', targetLeft + 'px', 'important');
+                      ch.style.setProperty('background-color', 'var(--overlay-bgColor, #ffffff)', 'important');
+                      ch.style.setProperty('border', '1px solid var(--borderColor-default, #d0d7de)', 'important');
+                      ch.style.setProperty('border-radius', '8px', 'important');
+                      ch.style.setProperty('box-shadow', '0 8px 24px rgba(140,149,159,0.2)', 'important');
+                    } catch (_) {}
+                  }
                 }
               });
               // Wire dismiss/close buttons inside the portal
@@ -820,6 +834,20 @@ export class JsSynthesizer {
                   ch.style.setProperty('display', 'block', 'important');
                   ch.style.setProperty('visibility', 'visible', 'important');
                   ch.style.setProperty('opacity', '1', 'important');
+                  if (ch.matches('[class*="Overlay"]:not([class*="Backdrop"]):not([class*="Dialog-Dialog"])')) {
+                    try {
+                      const tRect = trigger.getBoundingClientRect();
+                      ch.style.setProperty('position', 'fixed', 'important');
+                      ch.style.setProperty('top', (tRect.bottom + 6) + 'px', 'important');
+                      const oWidth = ch.offsetWidth || 260;
+                      const targetLeft = Math.min(window.innerWidth - oWidth - 16, Math.max(8, tRect.left));
+                      ch.style.setProperty('left', targetLeft + 'px', 'important');
+                      ch.style.setProperty('background-color', 'var(--overlay-bgColor, #ffffff)', 'important');
+                      ch.style.setProperty('border', '1px solid var(--borderColor-default, #d0d7de)', 'important');
+                      ch.style.setProperty('border-radius', '8px', 'important');
+                      ch.style.setProperty('box-shadow', '0 8px 24px rgba(140,149,159,0.2)', 'important');
+                    } catch (_) {}
+                  }
                 }
               });
               p.querySelectorAll('button[aria-label*="close" i], button[aria-label*="dismiss" i], [class*="close-button"], [class*="closeBtn"], [data-action="close"], button:has(svg.octicon-x), [data-component="Dialog.CloseButton"]').forEach(function(closeBtn) {
