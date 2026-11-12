@@ -7173,7 +7173,22 @@ export class JsSynthesizer {
           }
           if (!trigger) return;
 
+          const isFullModalOrDrawer = portal.matches('[class*="Backdrop"], [class*="backdrop"], [class*="dialog"], [class*="Dialog"], [role="dialog"], [aria-modal="true"]') ||
+            !!portal.querySelector('[class*="Backdrop"], [class*="backdrop"], [class*="dialog"], [class*="Dialog"], [role="dialog"]');
+
           function positionPortal() {
+            if (isFullModalOrDrawer) {
+              portal.style.setProperty('z-index', '2147483647', 'important');
+              let pAnc = portal.parentElement;
+              while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
+                if (!pAnc.hasAttribute('data-orig-zindex')) {
+                  pAnc.setAttribute('data-orig-zindex', pAnc.style.zIndex || '');
+                }
+                pAnc.style.setProperty('z-index', '2147483647', 'important');
+                pAnc = pAnc.parentElement;
+              }
+              return;
+            }
             const rect = trigger.getBoundingClientRect();
             const screenWidth = window.innerWidth;
             portal.style.position = 'fixed';
@@ -7195,6 +7210,12 @@ export class JsSynthesizer {
             portal.classList.add('is-open', 'open');
             portal.style.display = 'block';
             portal.style.visibility = 'visible';
+            portal.querySelectorAll('[role="dialog"], [class*="Dialog-Dialog"], [class*="Overlay"]').forEach(function(d) {
+              d.classList.add('is-open', 'open');
+              d.setAttribute('data-state', 'open');
+              d.style.setProperty('display', 'flex', 'important');
+              d.style.setProperty('visibility', 'visible', 'important');
+            });
             positionPortal();
           }
 
@@ -7204,6 +7225,39 @@ export class JsSynthesizer {
             portal.setAttribute('aria-hidden', 'true');
             portal.classList.remove('is-open', 'open');
             portal.style.display = 'none';
+            portal.querySelectorAll('[role="dialog"], [class*="Dialog-Dialog"], [class*="Overlay"]').forEach(function(d) {
+              d.classList.remove('is-open', 'open');
+              d.setAttribute('data-state', 'closed');
+              d.style.setProperty('display', 'none', 'important');
+            });
+            if (isFullModalOrDrawer) {
+              let pAnc = portal.parentElement;
+              while (pAnc && pAnc !== document.body && pAnc !== document.documentElement) {
+                if (pAnc.hasAttribute('data-orig-zindex')) {
+                  const origZ = pAnc.getAttribute('data-orig-zindex');
+                  if (origZ) pAnc.style.setProperty('z-index', origZ);
+                  else pAnc.style.removeProperty('z-index');
+                  pAnc.removeAttribute('data-orig-zindex');
+                }
+                pAnc = pAnc.parentElement;
+              }
+            }
+          }
+
+          portal.querySelectorAll('button:has(svg.octicon-x), [data-component="Dialog.CloseButton"], button[aria-label*="close" i], button[aria-label*="dismiss" i]').forEach(function(cBtn) {
+            cBtn.addEventListener('click', function(ev) {
+              ev.stopPropagation();
+              closePortal();
+            });
+          });
+
+          if (portal.matches('[class*="Backdrop"], [data-component*="Backdrop"]')) {
+            portal.addEventListener('click', function(ev) {
+              if (ev.target === portal) {
+                ev.stopPropagation();
+                closePortal();
+              }
+            });
           }
 
           trigger.addEventListener('click', function(e) {
