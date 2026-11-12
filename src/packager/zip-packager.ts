@@ -221,7 +221,7 @@ export class ZipPackager {
     }
 
     $cleanup('dialog[open]').removeAttr('open');
-    $cleanup('.open, .mobile-open, [class*="--show"], [class*="--layer-open"]').removeClass('open mobile-open srd19-gnb-search--show search--show');
+    $cleanup('.open, .mobile-open, [class*="--show"], [class*="--layer-open"], .has-search-focus, .search-active, .is-searching').removeClass('open mobile-open srd19-gnb-search--show search--show has-search-focus search-active is-searching search-open is-search-focused');
     $cleanup('section[class*="gnb-search"], [role="dialog"][class*="search"]').css('display', 'none');
     finalHtml = $cleanup.html();
 

@@ -1756,6 +1756,7 @@ ${drawerListItems.join('\n')}
 
       $('[class*="panel-content"]').removeClass('active is-active');
       $('[class*="modal-backdrop"], [class*="drawer-backdrop"], [class*="dialog-backdrop"], [class*="Dialog-Backdrop"], [class~="backdrop"], [class*="-backdrop"], [class*="curtain"], [class*="scrim"]').not('[class*="backdrop-blur"], [class*="backdrop-filter"], [class*="backdrop-opacity"]').removeClass('is-active is-open open');
+      $('[class*="header"], [class*="nav"], header, nav').removeClass('has-search-focus search-active is-searching search-open is-search-focused');
       $('body, html').removeAttr('data-dialog-scroll-disabled').removeAttr('data-scroll-locked');
       $('.staggered-start').removeClass('staggered-start').addClass('staggered-end');
 

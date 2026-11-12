@@ -24,6 +24,7 @@ import { ZipPackager } from '../packager/zip-packager.js';
 import { resolveTargetSectionFromSnapshot, enrichSectionWithCompanions } from '../classifier/section-resolver.js';
 import { FidelityGuard } from '../validator/fidelity-guard.js';
 import { isTrackingOrAnalytics, isDestructiveScript } from '../localizer/asset-localizer.js';
+import { inlineSvgSprites } from '../synthesis/svg-sprite-inliner.js';
 
 export interface CreateJobInput {
   userId: string;
@@ -747,6 +748,16 @@ export class JobQueue {
         if (previewHtml.includes('</head>')) {
           previewHtml = previewHtml.replace('</head>', '  <link rel="stylesheet" href="style.css">\n</head>');
         }
+      }
+
+      // Universal SVG Sprite Inlining and Focus Sanitization
+      try {
+        const inlined = await inlineSvgSprites(previewHtml, url);
+        if (inlined.modified) {
+          previewHtml = inlined.html;
+        }
+      } catch (err: any) {
+        console.warn('[JobQueue] SVG sprite inlining error:', err?.message);
       }
 
       let cleanOutputCss = (optimizedCss || '')

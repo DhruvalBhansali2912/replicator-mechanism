@@ -253,6 +253,140 @@ export class JsSynthesizer {
   function ensureDropdownSpace(trigger, panel, isOpen) {
     if (window.__ensureDropdownSpace) window.__ensureDropdownSpace(trigger, panel, isOpen);
   }
+
+  // Universal Header Search Focus Controller
+  (function initHeaderSearchFocus() {
+    function setupSearch() {
+      const searchInputs = Array.from(document.querySelectorAll('input[type="search"], input[name*="search" i], input[placeholder*="search" i], [class*="search"] input, [data-search-target]'));
+      searchInputs.forEach(function(input) {
+        if (input.__replicator_search_bound) return;
+        input.__replicator_search_bound = true;
+
+        const headerContainer = input.closest('.header-main, [class*="header-main"], header, [class*="header"], [data-search-target="headerMain"]') ||
+                                document.querySelector('.header-main, [data-search-target="headerMain"], header');
+
+        if (!headerContainer) return;
+
+        // Ensure resting state does NOT have search focus unless active
+        if (document.activeElement !== input) {
+          headerContainer.classList.remove('has-search-focus', 'search-active', 'is-searching', 'search-open');
+        }
+
+        input.addEventListener('focus', function() {
+          headerContainer.classList.add('has-search-focus');
+        });
+
+        input.addEventListener('click', function(e) {
+          e.stopPropagation();
+          headerContainer.classList.add('has-search-focus');
+        });
+
+        input.addEventListener('keydown', function(e) {
+          if (e.key === 'Escape') {
+            headerContainer.classList.remove('has-search-focus', 'search-active', 'is-searching', 'search-open');
+            input.blur();
+          }
+        });
+
+        document.addEventListener('click', function(e) {
+          if (!input.contains(e.target) && !headerContainer.querySelector('[class*="search"]')?.contains(e.target)) {
+            headerContainer.classList.remove('has-search-focus', 'search-active', 'is-searching', 'search-open');
+          }
+        });
+
+        const closeBtns = headerContainer.querySelectorAll('[class*="search-close"], [class*="search__close"], button[aria-label*="close search" i]');
+        closeBtns.forEach(function(btn) {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            headerContainer.classList.remove('has-search-focus', 'search-active', 'is-searching', 'search-open');
+            input.blur();
+          });
+        });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupSearch);
+    } else {
+      setupSearch();
+    }
+  })();
+
+  // Universal SVG Sprite Polyfill
+  (function polyfillSvgSprites() {
+    function resolveSprites() {
+      const uses = Array.from(document.querySelectorAll('use'));
+      const pendingMap = new Map();
+
+      uses.forEach(function(use) {
+        const href = use.getAttribute('xlink:href') || use.getAttribute('href');
+        if (!href || !href.includes('#')) return;
+        const hashIdx = href.indexOf('#');
+        const fileUrl = href.slice(0, hashIdx);
+        const fragmentId = href.slice(hashIdx + 1);
+
+        if (!fileUrl) return;
+
+        if (document.getElementById(fragmentId)) {
+          use.setAttribute('href', '#' + fragmentId);
+          use.setAttribute('xlink:href', '#' + fragmentId);
+          return;
+        }
+
+        if (!pendingMap.has(fileUrl)) {
+          pendingMap.set(fileUrl, []);
+        }
+        pendingMap.get(fileUrl).push({ use: use, fragmentId: fragmentId });
+      });
+
+      pendingMap.forEach(function(items, fileUrl) {
+        fetch(fileUrl, { mode: 'cors' })
+          .then(function(res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return res.text();
+          })
+          .catch(function() {
+            return fetch('/api/proxy?url=' + encodeURIComponent(fileUrl)).then(function(r) { return r.text(); });
+          })
+          .then(function(svgText) {
+            if (!svgText || !svgText.includes('<')) return;
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(svgText, 'image/svg+xml');
+            const svgDoc = doc.querySelector('svg');
+            if (!svgDoc) return;
+
+            let spriteContainer = document.getElementById('__replicator_svg_sprites');
+            if (!spriteContainer) {
+              spriteContainer = document.createElement('div');
+              spriteContainer.id = '__replicator_svg_sprites';
+              spriteContainer.style.display = 'none';
+              spriteContainer.setAttribute('aria-hidden', 'true');
+              document.body.insertBefore(spriteContainer, document.body.firstChild);
+            }
+
+            const inlinedSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            inlinedSvg.style.display = 'none';
+            inlinedSvg.setAttribute('aria-hidden', 'true');
+            inlinedSvg.innerHTML = svgDoc.innerHTML;
+            spriteContainer.appendChild(inlinedSvg);
+
+            items.forEach(function(item) {
+              item.use.setAttribute('href', '#' + item.fragmentId);
+              item.use.setAttribute('xlink:href', '#' + item.fragmentId);
+            });
+          })
+          .catch(function(err) {
+            console.warn('[SVG Sprite Polyfill]', err);
+          });
+      });
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', resolveSprites);
+    } else {
+      resolveSprites();
+    }
+  })();
 `);
 
     // 0. Behavioral State Mutation Controller (Synthesized from In-Situ DOM Mutation Probes)

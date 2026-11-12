@@ -34,6 +34,7 @@ import { trialErrorOptimizer } from './optimizer/trial-error-optimizer.js';
 import { optimizeCssForDocument } from './optimizer/css-purger.js';
 import { authService } from './auth/auth-service.js';
 import { tokenService } from './tokens/token-service.js';
+import { inlineSvgSprites } from './synthesis/svg-sprite-inliner.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -736,7 +737,7 @@ export function createServer(): express.Application {
   });
 
   // 4. Preview full page offline (with universal dynamic assets and chunks fallback)
-  app.use('/api/jobs/:id/preview', (req: Request, res: Response, next) => {
+  app.use('/api/jobs/:id/preview', async (req: Request, res: Response, next) => {
     res.setHeader('Referrer-Policy', 'no-referrer');
     const jobDir = path.join(CONFIG.jobsDir, req.params.id, 'full-page');
     if (!fs.existsSync(jobDir)) {
@@ -762,6 +763,35 @@ export function createServer(): express.Application {
           $h('body').removeClass('content-drawer-open menu-open sidebar-open nav-open');
           html = $h.html();
           fs.writeFileSync(indexPath, html, 'utf8');
+        }
+
+        // Sanitize resting header active focus states
+        if (html.includes('has-search-focus') || html.includes('search-active') || html.includes('is-searching')) {
+          const $h = cheerio.load(html);
+          $h('.has-search-focus, .search-active, .is-searching, [class*="has-search-focus"]').removeClass('has-search-focus search-active is-searching search-open is-search-focused');
+          html = $h.html();
+          fs.writeFileSync(indexPath, html, 'utf8');
+        }
+
+        // Universal SVG Sprite Inlining
+        if (html.includes('<use') && html.includes('#')) {
+          try {
+            const metaPath = path.join(CONFIG.jobsDir, req.params.id, 'job.json');
+            let jobUrl = 'https://example.com';
+            if (fs.existsSync(metaPath)) {
+              try {
+                const jData = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+                if (jData.url) jobUrl = jData.url;
+              } catch (_) {}
+            }
+            const inlined = await inlineSvgSprites(html, jobUrl);
+            if (inlined.modified) {
+              html = inlined.html;
+              fs.writeFileSync(indexPath, html, 'utf8');
+            }
+          } catch (err: any) {
+            console.warn('[Server Preview] SVG sprite inliner error:', err?.message);
+          }
         }
 
         // Universal Navigation Header Repair: inject mobile toggle, mobile nav CSS & mobile menu drawer
