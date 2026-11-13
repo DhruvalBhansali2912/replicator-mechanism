@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "InventKid Page Replicator",
   "short_name": "PageReplicator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "1-Click website clone and section deconstructor. Downloads 100% offline-fidelity packages directly from your browser.",
   "homepage_url": "https://inventkid.com",
   "minimum_chrome_version": "109",

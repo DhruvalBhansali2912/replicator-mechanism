@@ -333,7 +333,7 @@ function startPolling(jobId, apiUrl, apiKey, deviceId) {
   const baseUrl = (apiUrl || 'https://replicator.inventkid.com').replace(/\/$/, '');
 
   // Create an alarm watchdog to wake up service worker if minimized / suspended
-  chrome.alarms.create('replicator_watchdog', { periodInMinutes: 0.2 });
+  chrome.alarms.create('replicator_watchdog', { periodInMinutes: 0.5 });
 
   // Immediate first check
   pollJobStep(jobId, baseUrl);
