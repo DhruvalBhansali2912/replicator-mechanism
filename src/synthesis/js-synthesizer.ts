@@ -2605,6 +2605,50 @@ export class JsSynthesizer {
     });
   });
 
+  // Universal toggleAccordion definition for any inline onclick handlers (e.g. WordPress, Gutenberg, ScConfig)
+  if (typeof window.toggleAccordion !== 'function') {
+    window.toggleAccordion = function(headerEl) {
+      if (!headerEl) return;
+      var item = headerEl.closest('.accordion-item, [class*="accordion-item"], .accordion-row, [class*="accordion-row"], [class*="accordion__item"], li') || headerEl.parentElement;
+      if (!item) return;
+      var isCurrentlyOpen = item.classList.contains('active') || item.classList.contains('is-open') || item.classList.contains('open');
+      var willOpen = !isCurrentlyOpen;
+
+      item.classList.toggle('active', willOpen);
+      item.classList.toggle('is-open', willOpen);
+      item.classList.toggle('open', willOpen);
+
+      var chevron = headerEl.querySelector('[class*="chevron"], [class*="caret"], [class*="arrow"], [class*="icon"], svg');
+      if (chevron) {
+        chevron.style.setProperty('transform', willOpen ? 'rotate(45deg)' : 'rotate(0deg)', 'important');
+      }
+
+      var content = item.querySelector('.accordion-content, [class*="accordion-content"], [class*="accordion__panel"], [class*="panel"], [class*="content"]:not([class*="header"]):not([class*="title"])');
+      if (content) {
+        content.classList.toggle('active', willOpen);
+        content.classList.toggle('is-open', willOpen);
+        content.classList.toggle('open', willOpen);
+        content.setAttribute('data-state', willOpen ? 'open' : 'closed');
+        if (willOpen) {
+          content.removeAttribute('hidden');
+          content.style.removeProperty('display');
+          content.style.removeProperty('max-height');
+          content.style.removeProperty('visibility');
+          content.style.removeProperty('opacity');
+          content.style.removeProperty('pointer-events');
+          content.style.setProperty('display', 'block', 'important');
+          content.style.setProperty('visibility', 'visible', 'important');
+          content.style.setProperty('opacity', '1', 'important');
+          content.style.setProperty('pointer-events', 'auto', 'important');
+          content.style.setProperty('max-height', 'none', 'important');
+        } else {
+          content.style.setProperty('display', 'none', 'important');
+          content.style.setProperty('max-height', '0px', 'important');
+        }
+      }
+    };
+  }
+
   // universalAccordionV5: robust mobile accordion & WAI-ARIA tabpanel content-visibility handler
   // Universal mobile & desktop accordion toggle for submenus, categories, and drawer items
   const accordionButtons = Array.from(document.querySelectorAll(
@@ -2612,6 +2656,11 @@ export class JsSynthesizer {
   ));
   accordionButtons.forEach(function(btn) {
     if (btn.hasAttribute('data-accordion-bound')) return;
+    const onclickAttr = btn.getAttribute('onclick') || '';
+    if (onclickAttr.indexOf('toggleAccordion') !== -1) {
+      btn.setAttribute('data-accordion-bound', 'true');
+      return;
+    }
     btn.setAttribute('data-accordion-bound', 'true');
     btn.addEventListener('click', function(e) {
       if (btn.getAttribute('href') === 'javascript:void(0)' || btn.getAttribute('href') === '#') {
